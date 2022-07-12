@@ -15,7 +15,13 @@ def fourier(x: Number, p: int = 2, dtype=np.float32) -> np.ndarray:
 
 def embed(x: np.ndarray, /, phi: Callable, **kwargs):
     """Creates a product state from a vector of features `x`."""
-    assert phi.ndim == 1
+    assert x.ndim == 1
 
+    # reshape to expected shape by MPS
     arrays = [phi(xi, **kwargs) for xi in x]
+    arrays[0] = arrays[0].reshape(1, 2)
+    for i in range(1, len(arrays) - 1):
+        arrays[i] = arrays[i].reshape(1, 1, 2)
+    arrays[-1] = arrays[-1].reshape(1, 2)
+
     return qtn.MatrixProductState(arrays)
