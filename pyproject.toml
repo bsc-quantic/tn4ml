@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tnad"
+description = "Tensor Networks for Anomaly Detection"
+version = "0.1"
+readme = "README.md"
+dependencies = [
+	"quimb>=1.4.0",
+	"numpy",
+	"tensorflow"
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "pylint"]
