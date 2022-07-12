@@ -14,6 +14,7 @@ def fourier(x: Number, p: int = 2, dtype=np.float32) -> np.ndarray:
 
 
 def embed(x: np.ndarray, /, phi: Callable, **kwargs):
+    """Creates a product state from a vector of features `x`."""
     assert phi.ndim == 1
 
     arrays = [phi(xi, **kwargs) for xi in x]
