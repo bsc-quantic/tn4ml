@@ -97,7 +97,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 # TODO
                 pass
 
-        return SpacedMatrixProductOperator(arrays)
+        return SpacedMatrixProductOperator(arrays, **kwargs)
 
     @property
     def spacing(self) -> int:
