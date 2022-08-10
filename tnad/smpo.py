@@ -1,6 +1,8 @@
 import itertools
 import quimb as qu
 import quimb.tensor as qtn
+from typing import Tuple
+import autoray as a
 from quimb.tensor.tensor_1d import TensorNetwork1DOperator, TensorNetwork1DFlat, TensorNetwork1D
 
 
@@ -24,13 +26,11 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         arrays = tuple(arrays)
         self._L = len(arrays)
-
         # process site indices
         self._upper_ind_id = upper_ind_id
         self._lower_ind_id = lower_ind_id
         upper_inds = map(upper_ind_id.format, range(self.L))
         lower_inds = map(lower_ind_id.format, range(self.L))
-
         # process tags
         self._site_tag_id = site_tag_id
         site_tags = map(site_tag_id.format, range(self.L))
@@ -38,9 +38,13 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             tags = (tags,) if isinstance(tags, str) else tuple(tags)
             site_tags = tuple((st,) + tags for st in site_tags)
 
-        self.cyclic = qu.ops.ndim(arrays[0]) == 4
-        self.spacing = ([x.dim for x in arrays].count(4) + self.L - 1) // self.L
-
+        self.cyclic = qtn.array_ops.ndim(arrays[0]) == 4
+        
+        dims = [x.ndim for x in arrays]
+        q = dims.count(4) + 1 + (1 if dims[-1]==3 else 0)
+        self._spacing = int((self.L - 1) / (q-1))
+        #self._spacing = ([x.ndim for x in arrays].count(4) + self.L - 1) // self.L
+        
         # process orders
         lu_ord = tuple(shape.replace("r", "").replace("d", "").find(x) for x in "lu")
         lud_ord = tuple(shape.replace("r", "").find(x) for x in "lud")
@@ -64,7 +68,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         # process inds
         cyc_bond = (qtn.rand_uuid(base=bond_name),) if self.cyclic else ()
         nbond = qtn.rand_uuid(base=bond_name)
-
+        
         inds = []
         inds += [(*cyc_bond, nbond, next(upper_inds), next(lower_inds))]
         pbond = nbond
@@ -77,26 +81,27 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             else:
                 curr_down_id = []
 
-            ind += [(pbond, nbond, next(upper_inds), *curr_down_id)]
+            inds += [(pbond, nbond, next(upper_inds), *curr_down_id)]
             pbond = nbond
 
         last_down_ind = [lower_ind_id.format(self.L - 1)] if (self.L - 1) % self.spacing == 0 else []
-        ind += [(pbond, *cyc_bond, next(upper_inds), *last_down_ind)]
+        inds += [(pbond, *cyc_bond, next(upper_inds), *last_down_ind)]
 
-        tensors = [qtn.Tensor(data=qu.ops.transpose(array, order), inds=inds, tags=site_tag) for array, site_tag, inds, order in zip(arrays, site_tags, inds, orders)]
+        tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
 
         super().__init__(tensors, virtual=True, **tn_opts)
 
-    def rand(n: int, spacing: int, phys_dim: tuple[int, int] = 2, cyclic: bool = False, init_func="normal", **kwargs):
+    def rand(n: int, spacing: int, phys_dim: Tuple[int, int] = 2, cyclic: bool = False, init_func: str = "normal", **kwargs):
         arrays = []
         for i, hasoutput in zip(range(n), itertools.cycle([True, *[False] * (spacing - 1)])):
             if hasoutput:
-                # TODO
-                pass
+                shape = (1, 1, 1, phys_dim)
+                if (i==0 or i==n-1) and not cyclic: shape = (1, 1, phys_dim)
+                arrays.append(qu.gen.rand.randn(shape, dist=init_func))
             else:
-                # TODO
-                pass
-
+                shape = (1, 1, 1)
+                if i==n-1 and not cyclic: shape = (1, 1)
+                arrays.append(qu.gen.rand.randn(shape, dist=init_func))
         return SpacedMatrixProductOperator(arrays, **kwargs)
 
     @property
