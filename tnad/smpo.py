@@ -92,18 +92,22 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         super().__init__(tensors, virtual=True, **tn_opts)
 
-    def rand(n: int, spacing: int, phys_dim: Tuple[int, int] = 2, cyclic: bool = False, init_func: str = "normal", **kwargs):
+    def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "normal", **kwargs):
         arrays = []
         for i, hasoutput in zip(range(n), itertools.cycle([True, *[False] * (spacing - 1)])):
             if hasoutput:
-                shape = (1, 1, 1, phys_dim)
-                if (i==0 or i==n-1) and not cyclic: shape = (1, 1, phys_dim)
+                shape = (bond_dim, bond_dim, *phys_dim)
+                if not cyclic:
+                    if i==0: shape = (1, bond_dim, *phys_dim)
+                    if i==n-1: shape = (bond_dim, 1, *phys_dim)
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func))
             else:
-                shape = (1, 1, 1)
-                if i==n-1 and not cyclic: shape = (1, 1)
+                shape = (bond_dim, bond_dim, phys_dim[0], 1)
+                if i==n-1 and not cyclic: shape = (bond_dim, 1, phys_dim[0], 1)
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func))
-        return SpacedMatrixProductOperator(arrays, **kwargs)
+        mpo = SpacedMatrixProductOperator(arrays, **kwargs)
+        mpo.compress(form='flat', max_bond=bond_dim) # limit bond_dim
+        return mpo
 
     @property
     def spacing(self) -> int:
