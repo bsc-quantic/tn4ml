@@ -3,6 +3,7 @@ import quimb as qu
 import quimb.tensor as qtn
 from typing import Tuple
 import autoray as a
+import math
 from quimb.tensor.tensor_1d import TensorNetwork1DOperator, TensorNetwork1DFlat, TensorNetwork1D
 
 
@@ -42,7 +43,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         
         dims = [x.ndim for x in arrays]
         q = dims.count(4) + 1 + (1 if dims[-1]==3 else 0)
-        self._spacing = int((self.L - 1) / (q-1))
+        self._spacing = math.ceil((self.L - 1) / (q-1)) - 1
         #self._spacing = ([x.ndim for x in arrays].count(4) + self.L - 1) // self.L
         
         # process orders
