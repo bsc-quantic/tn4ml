@@ -47,7 +47,7 @@ class fourier(FeatureMap):
         return 1 / self.p * np.fromiter((np.abs(sum((np.exp(1j * 2 * np.pi * k * ((self.p - 1) * x - j) / self.p) for k in range(p)))) for j in range(self.p)), dtype=self.dtype)
 
 
-def embed(x: np.ndarray, /, phi: Callable, **mps_opts):
+def embed(x: np.ndarray, phi: Callable, **mps_opts):
     """Creates a product state from a vector of features `x`."""
     assert x.ndim == 1
 
