@@ -16,3 +16,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "black", "pylint"]
+
+[tool.setuptools]
+packages = ["tnad"]
