@@ -10,7 +10,8 @@ readme = "README.md"
 dependencies = [
 	"quimb>=1.4.0",
 	"numpy",
-	"tensorflow"
+	"autoray",
+	"tensorflow",
 ]
 
 [project.optional-dependencies]
