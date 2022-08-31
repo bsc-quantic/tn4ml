@@ -44,7 +44,7 @@ class fourier(FeatureMap):
         return self.p
 
     def __call__(self, x: Number) -> np.ndarray:
-        return 1 / self.p * np.fromiter((np.abs(sum((np.exp(1j * 2 * np.pi * k * ((self.p - 1) * x - j) / self.p) for k in range(p)))) for j in range(self.p)), dtype=self.dtype)
+        return 1 / self.p * np.fromiter((np.abs(sum((np.exp(1j * 2 * np.pi * k * ((self.p - 1) * x - j) / self.p) for k in range(self.p)))) for j in range(self.p)), dtype=self.dtype)
 
 
 def embed(x: np.ndarray, phi: Callable, **mps_opts):
