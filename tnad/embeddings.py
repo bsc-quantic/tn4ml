@@ -24,7 +24,7 @@ class trigonometric(FeatureMap):
         assert k >= 1
 
         self.k = 1
-        super().__init__(self, **kwargs)
+        super().__init__(**kwargs)
 
     def dim(self) -> int:
         return self.k * 2
@@ -38,7 +38,7 @@ class fourier(FeatureMap):
         assert p >= 2
 
         self.p = 2
-        super().__init__(self, **kwargs)
+        super().__init__(**kwargs)
 
     def dim(self) -> int:
         return self.p
