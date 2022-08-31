@@ -51,6 +51,6 @@ def embed(x: np.ndarray, phi: Callable, **mps_opts):
     """Creates a product state from a vector of features `x`."""
     assert x.ndim == 1
 
-    arrays = [phi(xi).reshape((1,1,x.ndim)) for xi in x]
+    arrays = [phi(xi).reshape((1, 1, x.ndim)) for xi in x]
 
     return qtn.MatrixProductState(arrays, **mps_opts)
