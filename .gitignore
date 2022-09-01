@@ -3,6 +3,10 @@
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,linux,jupyternotebooks,macos,python,windows
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,linux,jupyternotebooks,macos,python,windows
 
+### .npy, .pkl files ###
+*/results/*.npy
+*/results/*.pkl
+
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
 # website: http://jupyter.org/

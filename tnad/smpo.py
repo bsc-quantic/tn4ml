@@ -19,7 +19,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
     physical_dim : int
     """
 
-    _EXTRA_PROPS = ("_site_tag_id", "_upper_ind_id", "_lower_ind_id", "_L", "_spacing")
+    _EXTRA_PROPS = ("_site_tag_id", "_upper_ind_id", "_lower_ind_id", "_L", "_spacing", "_orders")
 
     def __init__(self, arrays, shape="lrud", site_tag_id="I{}", tags=None, upper_ind_id="k{}", lower_ind_id="b{}", bond_name="bond{}", **tn_opts):
         if isinstance(arrays, SpacedMatrixProductOperator):
@@ -43,8 +43,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         self.cyclic = qtn.array_ops.ndim(arrays[0]) == 4
         dims = [x.ndim for x in arrays]
         q = dims.count(4) + 1 + (1 if dims[-1]==3 else 0)
-        self._spacing = math.ceil((self.L - 1) / (q-1)) - (0 if q==self.L else 1)
-
+        self._spacing = math.ceil((self.L - 1) / (q-1)) - (0 if (self.L-1)%(q-1)==0 else 1)
         lower_inds = map(lower_ind_id.format, range(0, self.L, self.spacing))
 
         # process orders
@@ -67,11 +66,10 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         #orders = [rud_ord if not self.cyclic else lrud_ord, *[lrud_ord for i in range(1, self.L - 1)], last_ord]
         orders = [rud_ord if not self.cyclic else lrud_ord, *[lrud_ord if i % self.spacing == 0 else lru_ord for i in range(1, self.L - 1)], last_ord]
-
+        self._orders = orders
 
         # process inds
         bond_ids = list(range(0, self.L))
-        print(bond_ids)
         #cyc_bond = (qtn.rand_uuid(base=bond_name),) if self.cyclic else ()
         cyc_bond = (f'bond_{self.L}',) if self.cyclic else ()
         #nbond = qtn.rand_uuid(base=bond_name)
@@ -96,7 +94,6 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         last_down_ind = [lower_ind_id.format(self.L - 1)] if (self.L - 1) % self.spacing == 0 else []
         inds += [(pbond, *cyc_bond, next(upper_inds), *last_down_ind)]
         tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
-
         super().__init__(tensors, virtual=True, **tn_opts)
         
     def normalize(self, insert=-1): 
@@ -104,7 +101,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         norm = self.norm()
         self.tensors[insert].modify(data=self.tensors[insert].data/norm)
     
-    def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", **kwargs):
+    def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, **kwargs):
         arrays = []
         for i, hasoutput in zip(range(n), itertools.cycle([True, *[False] * (spacing - 1)])):
             if hasoutput:
@@ -112,11 +109,10 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 if not cyclic:
                     if i==0: shape = (bond_dim, *phys_dim)
                     if i==n-1: shape = (bond_dim, *phys_dim)
-                arrays.append(qu.gen.rand.randn(shape, dist=init_func))
             else:
                 shape = (bond_dim, bond_dim, phys_dim[0])
                 if i==n-1 and not cyclic: shape = (bond_dim, phys_dim[0])
-                arrays.append(qu.gen.rand.randn(shape, dist=init_func))
+            arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale))
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
         mpo.compress(form='flat', max_bond=bond_dim) # limit bond_dim
         return mpo
@@ -127,4 +123,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
     
     @property
     def lower_inds(self):
-        return tuple(map(self.lower_ind, range(0, self.L, self.spacing)))
+        return map(self.lower_ind, range(0, self.L, self.spacing))
+    
+    def get_orders(self) -> list:
+        return self._orders
