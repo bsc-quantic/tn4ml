@@ -26,8 +26,8 @@ def data_preprocessing(train_data, pool_size=(2,2), strides=(2,2), padding='vali
     for sample in train_data:
         sample_tf = tf.constant(sample)
         sample_tf = tf.reshape(sample_tf, [1, 28, 28, 1])
-        max_pool_2d = tf.keras.layers.MaxPooling2D(pool_size=(2, 2),
-           strides=(2, 2), padding='same')
+        max_pool_2d = tf.keras.layers.MaxPooling2D(pool_size=pool_size,
+           strides=strides, padding=padding)
         sample = max_pool_2d(sample_tf).numpy().reshape(14, 14)
         data.append(sample/255)
     return data
@@ -106,7 +106,7 @@ def train_SMPO(data, spacing, n_epochs, alpha, lamda_init=2e-3, decay_rate=0.01,
     n_iters = int(train_data.shape[0]/batch_size)
     
     # initialize P
-    P_orig = smpo.SpacedMatrixProductOperator.rand(n=N_features, spacing=spacing, init_func=init_func, scale=scale)
+    P_orig = smpo.SpacedMatrixProductOperator.rand(n=N_features, spacing=spacing, bond_dim=bond_dim, init_func=init_func, scale=scale)
     P = P_orig.copy(deep=True)
 
     loss_array = []
@@ -170,7 +170,7 @@ def train_SMPO(data, spacing, n_epochs, alpha, lamda_init=2e-3, decay_rate=0.01,
                 total_grad = (1/batch_size)*grad_miss + grad_regular
 
                 # update tensor
-                if epoch < 5:
+                if epoch < 20:
                     tensor_new = tensor_orig - lamda_init*total_grad
                 else:
                     lamda = lamda_init*math.pow((1 - decay_rate/100),epoch)
@@ -181,7 +181,7 @@ def train_SMPO(data, spacing, n_epochs, alpha, lamda_init=2e-3, decay_rate=0.01,
 
                 # split updated tensor in 2 tensors
                 lower_ind = [f'b{sitel}'] if f'b{sitel}' in P.lower_inds else []
-                [tensorl, tensorr] = tensor_new.split(get="tensors", left_inds=[*vindl, P.upper_ind(sitel), *lower_ind], bond_ind=bond_ind_removed, max_bond=4)
+                [tensorl, tensorr] = tensor_new.split(get="tensors", left_inds=[*vindl, P.upper_ind(sitel), *lower_ind], bond_ind=bond_ind_removed, max_bond=bond_dim)
 
                 # link new tensors to P back
                 for site, tensor in zip(sites, [tensorl, tensorr]):
@@ -207,7 +207,7 @@ if __name__ == "__main__":
     parser.add_argument('-spacing', dest='spacing', type=int, help='Spacing for SMPO')
     parser.add_argument('-bond_dim', dest='bond_dim',type=int, default=4, help='Bond dimension for SMPO')
     parser.add_argument('-init_func', dest='init_func',type=str, default='normal', help='Bond dimension for SMPO')
-    parser.add_argument('-scale', dest='scale',type=float, default=1.0, help='The width of the distribution')
+    parser.add_argument('-scale_init_p', dest='scale_init_p',type=float, default=1.0, help='The width of the distribution')
     # max pooling for mnist
     parser.add_argument('-strides', dest='strides',type=int, nargs="+", help='Strides for max pooling of image')
     parser.add_argument('-padding', dest='padding',type=str, default='valid', help='Padding for max pooling of image')
@@ -224,7 +224,7 @@ if __name__ == "__main__":
     data = data_preprocessing(train_data, strides=tuple(args.strides), pool_size=tuple(args.pool_size), padding=args.padding)
     
     # train SMPO model
-    P, loss_array = train_SMPO(data, args.spacing, args.n_epochs, args.alpha)
+    P, loss_array = train_SMPO(data, args.spacing, args.n_epochs, args.alpha, args.lamda_init, args.decay_rate, args.bond_dim, args.init_func, args.scale_init_p, args.batch_size)
     
     # save
     qu.save_to_disk(P, f'{args.save_name_smpo}.pkl')
