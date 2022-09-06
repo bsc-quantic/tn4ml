@@ -51,8 +51,6 @@ class fourier(Embedding):
 
 def embed(x: np.ndarray, phi: Embedding, **mps_opts):
     """Creates a product state from a vector of features `x`."""
-    print(x.shape)
-    print(x.ndim)
     assert x.ndim == 1
 
     arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
