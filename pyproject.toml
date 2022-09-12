@@ -12,6 +12,7 @@ dependencies = [
 	"numpy",
 	"autoray",
 	"tensorflow",
+	"jax",
 ]
 
 [project.optional-dependencies]
