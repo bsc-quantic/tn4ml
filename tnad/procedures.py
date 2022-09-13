@@ -1,4 +1,5 @@
 import itertools
+import numpy as np
 import FeatureMap as fm
 from losses import loss_miss, loss_reg
 from gradients import gradient_miss, gradient_reg
@@ -89,46 +90,47 @@ def local_update_sweep_dyncanonization_renorm(P, n_epochs, n_iters, data, batch_
                     P.add_tensor(tensor)
     return P, loss_array
 
-def get_sample_loss_grad(sample, embed_func, P, P_rem, site):
+def get_sample_grad(sample, embed_func, P, P_rem, tensor):
+    # create MPS for input sample
+    phi, _ = fm.embed(sample.flatten(), embed_func)
+
+    #calculate gradient
+    grad_miss = gradient_miss(phi, P, P_rem, [tensor])
+    return grad_miss
+
+def get_sample_loss(sample, embed_func, P):
     # create MPS for input sample
     phi, _ = fm.embed(sample.flatten(), embed_func)
 
     #calculate loss
     loss_miss_batch = loss_miss(phi, P)
+    return loss_miss_batch
 
-    #calculate gradient
-    grad_miss = gradient_miss(phi, P, P_rem, [site])
-    return loss_miss_batch, grad_miss
-
-def get_total_loss_grad(P, site, data, embed_func, batch_size, alpha):
+def get_total_grad(P, tensor, data, embed_func, batch_size, alpha):
     P_rem = P.copy(deep=True)
     
-    site_tag = P_rem.site_tag(site)
+    site_tag = P_rem.site_tag(tensor)
     # remove site tag of poped sites
     P_rem.delete(site_tag, which="any")
 
     # paralelize
-    loss_miss = []; grad_miss = []
+    grad_miss = []
     for i, sample in enumerate(data):
-        output_per_sample = get_sample_loss_grad(sample, embed_func, P, P_rem, site)
-        loss_miss.append(output_per_sample[0])
-        grad_miss.append(output_per_sample[1])
-
-    # total loss
-    total_loss = (1/batch_size)*(sum(loss_miss)) + loss_reg(P, alpha)
+        output_per_sample = get_sample_grad(sample, embed_func, P, P_rem, tensor)
+        grad_miss.append(output_per_sample)
     
     # gradient of loss miss
     grad_miss = sum(grad_miss)
     grad_miss.drop_tags()
     grad_miss.add_tag(site_tag)
     # gradient of loss reg
-    grad_regular = gradient_reg(P, P_rem, alpha, [site])
+    grad_regular = gradient_reg(P, P_rem, alpha, [tensor])
     if grad_regular != 0:
         grad_regular.drop_tags()
         grad_regular.add_tag(site_tag)
     # total gradient
     total_grad = (1/batch_size)*(grad_miss) + grad_regular
-    return total_loss, total_grad
+    return total_grad
 
 def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None):
     loss_array = []
@@ -137,27 +139,34 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
     for epoch in range(n_epochs):
         for it in range(n_iters):            
             # paralelize
-            loss = []; grad_per_site=[]
-            for site in range(n_tensors):
+            grad_per_tensor=[]
+            for tensor in range(n_tensors):
                 embed_func = fm.trigonometric
-                output_per_site = get_total_loss_grad(P, site, data[it], embed_func, batch_size, alpha)
-                loss.append(output_per_site[0])
-                grad_per_site.append(output_per_site[1])
+                output_per_tensor = get_total_grad(P, tensor, data[it], embed_func, batch_size, alpha) # get grad per tensor
+                grad_per_tensor.append(output_per_tensor)
             
-            loss_array.append(sum(loss)/n_tensors)
-            
+            # get loss per sample
+            loss_miss = 0
+            for i, sample in enumerate(data[it]):
+                embed_func = fm.trigonometric
+                output_per_sample = get_sample_loss(sample, embed_func, P)
+                loss_miss += output_per_sample
+            # get total loss
+            total_loss = (1/batch_size)*(loss_miss) + loss_reg(P, alpha)
+            loss_array.append(total_loss)
+
             # update P
             # no need to paralelize
-            for site in range(n_tensors):
-                site_tag = P.site_tag(site)
+            for tensor in range(n_tensors):
+                site_tag = P.site_tag(tensor)
                 tensor_orig = P.select_tensors(site_tag, which="any")
                 
                 if epoch > expdecay_tol:
                     if decay_rate != None:
                         # exp. decay of lamda
                         lamda = lamda_init*math.pow((1 - decay_rate/100),epoch)
-                        tensor_orig = tensor_orig - lamda*grad_per_site[site]
+                        tensor_orig = tensor_orig - lamda*grad_per_tensor[tensor]
                 else:
-                    tensor_orig = tensor_orig - lamda_init*grad_per_site[site]
+                    tensor_orig = tensor_orig - lamda_init*grad_per_tensor[tensor]
                 
     return P, loss_array
