@@ -51,21 +51,21 @@ def local_update_sweep_dyncanonization_renorm(P, n_epochs, n_iters, data, batch_
                     loss_miss_batch += loss_miss(phi, P_ref)
                     
                     #calculate gradient
-                    grad_miss += gradient_miss(phi, P_ref, P, sites, N_features)
+                    grad_miss += gradient_miss(phi, P_ref, P, sites)
                 # total loss
-                loss = (1/batch_size)*(loss_miss_batch) + loss_reg(P_ref, alpha)
+                loss = (1/batch_size)*(loss_miss_batch)
                 loss_array.append(loss)
 
                 # gradient of loss miss
                 grad_miss.drop_tags()
                 grad_miss.add_tag(site_tags[0]); grad_miss.add_tag(site_tags[1])
                 # gradient of loss reg
-                grad_regular = gradient_reg(P_ref, P, alpha, sites, N_features)
-                if grad_regular != 0:
-                    grad_regular.drop_tags()
-                    grad_regular.add_tag(site_tags[0]); grad_regular.add_tag(site_tags[1])
+                # grad_regular = gradient_reg(P_ref, P, alpha, sites, N_features)
+                # if grad_regular != 0:
+                #     grad_regular.drop_tags()
+                #     grad_regular.add_tag(site_tags[0]); grad_regular.add_tag(site_tags[1])
                 # total gradient
-                total_grad = (1/batch_size)*grad_miss + grad_regular
+                total_grad = (1/batch_size)*grad_miss
 
                 # update tensor
                 if decay_rate != None:
