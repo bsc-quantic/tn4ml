@@ -70,8 +70,8 @@ def local_update_sweep_dyncanonization_renorm(P, n_epochs, n_iters, data, batch_
                 total_grad = (1/batch_size)*grad_miss
 
                 # update tensor
-                if decay_rate != None:
-                    if epoch > expdecay_tol:
+                if epoch > expdecay_tol:
+                    if decay_rate != None:
                         # exp. decay of lamda
                         lamda = lamda_init*math.pow((1 - decay_rate/100),epoch)
                         tensor_new = tensor_orig - lamda*total_grad
