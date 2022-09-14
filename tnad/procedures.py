@@ -1,8 +1,8 @@
 import itertools
 import numpy as np
-import FeatureMap as fm
-from losses import loss_miss, loss_reg
-from gradients import gradient_miss, gradient_reg
+import tnad.FeatureMap as fm
+from tnad.losses import loss_miss, loss_reg
+from tnad.gradients import gradient_miss, gradient_reg
 import math
 import quimb.tensor as qtn
 import quimb as qu

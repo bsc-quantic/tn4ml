@@ -3,10 +3,10 @@ import numpy as np
 import math
 import quimb.tensor as qtn
 import quimb as qu
-import smpo
+from tnad import smpo
 #import embeddings as e
-import FeatureMap as fm
-import procedures as p
+import tnad.FeatureMap as fm
+import tnad.procedures as p
 import itertools
 from matplotlib import pyplot as plt
 import tensorflow as tf
