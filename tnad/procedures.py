@@ -6,13 +6,15 @@ from tnad.gradients import gradient_miss, gradient_reg
 import math
 import quimb.tensor as qtn
 import quimb as qu
+from tqdm import tqdm
 
 def local_update_sweep_dyncanonization_renorm(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None):
     N_features = P.nsites
-    
+
     loss_array = []
     for epoch in range(n_epochs):
-        for it in range(n_iters):
+        for it in (pbar := tqdm(range(n_iters))):        
+            pbar.set_description("Epoch #"+str(epoch)+", sample in batch:")
             # define sweeps
             sweeps = itertools.chain(zip(list(range(0,N_features-1)), list(range(1,N_features))), reversed(list(zip(list(range(1,N_features)),list(range(0,N_features-1))))))
             for sweep_it, sites in enumerate(sweeps):
@@ -137,7 +139,8 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
     n_tensors = P.nsites
     
     for epoch in range(n_epochs):
-        for it in range(n_iters):            
+        for it in (pbar := tqdm(range(n_iters))):        
+            pbar.set_description("Epoch #"+str(epoch)+", sample in batch:")
             # paralelize
             grad_per_tensor=[]
             for tensor in range(n_tensors):
