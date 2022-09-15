@@ -13,10 +13,13 @@ import tensorflow as tf
 from time import time
 
 
-def load_mnist_train_data(train_size):
+def load_mnist_train_data(train_size, seed: int = None):
     (train_X, train_y), _ = tf.keras.datasets.mnist.load_data()
     # class = 1 -> inliers
     train_data = train_X[train_y==1][:train_size]
+    
+    if(seed != None):
+        np.random.seed(seed)
     np.random.shuffle(train_data)
     return train_data
 
@@ -31,7 +34,7 @@ def data_preprocessing(train_data, pool_size=(2,2), strides=(2,2), padding='vali
         data.append(sample/255)
     return data
 
-def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-3, decay_rate=None, expdecay_tol=None, bond_dim=4, init_func='normal', scale=0.5, batch_size=32):
+def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-3, decay_rate=None, expdecay_tol=None, bond_dim=4, init_func='normal', scale=0.5, batch_size=32, seed: int = None):
     
     train_data = np.array(data)
     N_features = train_data.shape[1]*train_data.shape[2]
@@ -39,7 +42,7 @@ def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-3, d
     n_iters = int(train_data.shape[0]/batch_size)
     
     # initialize P
-    P_orig = smpo.SpacedMatrixProductOperator.rand(n=N_features, spacing=spacing, bond_dim=bond_dim, init_func=init_func, scale=scale)
+    P_orig = smpo.SpacedMatrixProductOperator.rand(n=N_features, spacing=spacing, bond_dim=bond_dim, init_func=init_func, scale=scale, seed=seed)
     P = P_orig.copy(deep=True)
     
     P, loss_array = opt_procedure(P, n_epochs, n_iters, train_data_batched, batch_size, alpha, lamda_init, bond_dim, decay_rate=decay_rate, expdecay_tol=expdecay_tol)

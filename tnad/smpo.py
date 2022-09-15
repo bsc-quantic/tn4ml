@@ -101,7 +101,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         norm = self.norm()
         self.tensors[insert].modify(data=self.tensors[insert].data/norm)
     
-    def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, **kwargs):
+    def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
         arrays = []
         for i, hasoutput in zip(range(n), itertools.cycle([True, *[False] * (spacing - 1)])):
             if hasoutput:
@@ -112,7 +112,10 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             else:
                 shape = (bond_dim, bond_dim, phys_dim[0])
                 if i==n-1 and not cyclic: shape = (bond_dim, phys_dim[0])
-            arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale))
+            if(seed != None):
+                arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale, seed=seed))
+            else:
+                arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale))
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
         mpo.compress(form='flat', max_bond=bond_dim) # limit bond_dim
         return mpo
