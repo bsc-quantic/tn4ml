@@ -54,5 +54,7 @@ def embed(x: np.ndarray, phi: Embedding, **mps_opts):
     assert x.ndim == 1
 
     arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
+    for i in [0,-1]:
+        arrays[i] = arrays[i].reshape((1, phi.ndim))
 
     return qtn.MatrixProductState(arrays, **mps_opts)
