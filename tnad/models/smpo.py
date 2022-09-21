@@ -32,7 +32,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         self._upper_ind_id = upper_ind_id
         self._lower_ind_id = lower_ind_id
         upper_inds = map(upper_ind_id.format, range(self.L))
-        
+
         # process tags
         self._site_tag_id = site_tag_id
         site_tags = map(site_tag_id.format, range(self.L))
@@ -42,8 +42,8 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         self.cyclic = qtn.array_ops.ndim(arrays[0]) == 4
         dims = [x.ndim for x in arrays]
-        q = dims.count(4) + 1 + (1 if dims[-1]==3 else 0)
-        self._spacing = math.ceil((self.L - 1) / (q-1)) - (0 if (self.L-1)%(q-1)==0 else 1)
+        q = dims.count(4) + 1 + (1 if dims[-1] == 3 else 0)
+        self._spacing = math.ceil((self.L - 1) / (q - 1)) - (0 if (self.L - 1) % (q - 1) == 0 else 1)
         lower_inds = map(lower_ind_id.format, range(0, self.L, self.spacing))
 
         # process orders
@@ -64,24 +64,24 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             else:
                 last_ord = lu_ord
 
-        #orders = [rud_ord if not self.cyclic else lrud_ord, *[lrud_ord for i in range(1, self.L - 1)], last_ord]
+        # orders = [rud_ord if not self.cyclic else lrud_ord, *[lrud_ord for i in range(1, self.L - 1)], last_ord]
         orders = [rud_ord if not self.cyclic else lrud_ord, *[lrud_ord if i % self.spacing == 0 else lru_ord for i in range(1, self.L - 1)], last_ord]
         self._orders = orders
 
         # process inds
         bond_ids = list(range(0, self.L))
-        #cyc_bond = (qtn.rand_uuid(base=bond_name),) if self.cyclic else ()
-        cyc_bond = (f'bond_{self.L}',) if self.cyclic else ()
-        #nbond = qtn.rand_uuid(base=bond_name)
-        nbond = f'bond_{bond_ids[0]}'
-        
+        # cyc_bond = (qtn.rand_uuid(base=bond_name),) if self.cyclic else ()
+        cyc_bond = (f"bond_{self.L}",) if self.cyclic else ()
+        # nbond = qtn.rand_uuid(base=bond_name)
+        nbond = f"bond_{bond_ids[0]}"
+
         inds = []
         inds += [(*cyc_bond, nbond, next(upper_inds), next(lower_inds))]
         pbond = nbond
 
         for i in range(1, self.L - 1):
-            #nbond = qtn.rand_uuid(base=bond_name)
-            nbond = f'bond_{bond_ids[i]}'
+            # nbond = qtn.rand_uuid(base=bond_name)
+            nbond = f"bond_{bond_ids[i]}"
 
             if i % self.spacing == 0:
                 curr_down_id = [lower_ind_id.format(i)]
@@ -95,38 +95,41 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         inds += [(pbond, *cyc_bond, next(upper_inds), *last_down_ind)]
         tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
         super().__init__(tensors, virtual=True, **tn_opts)
-        
-    def normalize(self, insert=-1): 
+
+    def normalize(self, insert=-1):
         # normalize
         norm = self.norm()
-        self.tensors[insert].modify(data=self.tensors[insert].data/norm)
-    
+        self.tensors[insert].modify(data=self.tensors[insert].data / norm)
+
     def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
         arrays = []
         for i, hasoutput in zip(range(n), itertools.cycle([True, *[False] * (spacing - 1)])):
             if hasoutput:
                 shape = (bond_dim, bond_dim, *phys_dim)
                 if not cyclic:
-                    if i==0: shape = (bond_dim, *phys_dim)
-                    if i==n-1: shape = (bond_dim, *phys_dim)
+                    if i == 0:
+                        shape = (bond_dim, *phys_dim)
+                    if i == n - 1:
+                        shape = (bond_dim, *phys_dim)
             else:
                 shape = (bond_dim, bond_dim, phys_dim[0])
-                if i==n-1 and not cyclic: shape = (bond_dim, phys_dim[0])
-            if(seed != None):
+                if i == n - 1 and not cyclic:
+                    shape = (bond_dim, phys_dim[0])
+            if seed != None:
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale, seed=seed))
             else:
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale))
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
-        mpo.compress(form='flat', max_bond=bond_dim) # limit bond_dim
+        mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
         return mpo
 
     @property
     def spacing(self) -> int:
         return self._spacing
-    
+
     @property
     def lower_inds(self):
         return map(self.lower_ind, range(0, self.L, self.spacing))
-    
+
     def get_orders(self) -> list:
         return self._orders
