@@ -17,7 +17,9 @@ scale_init_p = 0.5
 
 # %%time
 
-from tnad.optimization import train_SMPO, load_mnist_train_data, data_preprocessing
+import sys
+sys.path.append('../')
+from tnad.tnad.optimization import train_SMPO, load_mnist_train_data, data_preprocessing
 import tnad.procedures as p
 
 train_data = load_mnist_train_data(train_size=train_size, seed=123456)
