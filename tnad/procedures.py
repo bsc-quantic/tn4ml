@@ -2,7 +2,7 @@ import itertools
 import functools
 import numpy as np
 import tnad.FeatureMap as fm
-from tnad.losses import loss_miss, loss_reg, loss_miss_wrapped, loss_reg_wrapped
+from tnad.losses import loss_miss, loss_reg
 from tnad.gradients import gradient_miss, gradient_reg
 import math
 import quimb.tensor as qtn
@@ -150,13 +150,13 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
                 grad_per_tensor.append(output_per_tensor)
             
             # get loss per sample
-            loss_miss = 0
+            loss_value = 0
             for i, sample in enumerate(data[it]):
                 embed_func = fm.trigonometric
                 output_per_sample = get_sample_loss(sample, embed_func, P)
-                loss_miss += output_per_sample
+                loss_value += output_per_sample
             # get total loss
-            total_loss = (1/batch_size)*(loss_miss) + loss_reg(P, alpha)
+            total_loss = (1/batch_size)*(loss_value) + loss_reg(P, alpha)
             loss_array.append(total_loss)
 
             # update P
@@ -175,7 +175,7 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
                 
     return P, loss_array
 
-def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None):
+def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None, alg_depth=1):
 
     loss_array = []
 
@@ -187,9 +187,9 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
             embed_func = fm.trigonometric
             phis = [fm.embed(sample.flatten(), embed_func)[0] for sample in data[it]]
             loss_fns = [
-                functools.partial(loss_miss_wrapped, phi=phi, coeff=(1/batch_size))
+                functools.partial(loss_miss, phi=phi, coeff=(1/batch_size))
                 for phi in phis
-            ] + [ functools.partial(loss_reg_wrapped,alpha=alpha) ]
+            ] + [ functools.partial(loss_reg,alpha=alpha) ]
 
             # Parallelize (if we have mulptiple loss_fns as described above)
             tnopt = qtn.TNOptimizer(
@@ -199,69 +199,56 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                 # loss_kwargs={'coeff':(1/batch_size)}, 
                 autodiff_backend='jax',
             )
+            if alg_depth==0:
+                P = tnopt.optimize(1)
+                loss_array = []
 
-            x = tnopt.vectorizer.vector  # P is already stored in the appropriate vector form when initializing tnopt
-            loss, grad_full = tnopt.vectorized_value_and_grad(x) # extract the loss and the gradient
-            loss_array.append(loss)
-            tnopt.vectorizer.vector[:] = grad_full
-            grad_tn = tnopt.get_tn_opt()
+                # Shouldn't this be an external method that we call here?
+                # get loss per sample
+                loss_value = 0
+                for i, sample in enumerate(data[it]):
+                    embed_func = fm.trigonometric
+                    output_per_sample = get_sample_loss(sample, embed_func, P)
+                    loss_value += output_per_sample
+                # get total loss
+                total_loss = (1/batch_size)*(loss_value) + loss_reg(P, alpha)
+                loss_array.append(total_loss)
+            elif alg_depth==1:
+                x = tnopt.vectorizer.vector  # P is already stored in the appropriate vector form when initializing tnopt
+                loss, grad_full = tnopt.vectorized_value_and_grad(x) # extract the loss and the gradient
+                loss_array.append(loss)
+                tnopt.vectorizer.vector[:] = grad_full
+                grad_tn = tnopt.get_tn_opt()
 
-            for tensor in range(P.nsites):
-                site_tag = P.site_tag(tensor)
-                tensor_orig = P.select_tensors(site_tag, which="any")
+                for tensor in range(P.nsites):
+                    site_tag = P.site_tag(tensor)
+                    tensor_orig = P.select_tensors(site_tag, which="any")
+                    
+                    if epoch > expdecay_tol:
+                        if decay_rate != None:
+                            # exp. decay of lamda
+                            lamda = lamda_init*math.pow((1 - decay_rate/100),epoch)
+                            tensor_orig = tensor_orig - lamda*grad_tn[tensor]
+                    else:
+                        tensor_orig = tensor_orig - lamda_init*grad_tn[tensor]
+            elif alg_depth==2:
+                if it==0:
+                    x = tnopt.vectorizer.vector  # P is already stored in the appropriate vector form when initializing tnopt
+                loss, grad_full = tnopt.vectorized_value_and_grad(x) # extract the loss and the gradient
+                loss_array.append(loss)
                 
                 if epoch > expdecay_tol:
                     if decay_rate != None:
                         # exp. decay of lamda
                         lamda = lamda_init*math.pow((1 - decay_rate/100),epoch)
-                        tensor_orig = tensor_orig - lamda*grad_tn[tensor]
+                        x = x - lamda*grad_full
                 else:
-                    tensor_orig = tensor_orig - lamda_init*grad_tn[tensor]
-            
-    return P, loss_array
-
-
-def eff_automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None):
-
-    loss_array = []
-
-    for epoch in range(n_epochs):
-        for it in (pbar := tqdm(range(n_iters))):        
-            pbar.set_description("Epoch #"+str(epoch)+", sample in batch:")
-
-            # This will make it parallelizable as all these components for the loss function will be computed separately
-            embed_func = fm.trigonometric
-            phis = [fm.embed(sample.flatten(), embed_func)[0] for sample in data[it]]
-            loss_fns = [
-                functools.partial(loss_miss_wrapped, phi=phi, coeff=(1/batch_size))
-                for phi in phis
-            ] + [ functools.partial(loss_reg_wrapped,alpha=alpha) ]
-
-            # Parallelize (if we have mulptiple loss_fns as described above)
-            tnopt = qtn.TNOptimizer(
-                P,
-                loss_fn=loss_fns,
-                # loss_constants={'phi':phis[0]}, # In loss constants we can specify which parameters we do not want to differentiate over. In this case we don't need to put samples because we fixed it with "partial" above
-                # loss_kwargs={'coeff':(1/batch_size)}, 
-                autodiff_backend='jax',
-            )
-
-            x = tnopt.vectorizer.vector  # P is already stored in the appropriate vector form when initializing tnopt
-            loss, grad_full = tnopt.vectorized_value_and_grad(x) # extract the loss and the gradient
-            loss_array.append(loss)
-            tnopt.vectorizer.vector[:] = grad_full
-            grad_tn = tnopt.get_tn_opt()
-
-            for tensor in range(P.nsites):
-                site_tag = P.site_tag(tensor)
-                tensor_orig = P.select_tensors(site_tag, which="any")
+                    x = x - lamda_init*grad_full
+            else:
+                print('Something went wrong. I skipped all possible methods!')
                 
-                if epoch > expdecay_tol:
-                    if decay_rate != None:
-                        # exp. decay of lamda
-                        lamda = lamda_init*math.pow((1 - decay_rate/100),epoch)
-                        tensor_orig = tensor_orig - lamda*grad_tn[tensor]
-                else:
-                    tensor_orig = tensor_orig - lamda_init*grad_tn[tensor]
+    if alg_depth==2:
+        tnopt.vectorizer.vector[:] = x
+        P = tnopt.get_tn_opt()
             
     return P, loss_array
