@@ -175,7 +175,7 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
                 
     return P, loss_array
 
-def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None, alg_depth=1):
+def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None, alg_depth=1, jit_fn=True):
 
     loss_array = []
 
@@ -189,7 +189,7 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
             loss_fns = [
                 functools.partial(loss_miss, phi=phi, coeff=(1/batch_size))
                 for phi in phis
-            ] + [ functools.partial(loss_reg,alpha=alpha) ]
+            ] + [ functools.partial(loss_reg,alpha=alpha,backend='jax') ]
 
             # Parallelize (if we have mulptiple loss_fns as described above)
             tnopt = qtn.TNOptimizer(
@@ -198,6 +198,8 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                 # loss_constants={'phi':phis[0]}, # In loss constants we can specify which parameters we do not want to differentiate over. In this case we don't need to put samples because we fixed it with "partial" above
                 # loss_kwargs={'coeff':(1/batch_size)}, 
                 autodiff_backend='jax',
+                jit_fn = jit_fn,
+                device='cpu',
             )
             if alg_depth==0:
                 P = tnopt.optimize(1)

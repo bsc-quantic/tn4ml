@@ -3,8 +3,9 @@ import quimb
 from autoray import do
 from autoray import numpy as np
 from jax import numpy as jnp
+from autoray import lazy
 
-def loss_miss(P,phi=None,coeff=1):
+def loss_miss(P,phi=None,coeff=1,backend=None):
     if phi==None:
         print("You can't use this function without a phi!")
         raise ValueError
@@ -14,5 +15,5 @@ def loss_miss(P,phi=None,coeff=1):
 
     return coeff * loss
 
-def loss_reg(P,alpha=0.4):
-    return alpha*do('max',jnp.array([0,do('log',(P.H&P)^all)]))
+def loss_reg(P,alpha=0.4,backend=None):
+    return alpha*do('max',do('array',[0,do('log',(P.H&P)^all)],like=backend))
