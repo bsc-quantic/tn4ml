@@ -187,9 +187,9 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
             embed_func = fm.trigonometric
             phis = [fm.embed(sample.flatten(), embed_func)[0] for sample in data[it]]
             loss_fns = [
-                functools.partial(loss_miss, phi=phi, coeff=(1/batch_size))
+                functools.partial(loss_miss, phi, coeff=(1/batch_size))
                 for phi in phis
-            ] + [ functools.partial(loss_reg,alpha=alpha,backend='jax') ]
+            ] + [ functools.partial(loss_reg, alpha=alpha, backend='jax') ]
 
             # Parallelize (if we have mulptiple loss_fns as described above)
             tnopt = qtn.TNOptimizer(
