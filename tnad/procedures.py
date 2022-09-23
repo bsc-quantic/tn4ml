@@ -175,12 +175,12 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
                 
     return P, loss_array
 
-def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None, alg_depth=1, jit_fn=True):
+def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None, alg_depth=2, jit_fn=False, par_client=None):
 
     loss_array = []
 
     for epoch in range(n_epochs):
-        for it in (pbar := tqdm(range(n_iters))):        
+        for it in (pbar := tqdm(range(n_iters))):
             pbar.set_description("Epoch #"+str(epoch)+", sample in batch:")
 
             # This will make it parallelizable as all these components for the loss function will be computed separately
@@ -200,6 +200,7 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                 autodiff_backend='jax',
                 jit_fn = jit_fn,
                 device='cpu',
+                executor=par_client,
             )
             if alg_depth==0:
                 P = tnopt.optimize(1)

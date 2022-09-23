@@ -17,19 +17,27 @@ bond_dim = 5
 init_func = 'normal'
 scale_init_p = 0.5
 
-alg_depth = int(input("Enter the depth of automatic differentiation: \n 0) use tnopt.optimize \n 1) use tnopt.value_and_grad and convert everytime \n 2) use tnopt.value_and_grad and convert only at the end \n"))
-if alg_depth==0:
-    print('using tnopt.optimize')
-elif alg_depth==1:
-    print('using tnopt.vectorized_value_and_grad and converting each iteration')
-elif alg_depth==2:
-    print('using tnopt.vectorized_value_and_grad and converting only at the end')
+# We can activate this to select and test different algorithm depths but preliminar testing shows 1 to be the best.
+# alg_depth=1 and alg_depth=2 are extremely close in time for small tensors, though, and for large tensors 2 should have the advantage, so it is set by default.
 
-jit = input("Do you want to use jit? (y/n) \n")
-if jit=='y' or jit=='yes':
-    jit_fn = True
-elif jit=='n' or jit=='no':
-    jit_fn = False
+alg_depth = 2
+# alg_depth = int(input("Enter the depth of automatic differentiation: \n 0) use tnopt.optimize \n 1) use tnopt.value_and_grad and convert everytime \n 2) use tnopt.value_and_grad and convert only at the end \n"))
+# if alg_depth==0:
+#     print('using tnopt.optimize')
+# elif alg_depth==1:
+#     print('using tnopt.vectorized_value_and_grad and converting each iteration')
+# elif alg_depth==2:
+#     print('using tnopt.vectorized_value_and_grad and converting only at the end')
+
+# Again, we can activate this section to select and test using jit vs not using jit.
+# In this case, not using jit was favourable when doing tests with TNAD and it was set as default. It might become advantageous to use it with very large tensors, but it is not completely clear due to the changing sizes of the operations (adverse for jit)
+
+jit_fn = False
+# jit = input("Do you want to use jit? (y/n) \n")
+# if jit=='y' or jit=='yes':
+#     jit_fn = True
+# elif jit=='n' or jit=='no':
+#     jit_fn = False
 
 # %%time
 
@@ -40,5 +48,7 @@ train_data = load_mnist_train_data(train_size=train_size, seed=123456)
 data = data_preprocessing(train_data, strides=strides, pool_size=pool_size, padding=padding, reduced_shape=reduced_shape)
 
 opt_procedure = functools.partial(p.automatic_differentiation, alg_depth=alg_depth, jit_fn=jit_fn)
-# opt_procedure = p.automatic_differentiation
+# If we want to run it with dask, we must initialize it as usual and pass the client object as "par_client". Quimb will take care of the rest.
+# opt_procedure = functools.partial(p.automatic_differentiation, alg_depth=2, jit_fn=False, par_client=None)
+
 P, loss_array = train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init, decay_rate, expdecay_tol, bond_dim, init_func, scale_init_p, batch_size, seed=123456)
