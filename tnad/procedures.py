@@ -202,6 +202,7 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                 jit_fn = jit_fn,
                 device='cpu',
             )
+            print(alg_depth)
             if alg_depth==0:
                 P = tnopt.optimize(1)
                 loss_array = []
@@ -216,7 +217,7 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                     
                 # get total loss
                 total_loss = (1/batch_size)*(loss_value) + loss_reg(P, alpha)
-                progressbar.set_postfix(loss=f'{total_loss}')
+                print(total_loss)
                 loss_array.append(total_loss)
             elif alg_depth==1:
                 x = tnopt.vectorizer.vector  # P is already stored in the appropriate vector form when initializing tnopt
