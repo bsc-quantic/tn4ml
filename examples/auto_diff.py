@@ -20,8 +20,6 @@ expdecay_tol = 10
 bond_dim = 5
 init_func = 'normal'
 scale_init_p = 0.5
-save_name_smpo = 'SMPO_test1'
-save_name_loss = 'train_loss_test1'
 
 alg_depth = int(input("Enter the depth of automatic differentiation: \n 0) use tnopt.optimize \n 1) use tnopt.value_and_grad and convert everytime \n 2) use tnopt.value_and_grad and convert only at the end \n"))
 if alg_depth==0:
