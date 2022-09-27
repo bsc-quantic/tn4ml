@@ -45,7 +45,7 @@ def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-5, l
     P_orig = smpo.SpacedMatrixProductOperator.rand(n=N_features, spacing=spacing, bond_dim=bond_dim, init_func=init_func, scale=scale, seed=seed)
     P = P_orig.copy(deep=True)
     
-    P, loss_array = opt_procedure(P, n_epochs, n_iters, train_data_batched, batch_size, alpha, lamda_init=lamda_init, lamda_init_2=lamda_init_2, bond_dim, decay_rate=decay_rate, expdecay_tol=expdecay_tol)
+    P, loss_array = opt_procedure(P, n_epochs, n_iters, train_data_batched, batch_size, alpha, lamda_init=lamda_init, lamda_init_2=lamda_init_2, bond_dim=bond_dim, decay_rate=decay_rate, expdecay_tol=expdecay_tol)
     return P, loss_array
 
                     
