@@ -54,7 +54,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Read arguments for TN optimization')
     # train params
-    parser.add_argument('-lamda_init', dest='lamda_init', type=float, default=2.e-3, help='Lamda init')
+    parser.add_argument('-lamda_init', dest='lamda_init', type=float, default=2.e-5, help='Lamda init')
+    parser.add_argument('-lamda_init_2', dest='lamda_init_2', type=float, default=2.e-3, help='Lamda init for start of exponential decay')
     parser.add_argument('-decay_rate', dest='decay_rate', type=float, help='Decay rate for lamda')
     parser.add_argument('-expdecay_tol', dest='expdecay_tol', type=int, help='Number of epochs before lamda starts to decay exponentialy')
     parser.add_argument('-train_size', dest='train_size',type=int, default=6016, help='Number of training samples')
@@ -90,7 +91,7 @@ if __name__ == "__main__":
     elif args.opt_procedure == 'global_update_costfuncnorm':
         opt_procedure = p.global_update_costfuncnorm
         
-    P, loss_array = train_SMPO(data, args.spacing, args.n_epochs, args.alpha, opt_procedure, args.lamda_init, args.decay_rate, args.expdecay_tol, args.bond_dim, args.init_func, args.scale_init_p, args.batch_size)
+    P, loss_array = train_SMPO(data, args.spacing, args.n_epochs, args.alpha, opt_procedure, args.lamda_init, agrs.lamda_init_2, args.decay_rate, args.expdecay_tol, args.bond_dim, args.init_func, args.scale_init_p, args.batch_size)
     
     # save
     qu.save_to_disk(P, f'{args.save_name_smpo}.pkl')

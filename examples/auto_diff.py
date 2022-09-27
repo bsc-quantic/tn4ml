@@ -1,4 +1,8 @@
 import functools
+import sys
+sys.path.append('../')
+import quimb as qu
+import numpy as np
 
 # args
 train_size = 1024
@@ -8,7 +12,7 @@ pool_size = (2,2)
 padding = 'same'
 reduced_shape = (14,14)
 spacing = 8
-n_epochs = 1
+n_epochs = 10
 alpha = 0.4
 lamda_init = 2e-3
 decay_rate = 0.01
@@ -16,6 +20,8 @@ expdecay_tol = 10
 bond_dim = 5
 init_func = 'normal'
 scale_init_p = 0.5
+save_name_smpo = 'SMPO_test1'
+save_name_loss = 'train_loss_test1'
 
 alg_depth = int(input("Enter the depth of automatic differentiation: \n 0) use tnopt.optimize \n 1) use tnopt.value_and_grad and convert everytime \n 2) use tnopt.value_and_grad and convert only at the end \n"))
 if alg_depth==0:
