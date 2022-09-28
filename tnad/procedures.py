@@ -135,7 +135,7 @@ def get_total_grad(P, tensor, data, embed_func, batch_size, alpha):
     total_grad = (1/batch_size)*(grad_miss) + grad_regular
     return total_grad
 
-def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None):
+def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, lamda_init_2, bond_dim, decay_rate=None, expdecay_tol=None):
     loss_array = []
     n_tensors = P.nsites
     
@@ -165,13 +165,14 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
                 site_tag = P.site_tag(tensor)
                 tensor_orig = P.select_tensors(site_tag, which="any")
                 
-                if epoch > expdecay_tol:
+                if epoch >= expdecay_tol:
                     if decay_rate != None:
                         # exp. decay of lamda
-                        lamda = lamda_init*math.pow((1 - decay_rate/100),epoch)
-                        tensor_orig = tensor_orig - lamda*grad_per_tensor[tensor]
+                        if epoch == exp_decay_tol: lamda = lamda_init_2
+                        else: lamda = lamda_init_2*math.pow((1 - decay_rate/100),epoch)
+                        tensor_orig.modify(data = tensor_orig - lamda*grad_per_tensor[tensor])
                 else:
-                    tensor_orig = tensor_orig - lamda_init*grad_per_tensor[tensor]
+                    tensor_orig.modify(data = tensor_orig - lamda_init*grad_per_tensor[tensor])
                 
     return P, loss_array
 
@@ -202,6 +203,7 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                 device='cpu',
                 executor=par_client,
             )
+            print(alg_depth)
             if alg_depth==0:
                 P = tnopt.optimize(1)
                 # Shouldn't this be an external method that we call here?
@@ -211,11 +213,14 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                     embed_func = fm.trigonometric
                     output_per_sample = get_sample_loss(sample, embed_func, P)
                     loss_value += output_per_sample
+                    
                 # get total loss
                 total_loss = (1/batch_size)*(loss_value) + loss_reg(P, alpha)
+                print(total_loss)
                 loss_array.append(total_loss)
             elif alg_depth==1:
                 x = tnopt.vectorizer.vector  # P is already stored in the appropriate vector form when initializing tnopt
+                arrays = tnopt.vectorizer.unpack()
                 loss, grad_full = tnopt.vectorized_value_and_grad(x) # extract the loss and the gradient
                 loss_array.append(loss)
                 tnopt.vectorizer.vector[:] = grad_full

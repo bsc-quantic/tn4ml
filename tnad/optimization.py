@@ -34,7 +34,7 @@ def data_preprocessing(train_data, pool_size=(2,2), strides=(2,2), padding='vali
         data.append(sample/255)
     return data
 
-def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-3, decay_rate=None, expdecay_tol=None, bond_dim=4, init_func='normal', scale=0.5, batch_size=32, seed: int = None):
+def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-5, lamda_init_2=2e-3, decay_rate=None, expdecay_tol=None, bond_dim=4, init_func='normal', scale=0.5, batch_size=32, seed: int = None):
     
     train_data = np.array(data)
     N_features = train_data.shape[1]*train_data.shape[2]
@@ -45,7 +45,7 @@ def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-3, d
     P_orig = smpo.SpacedMatrixProductOperator.rand(n=N_features, spacing=spacing, bond_dim=bond_dim, init_func=init_func, scale=scale, seed=seed)
     P = P_orig.copy(deep=True)
     
-    P, loss_array = opt_procedure(P, n_epochs, n_iters, train_data_batched, batch_size, alpha, lamda_init, bond_dim, decay_rate=decay_rate, expdecay_tol=expdecay_tol)
+    P, loss_array = opt_procedure(P, n_epochs, n_iters, train_data_batched, batch_size, alpha, lamda_init=lamda_init, lamda_init_2=lamda_init_2, bond_dim=bond_dim, decay_rate=decay_rate, expdecay_tol=expdecay_tol)
     return P, loss_array
 
                     
@@ -54,7 +54,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Read arguments for TN optimization')
     # train params
-    parser.add_argument('-lamda_init', dest='lamda_init', type=float, default=2.e-3, help='Lamda init')
+    parser.add_argument('-lamda_init', dest='lamda_init', type=float, default=2.e-5, help='Lamda init')
+    parser.add_argument('-lamda_init_2', dest='lamda_init_2', type=float, default=2.e-3, help='Lamda init for start of exponential decay')
     parser.add_argument('-decay_rate', dest='decay_rate', type=float, help='Decay rate for lamda')
     parser.add_argument('-expdecay_tol', dest='expdecay_tol', type=int, help='Number of epochs before lamda starts to decay exponentialy')
     parser.add_argument('-train_size', dest='train_size',type=int, default=6016, help='Number of training samples')
@@ -92,7 +93,7 @@ if __name__ == "__main__":
     elif args.opt_procedure == 'automatic_differentiation':
         opt_procedure = p.automatic_differentiation
         
-    P, loss_array = train_SMPO(data, args.spacing, args.n_epochs, args.alpha, opt_procedure, args.lamda_init, args.decay_rate, args.expdecay_tol, args.bond_dim, args.init_func, args.scale_init_p, args.batch_size)
+    P, loss_array = train_SMPO(data, args.spacing, args.n_epochs, args.alpha, opt_procedure, args.lamda_init, agrs.lamda_init_2, args.decay_rate, args.expdecay_tol, args.bond_dim, args.init_func, args.scale_init_p, args.batch_size)
     
     # save
     qu.save_to_disk(P, f'{args.save_name_smpo}.pkl')

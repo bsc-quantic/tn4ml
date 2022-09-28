@@ -18,10 +18,11 @@ def embed(x: np.ndarray, phi: Callable, site_ind_id='k{}', site_tag_id='phi{}', 
 
     # reshape to expected shape by MPS
     arrays = [phi(xi, **kwargs) for xi in x]
+
     embd_dim = arrays[0].shape[0]
     arrays[0] = arrays[0].reshape(1, embd_dim)
     for i in range(1, len(arrays) - 1):
         arrays[i] = arrays[i].reshape(1, 1, embd_dim)
     arrays[-1] = arrays[-1].reshape(1, embd_dim)
-
+    
     return qtn.MatrixProductState(arrays, site_ind_id=site_ind_id, site_tag_id=site_tag_id), embd_dim

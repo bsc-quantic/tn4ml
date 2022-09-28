@@ -1,4 +1,8 @@
 import functools
+import sys
+sys.path.append('../')
+import quimb as qu
+import numpy as np
 
 # args
 train_size = 1024
