@@ -34,7 +34,7 @@ def data_preprocessing(train_data, pool_size=(2,2), strides=(2,2), padding='vali
         data.append(sample/255)
     return data
 
-def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-3, decay_rate=None, expdecay_tol=None, bond_dim=4, init_func='normal', scale=0.5, batch_size=32, seed: int = None, alg_depth=1):
+def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-3, decay_rate=None, expdecay_tol=None, bond_dim=4, init_func='normal', scale=0.5, batch_size=32, seed: int = None):
     
     train_data = np.array(data)
     N_features = train_data.shape[1]*train_data.shape[2]
@@ -45,7 +45,7 @@ def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-3, d
     P_orig = smpo.SpacedMatrixProductOperator.rand(n=N_features, spacing=spacing, bond_dim=bond_dim, init_func=init_func, scale=scale, seed=seed)
     P = P_orig.copy(deep=True)
     
-    P, loss_array = opt_procedure(P, n_epochs, n_iters, train_data_batched, batch_size, alpha, lamda_init, bond_dim, decay_rate=decay_rate, expdecay_tol=expdecay_tol, alg_depth=alg_depth)
+    P, loss_array = opt_procedure(P, n_epochs, n_iters, train_data_batched, batch_size, alpha, lamda_init, bond_dim, decay_rate=decay_rate, expdecay_tol=expdecay_tol)
     return P, loss_array
 
                     
@@ -89,6 +89,8 @@ if __name__ == "__main__":
         opt_procedure = p.local_2sitesweep_dynamic_canonization_renorm
     elif args.opt_procedure == 'global_update_costfuncnorm':
         opt_procedure = p.global_update_costfuncnorm
+    elif args.opt_procedure == 'automatic_differentiation':
+        opt_procedure = p.automatic_differentiation
         
     P, loss_array = train_SMPO(data, args.spacing, args.n_epochs, args.alpha, opt_procedure, args.lamda_init, args.decay_rate, args.expdecay_tol, args.bond_dim, args.init_func, args.scale_init_p, args.batch_size)
     

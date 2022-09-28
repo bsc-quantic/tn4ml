@@ -204,8 +204,6 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
             )
             if alg_depth==0:
                 P = tnopt.optimize(1)
-                loss_array = []
-
                 # Shouldn't this be an external method that we call here?
                 # get loss per sample
                 loss_value = 0
@@ -226,7 +224,6 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                 for tensor in range(P.nsites):
                     site_tag = P.site_tag(tensor)
                     tensor_orig = P.select_tensors(site_tag, which="any")
-                    
                     if epoch > expdecay_tol:
                         if decay_rate != None:
                             # exp. decay of lamda

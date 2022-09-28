@@ -285,3 +285,4 @@ $RECYCLE.BIN/
 .venv
 .python-version
 *.whl
+notebooks/playground-dask.ipynb
