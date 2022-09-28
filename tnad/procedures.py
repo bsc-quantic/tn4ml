@@ -170,9 +170,9 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
                         # exp. decay of lamda
                         if epoch == exp_decay_tol: lamda = lamda_init_2
                         else: lamda = lamda_init_2*math.pow((1 - decay_rate/100),epoch)
-                        tensor_orig = tensor_orig - lamda*grad_per_tensor[tensor]
+                        tensor_orig.modify(data = tensor_orig - lamda*grad_per_tensor[tensor])
                 else:
-                    tensor_orig = tensor_orig - lamda_init*grad_per_tensor[tensor]
+                    tensor_orig.modify(data = tensor_orig - lamda_init*grad_per_tensor[tensor])
                 
     return P, loss_array
 
