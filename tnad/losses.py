@@ -6,4 +6,4 @@ def loss_miss(phi,P,coeff=1):
     return coeff * loss
 
 def loss_reg(P,alpha=0.4,backend=None):
-    return alpha*do('maximum',do('log',(P.H&P)^all),0)
+    return alpha*do('maximum',do('log',P.H@P),0)

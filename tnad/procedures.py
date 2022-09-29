@@ -8,6 +8,7 @@ import math
 import quimb.tensor as qtn
 import quimb as qu
 from tqdm import tqdm
+import copy
 
 def local_update_sweep_dyncanonization_renorm(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None):
     N_features = P.nsites
@@ -168,7 +169,7 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
                 if epoch >= expdecay_tol:
                     if decay_rate != None:
                         # exp. decay of lamda
-                        if epoch == exp_decay_tol: lamda = lamda_init_2
+                        if epoch == expdecay_tol: lamda = lamda_init_2
                         else: lamda = lamda_init_2*math.pow((1 - decay_rate/100),epoch)
                         tensor_orig.modify(data = tensor_orig.data - lamda*grad_per_tensor[tensor].transpose_like(tensor_orig).data)
                 else:
@@ -176,7 +177,7 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
                 
     return P, loss_array
 
-def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, bond_dim, decay_rate=None, expdecay_tol=None, alg_depth=2, jit_fn=False, par_client=None):
+def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, lamda_init_2, bond_dim, decay_rate=None, expdecay_tol=None, alg_depth=2, jit_fn=False, par_client=None):
 
     loss_array = []
 
@@ -203,7 +204,7 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                 device='cpu',
                 executor=par_client,
             )
-            print(alg_depth)
+
             if alg_depth==0:
                 P = tnopt.optimize(1)
                 # Shouldn't this be an external method that we call here?
@@ -216,11 +217,10 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                     
                 # get total loss
                 total_loss = (1/batch_size)*(loss_value) + loss_reg(P, alpha)
-                print(total_loss)
                 loss_array.append(total_loss)
             elif alg_depth==1:
                 x = tnopt.vectorizer.vector  # P is already stored in the appropriate vector form when initializing tnopt
-                arrays = tnopt.vectorizer.unpack()
+                # arrays = tnopt.vectorizer.unpack()
                 loss, grad_full = tnopt.vectorized_value_and_grad(x) # extract the loss and the gradient
                 loss_array.append(loss)
                 tnopt.vectorizer.vector[:] = grad_full
@@ -228,20 +228,21 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
 
                 for tensor in range(P.nsites):
                     site_tag = P.site_tag(tensor)
-                    tensor_orig = P.select_tensors(site_tag, which="any")
-                    if epoch > expdecay_tol:
+                    tensor_orig = P.select_tensors(site_tag, which="any")[0]
+                    if epoch >= expdecay_tol:
                         if decay_rate != None:
                             # exp. decay of lamda
-                            lamda = lamda_init*math.pow((1 - decay_rate/100),epoch)
-                            tensor_orig = tensor_orig - lamda*grad_tn[tensor]
+                            if epoch == expdecay_tol: lamda = lamda_init_2
+                            else: lamda = lamda_init_2*math.pow((1 - decay_rate/100),epoch)
+                            tensor_orig.modify(data = tensor_orig.data - lamda*grad_tn[tensor].transpose_like(tensor_orig).data)
                     else:
-                        tensor_orig = tensor_orig - lamda_init*grad_tn[tensor]
+                        tensor_orig.modify(data = tensor_orig.data - lamda_init*grad_tn[tensor].transpose_like(tensor_orig).data)
             elif alg_depth==2:
                 if it==0:
                     x = tnopt.vectorizer.vector  # P is already stored in the appropriate vector form when initializing tnopt
                 loss, grad_full = tnopt.vectorized_value_and_grad(x) # extract the loss and the gradient
                 loss_array.append(loss)
-                
+
                 if epoch > expdecay_tol:
                     if decay_rate != None:
                         # exp. decay of lamda
@@ -252,8 +253,8 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
             else:
                 print('Something went wrong. I skipped all possible methods!')
                 
-    if alg_depth==2:
-        tnopt.vectorizer.vector[:] = x
-        P = tnopt.get_tn_opt()
-            
+        if alg_depth==2:
+            tnopt.vectorizer.vector[:] = x
+            P = tnopt.get_tn_opt()
+
     return P, loss_array
