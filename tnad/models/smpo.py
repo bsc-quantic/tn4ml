@@ -5,10 +5,10 @@ from typing import Tuple
 import autoray as a
 import numpy as np
 import math
-from quimb.tensor.tensor_1d import TensorNetwork1DOperator, TensorNetwork1DFlat, TensorNetwork1D
+from quimb.tensor.tensor_1d import TensorNetwork1DOperator, TensorNetwork1DFlat
 
 
-class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, TensorNetwork1D, qtn.TensorNetwork):
+class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat):
     """A MatrixProductOperator with a decimated number of output indices.
 
     Parameters
