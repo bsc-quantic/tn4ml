@@ -24,3 +24,9 @@ def loss(model, batch, error=None, reg=no_reg) -> Number:
 def error_logquad(P, phi):
     mps = qtn.tensor_network_apply_op_vec(P, phi)
     return do("power", do("log", mps.H & mps ^ all) - 1, 2)
+
+
+def error_quad(P, phi):
+    mps = qtn.tensor_network_apply_op_vec(P, phi)
+    return do("power", mps.H & mps ^ all - 1, 2)
+
