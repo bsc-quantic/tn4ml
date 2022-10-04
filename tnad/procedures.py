@@ -177,7 +177,17 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
                 
     return P, loss_array
 
-def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, lamda_init_2, bond_dim, decay_rate=None, expdecay_tol=None, alg_depth=2, jit_fn=False, par_client=None):
+def get_total_loss(P,data,batch_size,alpha):
+    loss_value = 0
+    for i, sample in enumerate(data):
+        embed_func = fm.trigonometric
+        output_per_sample = get_sample_loss(sample, embed_func, P)
+        loss_value += output_per_sample
+    # get total loss
+    total_loss = (1/batch_size)*(loss_value) + loss_reg(P, alpha)
+    return total_loss
+
+def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, lamda_init_2, bond_dim, decay_rate=None, expdecay_tol=None, alg_depth=2, jit_fn=False, par_client=None, optimizer='L-BFGS-B'):
 
     loss_array = []
 
@@ -200,6 +210,7 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                 # loss_constants={'phi':phis[0]}, # In loss constants we can specify which parameters we do not want to differentiate over. In this case we don't need to put samples because we fixed it with "partial" above
                 # loss_kwargs={'coeff':(1/batch_size)}, 
                 autodiff_backend='jax',
+                optimizer=optimizer, # here we can use any method in scipy.minimize or in quimb ('sgd','rmsprop','adam','nadam')
                 jit_fn = jit_fn,
                 device='cpu',
                 executor=par_client,
@@ -207,17 +218,8 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
 
             if alg_depth==0:
                 P = tnopt.optimize(1)
-                # Shouldn't this be an external method that we call here?
-                # get loss per sample
-                loss_value = 0
-                for i, sample in enumerate(data[it]):
-                    embed_func = fm.trigonometric
-                    output_per_sample = get_sample_loss(sample, embed_func, P)
-                    loss_value += output_per_sample
-                    
-                # get total loss
-                total_loss = (1/batch_size)*(loss_value) + loss_reg(P, alpha)
-                loss_array.append(total_loss)
+                loss_array.append(tnopt.res.fun)
+                # loss_array.append(get_total_loss(P,data[it],batch_size,alpha)) # we can also do this but it repeats calculations
             elif alg_depth==1:
                 x = tnopt.vectorizer.vector  # P is already stored in the appropriate vector form when initializing tnopt
                 # arrays = tnopt.vectorizer.unpack()
@@ -258,3 +260,33 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
             P = tnopt.get_tn_opt()
 
     return P, loss_array
+
+
+# Work in progress
+from scipy.optimize import minimize
+def optimize(tnopt,iter,tol=None,method=None,**options):
+
+    fun = tnopt.vectorized_value_and_grad
+
+    if method==None:
+        method = tnopt._method
+
+    try:
+        tnopt._maybe_init_pbar(n)
+        res = minimize(
+            fun=fun,
+            jac=True,
+            hessp=None,
+            x0=tnopt.vectorizer.vector,
+            tol=tol,
+            bounds=tnopt.bounds,
+            method=method,
+            options=dict(maxiter=iter, **options),
+        )
+        tnopt.vectorizer.vector[:] = res.x
+    except KeyboardInterrupt:
+        pass
+    finally:
+        tnopt._maybe_close_pbar()
+
+    return tnopt.get_tn_opt(), res.fun
