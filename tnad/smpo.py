@@ -100,6 +100,10 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         # normalize
         norm = self.norm()
         self.tensors[insert].modify(data=self.tensors[insert].data/norm)
+
+    def norm(self, **contract_opts):
+        norm = self.conj() & self
+        return norm.contract(**contract_opts)**0.5
     
     def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
         arrays = []
