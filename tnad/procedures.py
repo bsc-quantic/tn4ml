@@ -164,7 +164,7 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
             # no need to paralelize
             for tensor in range(n_tensors):
                 site_tag = P.site_tag(tensor)
-                tensor_orig = P.select_tensors(site_tag, which="any")
+                (tensor_orig,) = P.select_tensors(site_tag, which="any")
                 
                 if epoch >= expdecay_tol:
                     if decay_rate != None:
