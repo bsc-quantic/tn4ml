@@ -4,7 +4,24 @@ from tqdm import auto as tqdm
 import funcy
 
 
+def lambda_exponential_decay(epoch, lambda_init=1e-3, decay_rate=0.01)
+    return lambda_init*math.pow((1 - decay_rate/100),epoch)
+
 class Model:
+    
+    # NOTE data already embedded
+    def configure(optimizer='adam',  optimizer=direct_gradient_descent, exponential_decay=False, lambda_init=1e-3, decay_rate=0.01, **kwargs)
+        if isinstance(optimizer, str):
+            self.optimizer = optimizer
+        else:
+            if exponential_decay:
+                lambda_init = functools.partial(lambda_exponential_decay, lambda_init=lambda_init, decay_rate=decay_rate)
+            self.optimizer = optimizer(lambd=lambda_init)
+    
+    def train(self, data, batch_size, epochs, loss, initial_epochs=0, **kwargs):
+        pass
+            
+    
     def fit_step(self, loss_fn, strategy="dmrg", optimizer=direct_gradient_descent, niter=1, **kwargs):
         if isinstance(strategy, Strategy):
             pass

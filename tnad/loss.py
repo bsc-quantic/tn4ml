@@ -1,7 +1,7 @@
 from numbers import Number
 import quimb.tensor as qtn
 from autoray import do
-
+import functools
 
 def no_reg(x):
     return 0
@@ -17,8 +17,9 @@ def reg_norm_quad(P):
     return do("power", P.H & P ^ all - 1, 2)
 
 
-def loss(model, batch, error=None, reg=no_reg) -> Number:
-    return do("mean", [error(model, sample) for sample in batch]) + reg(model)
+def loss(model, batch_data, error=None, reg=no_reg) -> Number:
+    vectorized_loss = functools.partial(error, model)
+    return jax.vmap(vectorized_loss)(batch_data) + reg(model)
 
 
 def error_logquad(P, phi):
