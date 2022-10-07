@@ -47,9 +47,8 @@ class Model:
             # split tensors (if needed) & renormalize (if configured)
             strategy.posthook(self, sites)
 
-    @abc.abstractmethod
-    def score(self, x):
-        pass
+    def predict(self, x):
+        return self @ x
 
 
 class Strategy:
