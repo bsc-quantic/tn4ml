@@ -6,9 +6,10 @@ import autoray as a
 import numpy as np
 import math
 from quimb.tensor.tensor_1d import TensorNetwork1DOperator, TensorNetwork1DFlat
+from tnad.models import Model
 
 
-class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat):
+class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, Model):
     """A MatrixProductOperator with a decimated number of output indices.
 
     Parameters
