@@ -2,10 +2,12 @@ import abc
 from quimb import tensor as qtn
 from tqdm import auto as tqdm
 import funcy
+import numpy as np
 
 
-def lambda_value(lambda_init=1e-3, epoch=0, decay_rate=0.01)
-    return lambda_init*math.pow((1 - decay_rate/100),epoch)
+def lambda_value(lambda_init=1e-3, epoch=0, decay_rate=0.01):
+    return lambda_init * np.power((1 - decay_rate / 100), epoch)
+
 
 class Model:
 
@@ -35,7 +37,7 @@ class Model:
                 if not isinstance(self.optimizer, str) and initial_epochs and epoch >= initial_epochs:
                     lambda_it = lambda_value(lambda_init=self.optimizer.learning_rate, epoch=epoch - initial_epochs, decay_rate=decay_rate)
                     self.optimizer.learning_rate = lambda_it
-                self.fit_step(loss_fn=self.loss, strategy=strategy, loss_constants={"batch_data": batch}, **kwargs)
+                self.fit_step(loss_fn=self.loss, strategy=self.strategy, loss_constants={"batch_data": batch}, **kwargs)
     
     def fit_step(self, loss_fn, niter=1, **kwargs):
         for sites in self.strategy.iterate_sites(self.sites):
