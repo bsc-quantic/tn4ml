@@ -12,33 +12,36 @@ def lambda_value(lambda_init=1e-3, epoch=0, decay_rate=0.01):
 class Model:
 
     # NOTE data already embedded
-    def configure(self, loss, strategy="dmrg", optimizer="adam", optimizer=direct_gradient_descent, **kwargs)
+    def configure(self, loss, strategy="dmrg", optimizer="adam", **kwargs):
         self.loss = loss
-        
+
         if isinstance(strategy, Strategy):
             pass
         elif strategy in ["sweeps", "local", "dmrg"]:
-            strategy = Sweeps() # TODO
+            strategy = Sweeps()  # TODO
         elif strategy == ["global"]:
-            strategy = Global() # TODO
+            strategy = Global()  # TODO
         else:
             raise ValueError(f'Strategy "{strategy}" not found')
         self.strategy = strategy
-        
+
         self.optimizer = optimizer
-        
+
     def train(self, data, loss, batch_size=None, epochs=1, initial_epochs=None, decay_rate=0.01, **kwargs):
-        
-        if batch_size: data = np.split(data, data.shape[0]//batch_size)
-        else: data = [data] # NOTE fixes `for batch in data`
-        
-        for epoch in range(epochs):
+
+        if batch_size:
+            data = np.split(data, data.shape[0] // batch_size)
+        else:
+            data = [data]  # NOTE fixes `for batch in data`
+
+        for epoch in (pbar := tqdm(range(epochs))):
+            pbar.set_description(f"Epoch #{epoch}")
             for batch in data:
                 if not isinstance(self.optimizer, str) and initial_epochs and epoch >= initial_epochs:
                     lambda_it = lambda_value(lambda_init=self.optimizer.learning_rate, epoch=epoch - initial_epochs, decay_rate=decay_rate)
                     self.optimizer.learning_rate = lambda_it
                 self.fit_step(loss_fn=self.loss, strategy=self.strategy, loss_constants={"batch_data": batch}, **kwargs)
-    
+
     def fit_step(self, loss_fn, niter=1, **kwargs):
         for sites in self.strategy.iterate_sites(self.sites):
             # contract tensors (if needed)
@@ -152,5 +155,6 @@ class Global(Strategy):
         # renormalize
         if self.renormalize:
             model.normalize(inplace=True)
+
 
 from .smpo import SpacedMatrixProductOperator
