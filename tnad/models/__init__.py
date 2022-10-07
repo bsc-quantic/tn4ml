@@ -120,5 +120,18 @@ class Sweeps(Strategy):
                 tensor.add_tag(model.site_tag(site))
 
 
+class Global(Strategy):
+    """Global optimization through Gradient descent."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def iterate_sites(self, model):
+        yield model.sites
+
+    def posthook(self, model, sites):
+        # renormalize
+        if self.renormalize:
+            model.normalize(inplace=True)
 
 from .smpo import SpacedMatrixProductOperator
