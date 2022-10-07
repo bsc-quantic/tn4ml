@@ -1,6 +1,7 @@
 import abc
 from quimb import tensor as qtn
 from tqdm import auto as tqdm
+import funcy
 
 
 def direct_gradient_descent(tensor, grad, lambd=0.01):
@@ -13,9 +14,9 @@ class Model:
         if isinstance(strategy, Strategy):
             pass
         elif strategy in ["sweeps", "local", "dmrg"]:
-            strategy = Sweeps() # TODO
+            strategy = Sweeps()
         elif strategy == ["global"]:
-            strategy = Global() # TODO
+            strategy = Global()
         else:
             raise ValueError(f'Strategy "{strategy}" not found')
 
@@ -23,13 +24,14 @@ class Model:
             # contract tensors (if needed)
             strategy.prehook(self, sites)
 
-            optkwargs = {**kwargs}
-
-            # NOTE `TNOptimizer` expects a `str` for `optimizer`
-            # It may break in some methods such as `.optimize`
-            optkwargs["optimizer"] = optimizer
-
-            opt = qtn.TNOptimizer(self, loss_fn=loss_fn, tags=strategy.target_tags(self, sites), **optkwargs)
+            target_site_tags = tuple(self.site_tag(site) for site in funcy.flatten(sites))
+            opt = qtn.TNOptimizer(
+                self,
+                loss_fn=loss_fn,
+                optimizer=optimizer,
+                tags=target_site_tags,
+                **kwargs,
+            )
 
             if isinstance(optimizer, str):
                 psi = opt.optimize(niter)
@@ -38,7 +40,8 @@ class Model:
                 _, grads = opt.vectorized_value_and_grad(x)
                 grads = opt.vectorizer.unpack(grads)
 
-                for tensor, grad in zip(psi.tensors, grads):
+                tensors = psi.select_tensors(target_site_tags, which="any")
+                for tensor, grad in zip(tensors, grads):
                     tensor.modify(data=optimizer(tensor.data, grad))
 
             # split tensors (if needed) & renormalize (if configured)

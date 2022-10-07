@@ -10,6 +10,7 @@ readme = "README.md"
 dependencies = [
 	"autoray>=0.3.0",
 	"dask",
+	"funcy",
 	"numpy",
 	"opt_einsum>=3.3.0",
 	"quimb>=1.4.0",
