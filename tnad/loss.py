@@ -29,4 +29,3 @@ def error_logquad(P, phi):
 def error_quad(P, phi):
     mps = qtn.tensor_network_apply_op_vec(P, phi)
     return do("power", mps.H & mps ^ all - 1, 2)
-
