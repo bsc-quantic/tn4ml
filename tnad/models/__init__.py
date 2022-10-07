@@ -7,64 +7,67 @@ def direct_gradient_descent(tensor, grad, lambd=0.01):
     return tensor - lambd * grad
 
 
+# TODO add hyperparameters arguments
 class Model:
-    def fit(self, loss_fn, strategy="local", optimizer=None, update_fn=direct_gradient_descent, renormalize=False, max_it=100, autodiff_backend="jax", **autodiff_kwargs):
+    def fit_step(self, loss_fn, strategy="dmrg", optimizer=direct_gradient_descent, niter=1, **kwargs):
         if isinstance(strategy, Strategy):
             pass
-        elif strategy in ["sweeps", "local"]:
-            strategy = Sweeps
-        elif strategy == "global":
-            strategy = Global
+        elif strategy in ["sweeps", "local", "dmrg"]:
+            strategy = Sweeps() # TODO
+        elif strategy == ["global"]:
+            strategy = Global() # TODO
         else:
             raise ValueError(f'Strategy "{strategy}" not found')
 
-        with tqdm(range(max_it)) as progressbar:
-            progressbar.set_postfix(loss=f"")
+        for sites in strategy.iterate_sites(self):
+            # contract tensors (if needed)
+            strategy.prehook(self, sites)
 
-            for it in progressbar:
-                # TODO
-                strategy.preprocess(...)
+            optkwargs = {**kwargs}
 
-                optkwargs = {}
-                if optimizer is not None:
-                    optkwargs["optimizer"] = optimizer
+            # NOTE `TNOptimizer` expects a `str` for `optimizer`
+            # It may break in some methods such as `.optimize`
+            optkwargs["optimizer"] = optimizer
 
-                opt = qtn.TNOptimizer(self, loss_fn=loss_fn, loss_constants={}, autodiff_backend=autodiff_backend, progbar=False, **optkwargs)
+            opt = qtn.TNOptimizer(self, loss_fn=loss_fn, tags=strategy.target_tags(self, sites), **optkwargs)
 
-                if optimizer is not None:
-                    psi = opt.optimize(1)
-                else:
-                    x = opt.vectorizer.vector
-                    _, grads = opt.vectorized_value_and_grad(x)
-                    grads = opt.vectorizer.unpack(grads)
+            if isinstance(optimizer, str):
+                psi = opt.optimize(niter)
+            else:
+                x = opt.vectorizer.vector
+                _, grads = opt.vectorized_value_and_grad(x)
+                grads = opt.vectorizer.unpack(grads)
 
-                    for tensor, grad in zip(psi.tensors, grads):
-                        tensor.modify(data=update_fn(tensor.data, grad))
+                for tensor, grad in zip(psi.tensors, grads):
+                    tensor.modify(data=optimizer(tensor.data, grad))
 
-                # TODO
-                strategy.postprocess(...)
+            # split tensors (if needed) & renormalize (if configured)
+            strategy.posthook(self, sites)
 
     @abc.abstractmethod
     def score(self, x):
         pass
 
 
-# # TODO what should the `Strategy` do?
-# can we compute partial derivatives with jax? that way we could use jax inside the `Sweeps` and `Global` strategies and strategies would just pre-contract and ask jax for grads
-# maybe for manual diff can we put new rules for our models?
 class Strategy:
     """Tells us how the gradients are computed and when have to be applied."""
+    def __init__(self, renormalize=False):
+        self.renormalize = renormalize
 
     @abc.abstractmethod
-    def preprocess(self, psi):
+    def prehook(self, psi):
         pass
 
     @abc.abstractmethod
-    def __call__(self):
+    def target_tags(self, model: Model, sites):
         pass
 
     @abc.abstractmethod
-    def postprocess(self, psi):
+    def iterate_sites(self):
+        pass
+
+    @abc.abstractmethod
+    def posthook(self, psi):
         pass
 
 
