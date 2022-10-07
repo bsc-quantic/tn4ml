@@ -110,7 +110,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         norm = self.conj() & self
         return norm.contract(**contract_opts)**0.5
     
-    def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, insert=-1, **kwargs):
+    def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, insert=0, **kwargs):
         arrays = []
         for i, hasoutput in zip(range(n), itertools.cycle([True, *[False] * (spacing - 1)])):
             if hasoutput:
@@ -127,7 +127,8 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale))
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
         mpo.compress(form='flat', max_bond=bond_dim) # limit bond_dim
-        mpo.normalize(insert=insert)
+        mpo.canonize(insert)
+        mpo.normalize(insert)
         return mpo
 
     @property
