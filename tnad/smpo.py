@@ -96,7 +96,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
         super().__init__(tensors, virtual=True, **tn_opts)
         
-    def normalize(self, insert=-1): 
+    def normalize(self, insert=0): 
         # normalize
         norm = self.norm()
         if insert==None:
@@ -127,8 +127,11 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale))
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
         mpo.compress(form='flat', max_bond=bond_dim) # limit bond_dim
-        mpo.canonize(insert)
-        mpo.normalize(insert)
+        if insert == None:
+            mpo.normalize(insert)
+        else:
+            mpo.canonize(insert)
+            mpo.normalize(insert)
         return mpo
 
     @property
