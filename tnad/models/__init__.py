@@ -19,7 +19,7 @@ class Model:
         else:
             raise ValueError(f'Strategy "{strategy}" not found')
 
-        for sites in strategy.iterate_sites(self):
+        for sites in strategy.iterate_sites(self.sites):
             # contract tensors (if needed)
             strategy.prehook(self, sites)
 
@@ -50,20 +50,21 @@ class Model:
 
 
 class Strategy:
-    """Tells us how the gradients are computed and when have to be applied."""
+    """Decides how the gradients are computed. i.e. compute the gradients of each tensor separately or only of one site."""
+
     def __init__(self, renormalize=False):
         self.renormalize = renormalize
 
-    @abc.abstractmethod
-    def prehook(self, psi):
+    def prehook(self, model, sites):
+        """Modify `model` before computing gradient(s). Usually contract tensors."""
+        pass
+
+    def posthook(self, model, sites):
+        """Modify `model` after optimizing tensors. Usually split tensors."""
         pass
 
     @abc.abstractmethod
-    def target_tags(self, model: Model, sites):
-        pass
-
-    @abc.abstractmethod
-    def iterate_sites(self):
+    def iterate_sites(self, sites):
         pass
 
     @abc.abstractmethod
