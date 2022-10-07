@@ -16,10 +16,9 @@ def reg_norm_quad(P):
     """Regularization cost using the quadratic formula centered in 1 of the Frobenius-norm of `P`."""
     return do("power", P.H & P ^ all - 1, 2)
 
-
 def loss(model, batch_data, error=None, reg=no_reg) -> Number:
     vectorized_loss = functools.partial(error, model)
-    return jax.vmap(vectorized_loss)(batch_data) + reg(model)
+    return jax.vmap(vectorized_loss)(batch_data)/len(batch_data) + reg(model)
 
 
 def error_logquad(P, phi):
