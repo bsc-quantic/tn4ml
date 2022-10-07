@@ -10,7 +10,17 @@ def lambda_exponential_decay(epoch, lambda_init=1e-3, decay_rate=0.01)
 class Model:
     
     # NOTE data already embedded
-    def configure(optimizer='adam',  optimizer=direct_gradient_descent, exponential_decay=False, lambda_init=1e-3, decay_rate=0.01, **kwargs)
+    def configure(self, strategy="dmrg", optimizer="adam",  optimizer=direct_gradient_descent, exponential_decay=False, lambda_init=1e-3, decay_rate=0.01, **kwargs)
+        if isinstance(strategy, Strategy):
+            pass
+        elif strategy in ["sweeps", "local", "dmrg"]:
+            strategy = Sweeps() # TODO
+        elif strategy == ["global"]:
+            strategy = Global() # TODO
+        else:
+            raise ValueError(f'Strategy "{strategy}" not found')
+        self.strategy = strategy
+        
         if isinstance(optimizer, str):
             self.optimizer = optimizer
         else:
@@ -22,30 +32,21 @@ class Model:
         pass
             
     
-    def fit_step(self, loss_fn, strategy="dmrg", optimizer=direct_gradient_descent, niter=1, **kwargs):
-        if isinstance(strategy, Strategy):
-            pass
-        elif strategy in ["sweeps", "local", "dmrg"]:
-            strategy = Sweeps()
-        elif strategy == ["global"]:
-            strategy = Global()
-        else:
-            raise ValueError(f'Strategy "{strategy}" not found')
-
-        for sites in strategy.iterate_sites(self.sites):
+    def fit_step(self, loss_fn, niter=1, **kwargs):
+        for sites in self.strategy.iterate_sites(self.sites):
             # contract tensors (if needed)
-            strategy.prehook(self, sites)
+            self.strategy.prehook(self, sites)
 
             target_site_tags = tuple(self.site_tag(site) for site in funcy.flatten(sites))
             opt = qtn.TNOptimizer(
                 self,
                 loss_fn=loss_fn,
-                optimizer=optimizer,
+                optimizer=self.optimizer,
                 tags=target_site_tags,
                 **kwargs,
             )
 
-            if isinstance(optimizer, str):
+            if isinstance(self.optimizer, str):
                 psi = opt.optimize(niter)
             else:
                 x = opt.vectorizer.vector
@@ -54,10 +55,10 @@ class Model:
 
                 tensors = psi.select_tensors(target_site_tags, which="any")
                 for tensor, grad in zip(tensors, grads):
-                    tensor.modify(data=optimizer(tensor.data, grad))
+                    tensor.modify(data=self.optimizer(tensor.data, grad))
 
             # split tensors (if needed) & renormalize (if configured)
-            strategy.posthook(self, sites)
+            self.strategy.posthook(self, sites)
 
     def predict(self, x):
         return self @ x
