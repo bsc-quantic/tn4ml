@@ -4,11 +4,6 @@ from tqdm import auto as tqdm
 import funcy
 
 
-def direct_gradient_descent(tensor, grad, lambd=0.01):
-    return tensor - lambd * grad
-
-
-# TODO add hyperparameters arguments
 class Model:
     def fit_step(self, loss_fn, strategy="dmrg", optimizer=direct_gradient_descent, niter=1, **kwargs):
         if isinstance(strategy, Strategy):
