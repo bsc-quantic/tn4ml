@@ -4,13 +4,15 @@ from tqdm import auto as tqdm
 import funcy
 
 
-def lambda_exponential_decay(epoch, lambda_init=1e-3, decay_rate=0.01)
+def lambda_value(lambda_init=1e-3, epoch=0, decay_rate=0.01)
     return lambda_init*math.pow((1 - decay_rate/100),epoch)
 
 class Model:
-    
+
     # NOTE data already embedded
-    def configure(self, strategy="dmrg", optimizer="adam",  optimizer=direct_gradient_descent, exponential_decay=False, lambda_init=1e-3, decay_rate=0.01, **kwargs)
+    def configure(self, loss, strategy="dmrg", optimizer="adam", optimizer=direct_gradient_descent, **kwargs)
+        self.loss = loss
+        
         if isinstance(strategy, Strategy):
             pass
         elif strategy in ["sweeps", "local", "dmrg"]:
@@ -21,16 +23,19 @@ class Model:
             raise ValueError(f'Strategy "{strategy}" not found')
         self.strategy = strategy
         
-        if isinstance(optimizer, str):
-            self.optimizer = optimizer
-        else:
-            if exponential_decay:
-                lambda_init = functools.partial(lambda_exponential_decay, lambda_init=lambda_init, decay_rate=decay_rate)
-            self.optimizer = optimizer(lambd=lambda_init)
-    
-    def train(self, data, batch_size, epochs, loss, initial_epochs=0, **kwargs):
-        pass
-            
+        self.optimizer = optimizer
+        
+    def train(self, data, loss, batch_size=None, epochs=1, initial_epochs=None, decay_rate=0.01, **kwargs):
+        
+        if batch_size: data = np.split(data, data.shape[0]//batch_size)
+        else: data = [data] # NOTE fixes `for batch in data`
+        
+        for epoch in range(epochs):
+            for batch in data:
+                if not isinstance(self.optimizer, str) and initial_epochs and epoch >= initial_epochs:
+                    lambda_it = lambda_value(lambda_init=self.optimizer.learning_rate, epoch=epoch - initial_epochs, decay_rate=decay_rate)
+                    self.optimizer.learning_rate = lambda_it
+                self.fit_step(loss_fn=self.loss, strategy=strategy, loss_constants={"batch_data": batch}, **kwargs)
     
     def fit_step(self, loss_fn, niter=1, **kwargs):
         for sites in self.strategy.iterate_sites(self.sites):
