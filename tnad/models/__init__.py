@@ -27,7 +27,7 @@ class Model:
 
         self.optimizer = optimizer
 
-    def train(self, data, loss, batch_size=None, epochs=1, initial_epochs=None, decay_rate=0.01, **kwargs):
+    def train(self, data, batch_size=None, epochs=1, initial_epochs=None, decay_rate=0.01, **kwargs):
 
         if batch_size:
             data = np.split(data, data.shape[0] // batch_size)
