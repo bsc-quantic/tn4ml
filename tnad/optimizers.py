@@ -3,7 +3,7 @@ import abc
 
 class Optimizer:
     def __init__(self, hyperparameters: dict):
-        self.hyperparameters = hyperparameters
+        super().__setattr__("hyperparameters", hyperparameters)
 
     @abc.abstractmethod
     def __call__(self, tensor, grad):
