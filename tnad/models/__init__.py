@@ -67,8 +67,7 @@ class Model:
 
             if isinstance(self.optimizer, str):
                 optself = opt.optimize(niter)
-
-                self.arrays = optself.arrays
+                self._tensors = optself.tensors
             else:
                 x = opt.vectorizer.vector
                 _, grads = opt.vectorized_value_and_grad(x)
@@ -121,12 +120,11 @@ class Sweeps(Strategy):
         model.canonize(sites)
 
         sitetags = tuple(model.site_tag(site) for site in sites)
-        model.contract_tags(sitetags)
+        model.contract_tags(sitetags, inplace=True)
 
     def posthook(self, model, sites):
         sitetags = [model.site_tag(site) for site in sites]
         tensor = model.select_tensors(sitetags, which="all")[0]
-
         # normalize
         if self.renormalize:
             tensor.normalize(inplace=True)
@@ -137,13 +135,13 @@ class Sweeps(Strategy):
             raise RuntimeError(f"{self.grouping=} > 2")
 
         sitel, siter = sites
-        site_ind_prefix = model.site_ind_id.rstrip("{}")
-
-        vindl = [model.site_ind(sitel)] + ([model.bond(sitel - 1, sitel)] if sitel > 0 else [])
-        vindr = [model.site_ind(siter)] + ([model.bond(siter, siter + 1)] if siter < model.nsites - 1 else [])
-
-        model.split_tensor(sitetags, left_inds=vindl, right_inds=vindr, **self.split_opts)
-
+        site_ind_prefix = model.upper_ind_id.rstrip("{}")
+        
+        vindl = [model.upper_ind(sitel)] + ([model.bond(sitel - 1, sitel)] if sitel > 0 else [])
+        #vindr = [model.upper_ind(siter)] + ([model.bond(siter, siter + 1)] if siter < model.nsites - 1 else []) + ([model.lower_ind(siter)] if model.tensors[siter].ndim == 4 or (siter==model.L-1 and model.tensors[siter].ndim == 3) else [])
+                
+        lower_ind = [f'{model.lower_ind_id}{sitel}'] if f'{model.lower_ind_id}{sitel}' in model.lower_inds else []
+        model.split_tensor(sitetags, left_inds=[*vindl, *lower_ind], **self.split_opts)
         # fix tags
         for tag in sitetags:
             for tensor in model.select_tensors(tag):
@@ -151,7 +149,6 @@ class Sweeps(Strategy):
                 site_ind = next(filter(lambda ind: ind.removeprefix(site_ind_prefix).isdecimal(), tensor.inds))
                 site = site_ind.removeprefix(site_ind_prefix)
                 tensor.add_tag(model.site_tag(site))
-
 
 class Global(Strategy):
     """Global optimization through Gradient descent."""
