@@ -47,6 +47,15 @@ class Model:
             # contract tensors (if needed)
             self.strategy.prehook(self, sites)
 
+            if isinstance(loss_fn, dict):
+                error = loss_fn["error"]
+                data = kwargs["loss_constants"].pop("batch_data")
+
+                loss_fn = [lambda model: error(model, sample) for sample in data]
+
+                if "reg" in loss_fn:
+                    loss_fn.append(loss_fn["reg"])
+
             target_site_tags = tuple(self.site_tag(site) for site in funcy.flatten(sites))
             opt = qtn.TNOptimizer(
                 self,
