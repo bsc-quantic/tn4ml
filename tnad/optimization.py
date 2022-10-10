@@ -38,8 +38,8 @@ def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-5, l
     
     train_data = np.array(data)
     N_features = train_data.shape[1]*train_data.shape[2]
-    train_data_batched = np.array(np.split(train_data, batch_size))
     n_iters = int(train_data.shape[0]/batch_size)
+    train_data_batched = np.array(np.split(train_data, n_iters))
     
     # initialize P
     P_orig = smpo.SpacedMatrixProductOperator.rand(n=N_features, spacing=spacing, bond_dim=bond_dim, init_func=init_func, scale=scale, seed=seed, insert=insert)
