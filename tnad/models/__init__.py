@@ -19,7 +19,7 @@ class Model:
             pass
         elif strategy in ["sweeps", "local", "dmrg"]:
             strategy = Sweeps()  # TODO
-        elif strategy == ["global"]:
+        elif strategy in ["global"]:
             strategy = Global()  # TODO
         else:
             raise ValueError(f'Strategy "{strategy}" not found')
@@ -43,7 +43,7 @@ class Model:
                 self.fit_step(loss_fn=self.loss, loss_constants={"batch_data": batch}, **kwargs)
 
     def fit_step(self, loss_fn, niter=1, **kwargs):
-        for sites in self.strategy.iterate_sites(self.sites):
+        for sites in self.strategy.iterate_sites(self):
             # contract tensors (if needed)
             self.strategy.prehook(self, sites)
 
@@ -57,13 +57,15 @@ class Model:
             )
 
             if isinstance(self.optimizer, str):
-                psi = opt.optimize(niter)
+                optself = opt.optimize(niter)
+
+                self.arrays = optself.arrays
             else:
                 x = opt.vectorizer.vector
                 _, grads = opt.vectorized_value_and_grad(x)
                 grads = opt.vectorizer.unpack(grads)
 
-                tensors = psi.select_tensors(target_site_tags, which="any")
+                tensors = self.select_tensors(target_site_tags, which="any")
                 for tensor, grad in zip(tensors, grads):
                     tensor.modify(data=self.optimizer(tensor.data, grad))
 
@@ -102,9 +104,9 @@ class Sweeps(Strategy):
         self.split_opts = split_opts
         super().__init__(**kwargs)
 
-    def iterate_sites(self, sites):
-        for i in sites[: len(sites) - self.grouping + 1]:
-            yield tuple(sites[i + j] for j in range(self.grouping))
+    def iterate_sites(self, model):
+        for i in model.sites[: len(model.sites) - self.grouping + 1]:
+            yield tuple(model.sites[i + j] for j in range(self.grouping))
 
     def prehook(self, model, sites):
         model.canonize(sites)

@@ -1,7 +1,8 @@
 from numbers import Number
 import quimb.tensor as qtn
 from autoray import do
-import functools
+import tnad.embeddings
+
 
 def no_reg(x):
     return 0
@@ -16,9 +17,9 @@ def reg_norm_quad(P):
     """Regularization cost using the quadratic formula centered in 1 of the Frobenius-norm of `P`."""
     return do("power", P.H & P ^ all - 1, 2)
 
-def loss(model, batch_data, error=None, reg=no_reg) -> Number:
-    vectorized_loss = functools.partial(error, model)
-    return jax.vmap(vectorized_loss)(batch_data)/len(batch_data) + reg(model)
+
+def loss(model, batch_data, error=None, reg=no_reg, embedding=tnad.embeddings.trigonometric()) -> Number:
+    return do("mean", [error(model, tnad.embeddings.embed(sample, embedding)) for sample in batch_data]) + reg(model)
 
 
 def error_logquad(P, phi):
