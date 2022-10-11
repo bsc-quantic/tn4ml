@@ -10,7 +10,7 @@ def no_reg(x):
 
 def reg_norm_logrelu(P):
     """Regularization cost using ReLU of the log of the Frobenius-norm of `P`."""
-    return do("max", 0.0, do("log", P.H & P ^ all))
+    return do("maximum", 0.0, do("log", P.H & P ^ all))
 
 
 def reg_norm_quad(P):
