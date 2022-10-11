@@ -3,7 +3,8 @@ from quimb import tensor as qtn
 from tqdm import tqdm
 import funcy
 import numpy as np
-
+import tnad.models.util as u
+from tnad.loss import error_logquad, reg_norm_logrelu
 
 def lambda_value(lambda_init=1e-3, epoch=0, decay_rate=0.01):
     return lambda_init * np.power((1 - decay_rate / 100), epoch)
@@ -28,7 +29,9 @@ class Model:
         self.optimizer = optimizer
 
     def train(self, data, batch_size=None, epochs=1, initial_epochs=None, decay_rate=0.01, **kwargs):
-
+        
+        self.history = dict()
+        
         if batch_size:
             data = np.split(data, data.shape[0] // batch_size)
         else:
@@ -40,7 +43,10 @@ class Model:
                 if not isinstance(self.optimizer, str) and initial_epochs and epoch >= initial_epochs:
                     lambda_it = lambda_value(lambda_init=self.optimizer.learning_rate, epoch=epoch - initial_epochs, decay_rate=decay_rate)
                     self.optimizer.learning_rate = lambda_it
-                self.fit_step(loss_fn=self.loss, loss_constants={"batch_data": batch}, **kwargs)
+                if 'hardcode' in kwargs.keys():
+                    self.fit_step_hardcoded(loss_fn=self.loss, data = batch, batch_size=batch_size, alpha=kwargs['alpha'])
+                else: self.fit_step(loss_fn=self.loss, loss_constants={"batch_data": batch}, **kwargs)
+        return self.history
 
     def fit_step(self, loss_fn, niter=1, **kwargs):
         for sites in self.strategy.iterate_sites(self):
@@ -79,7 +85,25 @@ class Model:
 
             # split tensors (if needed) & renormalize (if configured)
             self.strategy.posthook(self, sites)
-
+    
+    def fit_step_hardcoded(self, loss_fn, data, **kwargs):
+        self.history['loss'] = []
+        
+        grad_per_site=[]
+        for site in self.sites:
+            grad, total_loss = u.get_total_grad_and_loss(self, site, data, kwargs['batch_size'], kwargs['alpha'], loss_fn) # get grad per tensor
+            grad_per_site.append(grad)
+            self.history['loss'].append(total_loss)
+            
+        for tensor, grad in enumerate(grad_per_site):
+            site_tag = P.site_tag(tensor)
+            (tensor_orig,) = P.select_tensors(site_tag, which="any")
+            tensor_orig.modify(data = self.optimizer(tensor.data, grad))
+        
+        if 'renormalize' in kwargs.keys():
+            if kwargs['renormalize']:
+                self.normalize(inplace=True)
+                                
     def predict(self, x):
         return self @ x
 
