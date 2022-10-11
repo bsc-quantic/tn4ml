@@ -96,10 +96,10 @@ class Model:
             self.history['loss'].append(total_loss)
             
         for tensor, grad in enumerate(grad_per_site):
-            site_tag = P.site_tag(tensor)
-            (tensor_orig,) = P.select_tensors(site_tag, which="any")
-            tensor_orig.modify(data = self.optimizer(tensor.data, grad))
-        
+            site_tag = self.site_tag(tensor)
+            (tensor_orig,) = self.select_tensors(site_tag, which="any")
+            tensor_orig.modify(data = self.optimizer(tensor_orig, grad))
+            
         if 'renormalize' in kwargs.keys():
             if kwargs['renormalize']:
                 self.normalize(inplace=True)

@@ -27,4 +27,4 @@ class DirectGradientDescent(Optimizer):
         super().__init__({"learning_rate": learning_rate})
 
     def __call__(self, tensor, grad):
-        return tensor - self.learning_rate * grad
+        return tensor.data - self.learning_rate*grad.transpose_like(tensor).data
