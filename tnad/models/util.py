@@ -1,7 +1,7 @@
 from tnad.embeddings import embed
 from tnad.gradients import gradient_miss, gradient_reg
 
-def get_total_grad_and_loss(P, tensor, data, batch_size, alpha, loss):
+def get_total_grad_and_loss(P, tensor, data, loss, batch_size=None, alpha=0):
     """ data = array of MPSs """
     
     P_rem = P.copy(deep=True)

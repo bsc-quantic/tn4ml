@@ -32,6 +32,11 @@ class Model:
         
         self.history = dict()
         
+        # regularization parameter
+        if "alpha" in kwargs:
+            alpha = kwargs['alpha']
+        
+        # split data in batches
         if batch_size:
             data = np.split(data, data.shape[0] // batch_size)
         else:
@@ -43,8 +48,8 @@ class Model:
                 if not isinstance(self.optimizer, str) and initial_epochs and epoch >= initial_epochs:
                     lambda_it = lambda_value(lambda_init=self.optimizer.learning_rate, epoch=epoch - initial_epochs, decay_rate=decay_rate)
                     self.optimizer.learning_rate = lambda_it
-                if 'hardcode' in kwargs.keys():
-                    self.fit_step_hardcoded(loss_fn=self.loss, data = batch, batch_size=batch_size, alpha=kwargs['alpha'])
+                if "hardcode" in kwargs:
+                    self.fit_step_hardcoded(loss_fn=self.loss, data = batch, batch_size=batch_size, alpha=alpha)
                 else: self.fit_step(loss_fn=self.loss, loss_constants={"batch_data": batch}, **kwargs)
         return self.history
 
@@ -100,7 +105,7 @@ class Model:
             (tensor_orig,) = self.select_tensors(site_tag, which="any")
             tensor_orig.modify(data = self.optimizer(tensor_orig, grad))
             
-        if 'renormalize' in kwargs.keys():
+        if 'renormalize' in kwargs:
             if kwargs['renormalize']:
                 self.normalize(inplace=True)
                                 
