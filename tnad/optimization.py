@@ -34,12 +34,12 @@ def data_preprocessing(train_data, pool_size=(2,2), strides=(2,2), padding='vali
         data.append(sample/255)
     return data
 
-def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-5, lamda_init_2=2e-3, decay_rate=None, expdecay_tol=None, bond_dim=4, init_func='normal', scale=0.5, batch_size=32, insert=-1, seed: int = None):
+def train_SMPO(data, spacing, n_epochs, alpha, opt_procedure, lamda_init=2e-5, lamda_init_2=2e-3, decay_rate=None, expdecay_tol=None, bond_dim=4, init_func='normal', scale=0.5, batch_size=32, insert=0, seed: int = None):
     
     train_data = np.array(data)
     N_features = train_data.shape[1]*train_data.shape[2]
-    train_data_batched = np.array(np.split(train_data, batch_size))
     n_iters = int(train_data.shape[0]/batch_size)
+    train_data_batched = np.array(np.split(train_data, n_iters))
     
     # initialize P
     P_orig = smpo.SpacedMatrixProductOperator.rand(n=N_features, spacing=spacing, bond_dim=bond_dim, init_func=init_func, scale=scale, seed=seed, insert=insert)
