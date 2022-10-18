@@ -27,11 +27,11 @@ def loss(model, batch_data, error=None, reg=no_reg) -> Number:
     return acc
 
 
-def error_logquad(P, phi):
-    mps = qtn.tensor_network_apply_op_vec(P, phi)
+def error_logquad(P, data):
+    mps = qtn.tensor_network_apply_op_vec(P, data)
     return do("power", do("add", do("log", mps.H & mps ^ all), -1.0), 2)
 
 
-def error_quad(P, phi):
-    mps = qtn.tensor_network_apply_op_vec(P, phi)
+def error_quad(P, data):
+    mps = qtn.tensor_network_apply_op_vec(P, data)
     return do("power", do("add", mps.H & mps ^ all, -1.0), 2)
