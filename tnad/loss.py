@@ -19,10 +19,6 @@ def reg_norm_quad(P):
     return do("power", P.H & P ^ all - 1, 2)
 
 
-def loss(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Callable] = None) -> Number:
-    return do("mean", [error(model, tnad.embeddings.embed(sample, embedding) if embedding else sample) for sample in data]) + reg(model)
-
-
 def error_logquad(P, data):
     mps = qtn.tensor_network_apply_op_vec(P, data)
     return do("power", do("add", do("log", mps.H & mps ^ all), -1.0), 2)
@@ -31,3 +27,7 @@ def error_logquad(P, data):
 def error_quad(P, data):
     mps = qtn.tensor_network_apply_op_vec(P, data)
     return do("power", do("add", mps.H & mps ^ all, -1.0), 2)
+
+
+def loss(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Callable] = None) -> Number:
+    return do("mean", [error(model, tnad.embeddings.embed(sample, embedding) if embedding else sample) for sample in data]) + reg(model)
