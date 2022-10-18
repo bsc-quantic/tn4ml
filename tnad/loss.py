@@ -2,7 +2,7 @@ from numbers import Number
 from typing import Callable, Optional
 import quimb.tensor as qtn
 from autoray import do
-import tnad.embeddings
+from tnad.embeddings import embed, Embedding
 
 
 def no_reg(x):
@@ -29,5 +29,5 @@ def error_quad(P, data):
     return do("power", do("add", mps.H & mps ^ all, -1.0), 2)
 
 
-def loss(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Callable] = None) -> Number:
-    return do("mean", [error(model, tnad.embeddings.embed(sample, embedding) if embedding else sample) for sample in data]) + reg(model)
+def loss(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Embedding] = None) -> Number:
+    return do("mean", [error(model, embed(sample, embedding) if embedding else sample) for sample in data]) + reg(model)
