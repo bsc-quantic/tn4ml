@@ -1,7 +1,14 @@
+from concurrent.futures import Executor, ProcessPoolExecutor
+import functools
+import operator
 from quimb import tensor as qtn
 from tqdm import tqdm
 import funcy
 import numpy as np
+from typing import Callable, Collection, Optional
+import jax
+
+from tnad.strategy import *
 
 
 def lambda_value(lambda_init=1e-3, epoch=0, decay_rate=0.01):
@@ -81,6 +88,99 @@ class Model:
 
     def predict(self, x):
         return self @ x
+
+
+class LossWrapper:
+    def __init__(self, loss_fn, tn):
+        self.tn = tn
+        self.loss_fn = loss_fn
+
+    def __call__(self, arrays, **kwargs):
+        tn = self.tn.copy()
+
+        kwargs = qtn.optimize.parse_constant_arg(kwargs, jax.numpy.asarray)
+        loss_fn = functools.partial(self.loss_fn, **kwargs)
+
+        for tensor, array in zip(tn.tensors, arrays):
+            tensor.modify(data=array)
+
+        with qtn.contract_backend("jax"):
+            return loss_fn(tn)
+
+
+# TODO loss_fn for regularization term
+def _fit(model: Model, loss_fn: Callable, data: Collection, strategy: Strategy = Global(), optimizer: Optional[Callable] = None, executor: Optional[Executor] = None):
+    """
+    ## Arguments
+    - model: `Model`
+    - loss_fn: `Callable`
+    - data: `Sequence` of `numpy.ndarray`
+    - reg_fn: `Callable`
+    - strategy: `Strategy`
+    - optimizer: `Callable` or `None`
+    - executor: `concurrent.futures.Executor` or `None`
+    """
+
+    if not isinstance(strategy, Global):
+        raise NotImplementedError("non-`Global` strategies are not implemented yet for function `_fit`")
+
+    if optimizer is None:
+        optimizer = qtn.optimize.SGD()
+
+    if executor is None:
+        executor = ProcessPoolExecutor()
+
+    for sites in strategy.iterate_sites(model):
+        # contract sites in groups
+        strategy.prehook(model, sites)
+
+        arrays = model.arrays
+        vectorizer = qtn.optimize.Vectorizer(arrays)
+
+        error_wrapper = LossWrapper(loss_fn, model)
+
+        def jac(x):
+            # compute grad of error term
+            error_grad = jax.grad(error_wrapper)
+
+            arrays = tuple(map(jax.numpy.asarray, vectorizer.unpack(x)))
+            futures = executor.map(lambda sample: error_grad(arrays, data=sample), data)
+
+            # tree fold for parallelization
+            futures = list(futures)
+            while len(futures) > 1:
+                futures = [executor.submit(operator.add, *chunk) if len(chunk) > 1 else chunk[0] for chunk in funcy.chunks(2, futures)]
+
+            # normalize gradients
+            n = len(data)
+            grad_arrays = tuple(array / n for array in futures[0].result())
+
+            return vectorizer.pack(grad_arrays, name="grad")
+
+        # call quimb's optimizers with vectorizer
+        def loss(x):
+            arrays = vectorizer.unpack(x)
+            futures = executor.map(lambda sample: error_wrapper(arrays, data=sample), data)
+
+            # tree fold for parallelization
+            futures = list(futures)
+            while len(futures) > 1:
+                futures = [executor.submit(operator.add, *chunk) if len(chunk) > 1 else chunk[0] for chunk in funcy.chunks(2, futures)]
+
+            return futures[0].result() / len(data)
+
+        x = vectorizer.pack(arrays)
+        res = optimizer(loss, x, jac, maxiter=1)
+
+        opt_arrays = vectorizer.unpack(res.x)
+
+        for tensor, array in zip(model.tensors, opt_arrays):
+            tensor.modify(data=array)
+
+        # split sites
+        strategy.posthook(model, sites)
+
+        return res.fun
 
 
 from .smpo import SpacedMatrixProductOperator
