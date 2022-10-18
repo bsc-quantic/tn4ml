@@ -1,4 +1,5 @@
 from numbers import Number
+from typing import Callable, Optional
 import quimb.tensor as qtn
 from autoray import do
 import tnad.embeddings
@@ -18,8 +19,8 @@ def reg_norm_quad(P):
     return do("power", P.H & P ^ all - 1, 2)
 
 
-def loss(model, batch_data, error=None, reg=no_reg, embedding=tnad.embeddings.trigonometric()) -> Number:
-    return do("mean", [error(model, tnad.embeddings.embed(sample, embedding)) for sample in batch_data]) + reg(model)
+def loss(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Callable] = None) -> Number:
+    return do("mean", [error(model, tnad.embeddings.embed(sample, embedding) if embedding else sample) for sample in data]) + reg(model)
 
 
 def error_logquad(P, data):
