@@ -15,16 +15,11 @@ def reg_norm_logrelu(P):
 
 def reg_norm_quad(P):
     """Regularization cost using the quadratic formula centered in 1 of the Frobenius-norm of `P`."""
-    return do("power", do("add", P.H & P ^ all, -1.0), 2)
+    return do("power", P.H & P ^ all - 1, 2)
 
 
-def loss(model, batch_data, error=None, reg=no_reg) -> Number:
-    acc = tnad.loss.reg_norm_quad(model)
-    n = len(batch_data)
-    for sample in batch_data:
-        acc = acc + tnad.loss.error_quad(model, sample) / n
-
-    return acc
+def loss(model, batch_data, error=None, reg=no_reg, embedding=tnad.embeddings.trigonometric()) -> Number:
+    return do("mean", [error(model, tnad.embeddings.embed(sample, embedding)) for sample in batch_data]) + reg(model)
 
 
 def error_logquad(P, data):
