@@ -95,7 +95,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         last_down_ind = [lower_ind_id.format(self.L - 1)] if (self.L - 1) % self.spacing == 0 else []
         inds += [(pbond, *cyc_bond, next(upper_inds), *last_down_ind)]
         tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
-        super().__init__(tensors, virtual=True, **tn_opts)
+        TensorNetwork.__init__(self, tensors, virtual=True, **tn_opts)
 
     def normalize(self, insert=-1):
         # normalize
