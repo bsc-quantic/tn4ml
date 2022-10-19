@@ -15,23 +15,29 @@ def lambda_value(lambda_init=1e-3, epoch=0, decay_rate=0.01):
     return lambda_init * np.power((1 - decay_rate / 100), epoch)
 
 
-class Model:
+class Model(qtn.TensorNetwork):
+    def __init__(self):
+        self.loss_fn = None
+        self.strategy = Global()
+        self.optimizer = "adam"
 
-    # NOTE data already embedded
-    def configure(self, loss, strategy="dmrg", optimizer="adam", **kwargs):
-        self.loss = loss
-
-        if isinstance(strategy, Strategy):
-            pass
-        elif strategy in ["sweeps", "local", "dmrg"]:
-            strategy = Sweeps()  # TODO
-        elif strategy in ["global"]:
-            strategy = Global()  # TODO
-        else:
-            raise ValueError(f'Strategy "{strategy}" not found')
-        self.strategy = strategy
-
-        self.optimizer = optimizer
+    def configure(self, **kwargs):
+        for key, value in kwargs.items():
+            if key == "strategy":
+                if isinstance(value, Strategy):
+                    self.strategy = value
+                elif value in ["sweeps", "local", "dmrg"]:
+                    self.strategy = Sweeps()
+                elif value in ["global"]:
+                    self.strategy = Global()
+                else:
+                    raise ValueError(f'Strategy "{value}" not found')
+            elif key == "optimizer":
+                self.optimizer = value
+            elif key == "loss_fn":
+                self.loss_fn = value
+            else:
+                raise AttributeError(f"Attribute {key} not found")
 
     def train(self, data, batch_size=None, epochs=1, initial_epochs=None, decay_rate=0.01, **kwargs):
 
