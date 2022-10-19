@@ -87,7 +87,7 @@ class Model:
             self.strategy.posthook(self, sites)
 
     def predict(self, x):
-        return np.sqrt((self @ x).norm())
+        return (self @ x).norm()
 
 
 class LossWrapper:
