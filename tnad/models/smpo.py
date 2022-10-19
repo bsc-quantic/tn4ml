@@ -5,7 +5,7 @@ from typing import Tuple
 import autoray as a
 import numpy as np
 import math
-from quimb.tensor.tensor_1d import TensorNetwork1DOperator, TensorNetwork1DFlat
+from quimb.tensor.tensor_1d import TensorNetwork1DOperator, TensorNetwork1DFlat, TensorNetwork
 from tnad.models import Model
 
 
@@ -24,7 +24,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
     def __init__(self, arrays, shape="lrud", site_tag_id="I{}", tags=None, upper_ind_id="k{}", lower_ind_id="b{}", bond_name="bond{}", **tn_opts):
         if isinstance(arrays, SpacedMatrixProductOperator):
-            super().__init__(arrays)
+            TensorNetwork.__init__(self, arrays)
             return
 
         arrays = tuple(arrays)
