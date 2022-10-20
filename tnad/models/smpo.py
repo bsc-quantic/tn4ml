@@ -8,7 +8,6 @@ import math
 from quimb.tensor.tensor_1d import TensorNetwork1DOperator, TensorNetwork1DFlat
 from tnad.models import Model
 
-
 class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, Model):
     """A MatrixProductOperator with a decimated number of output indices.
 
@@ -97,10 +96,14 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
         super().__init__(tensors, virtual=True, **tn_opts)
 
-    def normalize(self, insert=-1):
+    def normalize(self, insert=0): 
         # normalize
         norm = self.norm()
-        self.tensors[insert].modify(data=self.tensors[insert].data / norm)
+        if insert==None:
+            for tensor in self.tensors:
+                tensor.modify(data=tensor.data/a.do('power',norm,1/self.L))
+        else:
+            self.tensors[insert].modify(data=self.tensors[insert].data/norm)
 
     def norm(self, **contract_opts):
         norm = self.conj() & self
@@ -112,22 +115,22 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             if hasoutput:
                 shape = (bond_dim, bond_dim, *phys_dim)
                 if not cyclic:
-                    if i == 0:
-                        shape = (bond_dim, *phys_dim)
-                    if i == n - 1:
-                        shape = (bond_dim, *phys_dim)
+                    if i==0: shape = (bond_dim, *phys_dim)
+                    if i==n-1: shape = (bond_dim, *phys_dim)
             else:
                 shape = (bond_dim, bond_dim, phys_dim[0])
-                if i == n - 1 and not cyclic:
-                    shape = (bond_dim, phys_dim[0])
-            if seed != None:
+                if i==n-1 and not cyclic: shape = (bond_dim, phys_dim[0])
+            if(seed != None):
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale, seed=seed))
             else:
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale))
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
-        mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
-        mpo.canonize(insert)
-        mpo.normalize(insert)
+        mpo.compress(form='flat', max_bond=bond_dim) # limit bond_dim
+        if insert == None:
+            mpo.normalize(insert)
+        else:
+            mpo.canonize(insert)
+            mpo.normalize(insert)
         return mpo
 
     @property
@@ -140,3 +143,4 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
     def get_orders(self) -> list:
         return self._orders
+    
