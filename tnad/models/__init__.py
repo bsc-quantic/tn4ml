@@ -11,10 +11,6 @@ from tnad.strategy import *
 from tqdm import tqdm
 
 
-def lambda_value(lambda_init=1e-3, epoch=0, decay_rate=0.01):
-    return lambda_init * np.power((1 - decay_rate / 100), epoch)
-
-
 class Model(qtn.TensorNetwork):
     def __init__(self):
         self.loss_fn = None
@@ -39,7 +35,7 @@ class Model(qtn.TensorNetwork):
             else:
                 raise AttributeError(f"Attribute {key} not found")
 
-    def train(self, data, batch_size=None, epochs=1, initial_epochs=None, decay_rate=0.01, **kwargs):
+    def train(self, data, batch_size=None, nepochs=1, **kwargs):
         if self.loss_fn is None:
             raise ValueError("`loss_fn` not yet configured. Call `Model.configure(loss_fn=...)` first.")
 
@@ -48,14 +44,10 @@ class Model(qtn.TensorNetwork):
         else:
             data = [data]  # NOTE fixes `for batch in data`
 
-        for epoch in (pbar := tqdm(range(epochs))):
+        for epoch in (pbar := tqdm(range(nepochs))):
             pbar.set_description(f"Epoch #{epoch}")
             for batch in data:
-                if not isinstance(self.optimizer, str) and initial_epochs and epoch >= initial_epochs:
-                    lambda_it = lambda_value(lambda_init=self.optimizer.learning_rate, epoch=epoch - initial_epochs, decay_rate=decay_rate)
-                    self.optimizer.learning_rate = lambda_it
-                # self.fit_step(self.loss_fn, loss_constants={"batch_data": batch}, **kwargs)
-                _fit(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, **kwargs)
+                _fit(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, **kwargs)
 
     def fit_step(self, loss_fn, niter=1, **kwargs):
         for sites in self.strategy.iterate_sites(self):
@@ -117,7 +109,7 @@ class LossWrapper:
             return loss_fn(tn)
 
 
-def _fit(model: Model, loss_fn: Callable, data: Collection, strategy: Strategy = Global(), optimizer: Optional[Callable] = None, executor: Optional[Executor] = None):
+def _fit(model: Model, loss_fn: Callable, data: Collection, strategy: Strategy = Global(), optimizer: Optional[Callable] = None, executor: Optional[Executor] = None, epoch: Optional[int] = None, **hyperparams):
     """
     ## Arguments
     - model: `Model`
@@ -177,8 +169,13 @@ def _fit(model: Model, loss_fn: Callable, data: Collection, strategy: Strategy =
 
             return futures[0].result() / len(data)
 
+        # prepare hyperparameters
+        hyperparams = {key: value(epoch) if callable(value) else value for key, value in hyperparams.items()}
+        if "maxiter" not in hyperparams:
+            hyperparams["maxiter"] = 1
+
         x = vectorizer.pack(arrays)
-        res = optimizer(loss, x, jac, maxiter=1)
+        res = optimizer(loss, x, jac, **hyperparams)
 
         opt_arrays = vectorizer.unpack(res.x)
 
