@@ -5,6 +5,8 @@ import funcy
 import numpy as np
 import tnad.models.util as u
 from tnad.loss import error_logquad, reg_norm_logrelu
+from IPython.display import clear_output
+import matplotlib.pyplot as plt
 
 def lambda_value(lambda_init=1e-3, epoch=0, decay_rate=0.01):
     return lambda_init * np.power((1 - decay_rate / 100), epoch)
@@ -31,7 +33,10 @@ class Model:
     def train(self, data, batch_size=None, epochs=1, initial_epochs=None, decay_rate=0.01, **kwargs):
         
         self.history = dict()
-        
+        self.history['loss']=[]; self.history['loss_miss']=[]; self.history['loss_reg']=[];
+        self.history['grad_miss']=[]; self.history['grad_reg']=[];
+        self.history['norm']=[];
+
         # regularization parameter
         if "alpha" in kwargs:
             alpha = kwargs['alpha']
@@ -92,11 +97,10 @@ class Model:
             self.strategy.posthook(self, sites)
     
     def fit_step_hardcoded(self, loss_fn, data, **kwargs):
-        self.history['loss'] = []
-        
+        self.history['norm'].append(self.norm())
         grad_per_site=[]
         for site in self.sites:
-            grad, total_loss = u.get_total_grad_and_loss(self, site, data, kwargs['batch_size'], kwargs['alpha'], loss_fn) # get grad per tensor
+            grad, total_loss, history_epoch = u.get_total_grad_and_loss(self, site, data, loss_fn, kwargs['batch_size'], kwargs['alpha']) # get grad per tensor
             grad_per_site.append(grad)
             self.history['loss'].append(total_loss)
             
@@ -108,6 +112,22 @@ class Model:
         if 'renormalize' in kwargs:
             if kwargs['renormalize']:
                 self.normalize(inplace=True)
+        
+        ## remove later
+        self.history['loss_miss'].append(history_epoch['loss_miss'])
+        self.history['loss_reg'].append(history_epoch['loss_reg'])
+        self.history['grad_miss'].append(history_epoch['grad_miss'])
+        self.history['grad_reg'].append(history_epoch['grad_reg'])
+        
+        
+        plt.figure()
+        clear_output(wait=True)
+        plt.plot(range(1, len(self.history['loss_miss'])+1), self.history['loss_miss'], label='loss miss')
+        plt.plot(range(1, len(self.history['loss_miss'])+1), self.history['loss_reg'], label='loss reg')
+        plt.plot(range(1, len(self.history['loss_miss'])+1), self.history['loss'], label='loss total')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
                                 
     def predict(self, x):
         return self @ x
