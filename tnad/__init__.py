@@ -1,4 +1,2 @@
-from . import embeddings
-from . import models
-from . import loss
+from . import embeddings, loss, models
 from .strategy import *

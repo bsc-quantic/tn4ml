@@ -1,14 +1,14 @@
-from concurrent.futures import Executor, ProcessPoolExecutor
 import functools
 import operator
-from quimb import tensor as qtn
-from tqdm import tqdm
-import funcy
-import numpy as np
+from concurrent.futures import Executor, ProcessPoolExecutor
 from typing import Callable, Collection, Optional
-import jax
 
+import funcy
+import jax
+import numpy as np
+from quimb import tensor as qtn
 from tnad.strategy import *
+from tqdm import tqdm
 
 
 def lambda_value(lambda_init=1e-3, epoch=0, decay_rate=0.01):

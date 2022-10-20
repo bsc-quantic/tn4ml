@@ -1,8 +1,10 @@
 from numbers import Number
 from typing import Callable, Optional
+
 import quimb.tensor as qtn
 from autoray import do
-from tnad.embeddings import embed, Embedding
+
+from tnad.embeddings import Embedding, embed
 
 
 def no_reg(x):

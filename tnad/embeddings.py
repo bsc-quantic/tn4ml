@@ -1,8 +1,9 @@
+import abc
 import itertools
 from numbers import Number
+
 import numpy as np
 import quimb.tensor as qtn
-import abc
 
 
 class Embedding:

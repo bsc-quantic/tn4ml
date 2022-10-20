@@ -1,11 +1,11 @@
 import itertools
+import math
+from typing import Tuple
+
+import autoray as a
 import quimb as qu
 import quimb.tensor as qtn
-from typing import Tuple
-import autoray as a
-import numpy as np
-import math
-from quimb.tensor.tensor_1d import TensorNetwork1DOperator, TensorNetwork1DFlat, TensorNetwork
+from quimb.tensor.tensor_1d import TensorNetwork, TensorNetwork1DFlat, TensorNetwork1DOperator
 from tnad.models import Model
 
 
