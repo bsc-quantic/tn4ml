@@ -28,10 +28,8 @@ class Model(qtn.TensorNetwork):
                     self.strategy = Global()
                 else:
                     raise ValueError(f'Strategy "{value}" not found')
-            elif key == "optimizer":
-                self.optimizer = value
-            elif key == "loss_fn":
-                self.loss_fn = value
+            elif key in ["optimizer", "loss_fn"]:
+                setattr(self, key, value)
             else:
                 raise AttributeError(f"Attribute {key} not found")
 
