@@ -285,3 +285,7 @@ $RECYCLE.BIN/
 .venv
 .python-version
 *.whl
+*.ipynb
+*.svg
+*.png
+*.pkl
