@@ -2,12 +2,13 @@ import abc
 import itertools
 from numbers import Number
 
-import numpy as np
+import numpy as onp
+from autoray import numpy as np
 import quimb.tensor as qtn
 
 
 class Embedding:
-    def __init__(self, dtype=np.float32):
+    def __init__(self, dtype=onp.float32):
         self.dtype = dtype
 
     @property
@@ -16,7 +17,7 @@ class Embedding:
         pass
 
     @abc.abstractmethod
-    def __call__(self, x: Number) -> np.ndarray:
+    def __call__(self, x: Number) -> onp.ndarray:
         pass
 
 
@@ -31,8 +32,8 @@ class trigonometric(Embedding):
     def dim(self) -> int:
         return self.k * 2
 
-    def __call__(self, x: Number) -> np.ndarray:
-        return 1 / np.sqrt(self.k) * np.fromiter((f(np.pi * x / 2**i) for f, i in itertools.product([np.cos, np.sin], range(1, self.k + 1))), dtype=self.dtype)
+    def __call__(self, x: Number) -> onp.ndarray:
+        return 1 / np.sqrt(self.k) * np.asarray([f(onp.pi * x / 2**i) for f, i in itertools.product([np.cos, np.sin], range(1, self.k + 1))])
 
 
 class fourier(Embedding):
@@ -46,11 +47,11 @@ class fourier(Embedding):
     def dim(self) -> int:
         return self.p
 
-    def __call__(self, x: Number) -> np.ndarray:
-        return 1 / self.p * np.fromiter((np.abs(sum((np.exp(1j * 2 * np.pi * k * ((self.p - 1) * x - j) / self.p) for k in range(self.p)))) for j in range(self.p)), dtype=self.dtype)
+    def __call__(self, x: Number) -> onp.ndarray:
+        return 1 / self.p * np.asarray([np.abs(sum((np.exp(1j * 2 * onp.pi * k * ((self.p - 1) * x - j) / self.p) for k in range(self.p)))) for j in range(self.p)])
 
 
-def embed(x: np.ndarray, phi: Embedding, **mps_opts):
+def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
     """Creates a product state from a vector of features `x`."""
     assert x.ndim == 1
 
