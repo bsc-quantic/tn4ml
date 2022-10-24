@@ -16,10 +16,10 @@ def get_roc_data(qcd, bsm):
     fpr_loss, tpr_loss, threshold_loss = roc_curve(true_val, pred_val)
     return fpr_loss, tpr_loss
 
-P = qu.load_from_disk('trained_P_embeddings.pkl')
-# P = qu.load_from_disk('trained_P_adam.pkl')
-# P = qu.load_from_disk('trained_P_10epoch_jofreparams.pkl')
-# P = qu.load_from_disk('trained_P_10epoch.pkl')
+P = qu.load_from_disk('Trained_SMPO\trained_P_embeddings.pkl')
+# P = qu.load_from_disk('Trained_SMPO\trained_P_adam.pkl')
+# P = qu.load_from_disk('Trained_SMPO\trained_P_10epoch_jofreparams.pkl')
+# P = qu.load_from_disk('Trained_SMPO\trained_P_10epoch.pkl')
 
 print(P.norm())
 anomaly_score = error_logquad

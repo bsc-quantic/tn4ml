@@ -280,7 +280,7 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
 
             elif alg_depth==2:
                 if it==0:
-                    x = tnopt.vectorizer.vector  # P is already stored in the appropriate vector form when initializing tnopt
+                    x = tnopt.vectorizer.vector  # P is already stored in the appropriate vector form when initializing tnopt #####Should be equivalent to "x = tnopt.vectorizer.pack(P.arrays)"
                 loss, grad_full = tnopt.vectorized_value_and_grad(x) # extract the loss and the gradient
                 loss_array.append(loss)
                 if epoch > expdecay_tol:
@@ -311,6 +311,8 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
         
     if alg_depth==2:
         print('Remember that with alg_depth=2 the separate contribution of loss_reg and loss_miss cannot be calculated at each update')
+        tnopt.vectorizer.vector[:] = x
+        P = tnopt.get_tn_opt()
 
     return P, loss_array
 
