@@ -2,6 +2,7 @@ import itertools
 import functools
 import numpy as np
 import tnad.FeatureMap as fm
+import tnad.embeddings as e
 from tnad.losses import loss_miss, loss_reg, LossWrapper
 from tnad.gradients import gradient_miss, gradient_reg
 import math
@@ -183,11 +184,18 @@ def global_update_costfuncnorm(P, n_epochs, n_iters, data, batch_size, alpha, la
                 
     return P, loss_array
 
-def get_losses(phis,P,alpha=0.4,total=True):
+# To use this with bADAM all_phis must be formated as a 2D array of [n_batches][batch_size]
+# everytime bADAM calls this loss function it will fix which batch to use (every iteration will use the next one)
+def get_losses(all_phis,P,batch=None,alpha=0.4,total=True):
     loss_value = 0
+    if batch==None:
+        phis = all_phis 
+    else: 
+        phis = all_phis[batch%len(all_phis)]
     batch_size = len(phis)
     for phi in phis:
         loss_value += loss_miss(phi, P, 1/batch_size)
+
     if total:
         return loss_value + loss_reg(P, alpha)
     else:
@@ -202,11 +210,19 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
             pbar.set_description("Epoch #"+str(epoch)+", sample in batch:")
 
             # This will make it parallelizable as all these components for the loss function will be computed separately
-            embed_func = fm.trigonometric
-            phis = [fm.embed(sample.flatten(), embed_func)[0] for sample in data[it]]
+            # embed_func = fm.trigonometric
+            # phis = [fm.embed(sample.flatten(), embed_func)[0] for sample in data[it]]
+            phis = [e.embed(sample.flatten(), e.trigonometric(k=1)) for sample in data[it]]
+            
+            # if optimizer=='ADAM':
+            #     alg_depth = 0
 
-            # Parallelize (if we have mulptiple loss_fns as described above)
-            if alg_depth!=3:
+            if alg_depth==3:
+                loss_fn = functools.partial(get_losses,phis,alpha=alpha,total=True)
+                wrapper = LossWrapper(loss_fn, P)
+                get_grad = grad(wrapper)
+            else:
+                # Parallelize (if we have mulptiple loss_fns as described above)
                 loss_fns = [
                     functools.partial(loss_miss, phi, coeff=(1/batch_size))
                     for phi in phis
@@ -225,14 +241,10 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                     )
                 else:
                     tnopt = qtn.TNOptimizer(P,loss_fn=loss_fns,autodiff_backend=backend,optimizer=optimizer,executor=par_client)
-            else:
-                loss_fn = functools.partial(get_losses,phis,alpha=alpha,total=True)
-                wrapper = LossWrapper(loss_fn, P)
-                get_grad = grad(wrapper)
 
             if alg_depth==0:
                 P = tnopt.optimize(1)
-                lmiss, lreg = get_losses(phis,P,alpha,total=False)
+                lmiss, lreg = get_losses(phis,P,alpha=alpha,total=False)
                 loss_array.append(tnopt.res.fun)
                 if loss_detail:
                     loss_array[-1]=(loss_array[-1],lmiss,lreg)
@@ -252,7 +264,7 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                 # print(f'P norm: {P.H@P}')
 
                 if loss_detail:
-                    loss_array[-1]=(loss,)+get_losses(phis,P,alpha,total=False)
+                    loss_array[-1]=(loss,)+get_losses(phis,P,alpha=alpha,total=False)
 
                 for tensor in range(P.nsites):
                     site_tag = P.site_tag(tensor)
@@ -303,34 +315,37 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
     return P, loss_array
 
 ####At the moment this is not necessary as it is conecptually replaced by alg_depth=3####
+# I left it here to see if some of this makes sense to put in place after the refactor
 # Work in progress 
-from scipy.optimize import minimize
-def optimize(tnopt,iter,tol=None,method=None,**options):
+# from scipy.optimize import minimize
+# def optimize(tnopt,iter,tol=None,method=None,**options):
 
-    fun = tnopt.vectorized_value_and_grad
+#     fun = tnopt.vectorized_value_and_grad
 
-    if method==None:
-        method = tnopt._method
+#     if method==None:
+#         method = tnopt._method
 
-    try:
-        tnopt._maybe_init_pbar(n)
-        res = minimize(
-            fun=fun,
-            jac=True,
-            hessp=None,
-            x0=tnopt.vectorizer.vector,
-            tol=tol,
-            bounds=tnopt.bounds,
-            method=method,
-            options=dict(maxiter=iter, **options),
-        )
-        tnopt.vectorizer.vector[:] = res.x
-    except KeyboardInterrupt:
-        pass
-    finally:
-        tnopt._maybe_close_pbar()
+#     try:
+#         tnopt._maybe_init_pbar(n)
+#         res = minimize(
+#             fun=fun,
+#             jac=True,
+#             hessp=None,
+#             x0=tnopt.vectorizer.vector,
+#             tol=tol,
+#             bounds=tnopt.bounds,
+#             method=method,
+#             options=dict(maxiter=iter, **options),
+#         )
+#         tnopt.vectorizer.vector[:] = res.x
+#     except KeyboardInterrupt:
+#         pass
+#     finally:
+#         tnopt._maybe_close_pbar()
 
-    return tnopt.get_tn_opt(), res.fun
+#     return tnopt.get_tn_opt(), res.fun
+
+
 
 # In addition to adapting the class, it is important to think how we make it reach JAX. Based on QUIMB, the following is how you can do it:
 # tnopt = qtn.TNOptimizer( ... , optimizer = bADAM , ... )
@@ -372,7 +387,9 @@ class bADAM: # adaptation of adam with batches. This should serve as an example 
         for _ in range(maxiter):
             self._i += 1
 
-            g = jac(x)
+            # jac is called with argument i to indicate which batch to use. 
+            # We iterate over all of them, and for a given one, the update is done using all samples in the batch at once
+            g = jac(x,self._i)
 
             if callback and callback(x):
                 break

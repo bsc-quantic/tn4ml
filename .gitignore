@@ -286,3 +286,6 @@ $RECYCLE.BIN/
 .python-version
 *.whl
 *.ipynb
+*.pkl
+*.svg
+*.png
