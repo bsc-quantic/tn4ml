@@ -1,12 +1,13 @@
 import functools
 import operator
 from concurrent.futures import Executor, ProcessPoolExecutor
-from typing import Callable, Collection, Optional
+from typing import Any, Callable, Collection, Optional, Sequence
 
 import funcy
 import jax
 import numpy as np
 from quimb import tensor as qtn
+from scipy.optimize import OptimizeResult
 from tnad.strategy import *
 from tqdm import tqdm
 
@@ -33,7 +34,7 @@ class Model(qtn.TensorNetwork):
             else:
                 raise AttributeError(f"Attribute {key} not found")
 
-    def train(self, data, batch_size=None, nepochs=1, **kwargs):
+    def train(self, data, batch_size=None, nepochs=1, callbacks=None, **kwargs):
         if self.loss_fn is None:
             raise ValueError("`loss_fn` not yet configured. Call `Model.configure(loss_fn=...)` first.")
 
@@ -107,7 +108,17 @@ class LossWrapper:
             return loss_fn(tn)
 
 
-def _fit(model: Model, loss_fn: Callable, data: Collection, strategy: Strategy = Global(), optimizer: Optional[Callable] = None, executor: Optional[Executor] = None, epoch: Optional[int] = None, **hyperparams):
+def _fit(
+    model: Model,
+    loss_fn: Callable,
+    data: Collection,
+    strategy: Strategy = Global(),
+    optimizer: Optional[Callable] = None,
+    executor: Optional[Executor] = None,
+    epoch: Optional[int] = None,
+    callbacks: Optional[Sequence[Callable[[Model, OptimizeResult, qtn.optimize.Vectorizer], Any]]] = None,
+    **hyperparams,
+):
     """
     ## Arguments
     - model: `Model`
@@ -127,6 +138,10 @@ def _fit(model: Model, loss_fn: Callable, data: Collection, strategy: Strategy =
 
     if executor is None:
         executor = ProcessPoolExecutor()
+
+    metrics = None
+    if callbacks:
+        metrics = []
 
     for sites in strategy.iterate_sites(model):
         # contract sites in groups
@@ -182,6 +197,10 @@ def _fit(model: Model, loss_fn: Callable, data: Collection, strategy: Strategy =
 
         # split sites
         strategy.posthook(model, sites)
+
+        if callbacks:
+            metrics.append(tuple(fn(model, res, vectorizer)) for fn in callbacks)  # type: ignore
+            return (res.fun, *metrics)  # type: ignore
 
         return res.fun
 
