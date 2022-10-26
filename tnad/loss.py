@@ -22,12 +22,14 @@ def reg_norm_quad(P):
 
 
 def error_logquad(P, data):
-    mps = qtn.tensor_network_apply_op_vec(P, data)
+    #mps = qtn.tensor_network_apply_op_vec(P, data)
+    mps = P.apply(data)
     return do("power", do("add", do("log", mps.H & mps ^ all), -1.0), 2)
 
 
 def error_quad(P, data):
-    mps = qtn.tensor_network_apply_op_vec(P, data)
+    #mps = qtn.tensor_network_apply_op_vec(P, data)
+    mps = P.apply(data)
     return do("power", do("add", mps.H & mps ^ all, -1.0), 2)
 
 
