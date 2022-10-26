@@ -5,8 +5,14 @@ from typing import Tuple
 import autoray as a
 import quimb as qu
 import quimb.tensor as qtn
-from quimb.tensor.tensor_1d import TensorNetwork, TensorNetwork1DFlat, TensorNetwork1DOperator
+from quimb.tensor.tensor_1d import TensorNetwork, TensorNetwork1DFlat, TensorNetwork1DOperator, MatrixProductState
 from tnad.models import Model
+from tnad.util import return_digits
+
+def sort_tensors(tn):
+    ts_and_sorted_tags = [(t, sorted(return_digits(t.tags))) for t in tn]
+    ts_and_sorted_tags.sort(key=lambda x: x[1])
+    return tuple(x[0] for x in ts_and_sorted_tags)
 
 class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, Model):
     """A MatrixProductOperator with a decimated number of output indices.
@@ -144,3 +150,141 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
     def get_orders(self) -> list:
         return self._orders
     
+    def apply_mps(tn_op, tn_vec, compress=False, **compress_opts):
+        """
+        Version of _apply_mps() for SpacedMatrixProductOperator class
+        
+        Parameters
+        ----------
+        tn_op : TensorNetwork
+            The tensor network representing the operator.
+        tn_vec : TensorNetwork
+            The tensor network representing the vector.
+        compress : bool
+            Whether to compress the resulting tensor network.
+        compress_opts
+            Options to pass to ``tn_vec.compress``.
+
+        Returns
+        -------
+        mps : MatrixProductState
+        """
+        
+        smpo, mps = tn_op.copy(), tn_vec.copy()
+        S = smpo.spacing
+        
+        # align the indices
+        coordinate_formatter = qu.tensor.tensor_arbgeom.get_coordinate_formatter(smpo._NDIMS)
+        smpo.lower_ind_id = f"__tmp{coordinate_formatter}__"
+        smpo.upper_ind_id = mps.site_ind_id
+        
+        result = smpo & mps
+
+        for ind in mps.outer_inds():
+            result.contract_ind(ind=ind)
+        
+        list_tensors = result.tensors
+        number_of_sites=len(list_tensors)
+        tags = list(qtn.tensor_core.get_tags(result))
+
+        if S > 1:
+            for i in range(0, len(tags), S):
+                tags_to_drop=[]
+                for j in range(i+1, i+S):
+                    if j + 1 == i + S or j >= number_of_sites-1: break
+                    result.contract_ind(list_tensors[j].bonds(list_tensors[j+1]))
+                    tags_to_drop.extend([tags[j], tags[j+1]])
+                if i+1 == len(tags) and list_tensors[i].ndim!=2:
+                    # if last site of smpo has output_ind
+                    break
+                result.contract_ind(list_tensors[i].bonds(list_tensors[i+1]))
+                if len(tags_to_drop)==0: 
+                    tags_to_drop.append(tags[i+1])
+                result.drop_tags(tags_to_drop)
+    
+        result.fuse_multibonds_()
+        
+        sorted_tensors = sort_tensors(result)
+        arrays = [tensor.data for tensor in sorted_tensors]
+        vec = MatrixProductState(arrays, shape='rlp')
+        
+        # optionally compress
+        if compress:
+            vec.compress(**compress_opts)
+        return vec
+    
+    def apply_smpo(tn_op_1, tn_op_2, compress=False, **compress_opts):
+        """
+        Version of _apply_mpo() for SpacedMatrixProductOperator class
+        
+        Parameters
+        ----------
+        tn_op_1 : TensorNetwork
+            The tensor network representing the operator 1.
+        tn_op_2 : TensorNetwork
+            The tensor network representing the operator 2.
+        compress : bool
+            Whether to compress the resulting tensor network.
+        compress_opts
+            Options to pass to ``tn_vec.compress``.
+
+        Returns
+        -------
+        mpo : MatrixProductOperator
+        """
+        pass
+    
+    def apply(self, other, compress=False, **compress_opts):
+        r"""Act with this SMPO on another SMPO or MPS, such that the resulting
+        object has the same tensor network structure/indices as ``other``.
+
+        For an MPS::
+
+                   |  S  |  S  |  S  |  S  |  S  |   
+             self: A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A  where S = spacing
+                   | | | | | | | | | | | | | | | |
+            other: x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x
+
+                                   -->
+
+                   |  S  |  S  |  S  |  S  |  S  |   <- other.site_ind_id
+              out: y=y=y=y=y=y=y=y=y=y=y=y=y=y=y=y
+
+        For an SMPO::
+
+                   | | | | | | | | | | | | | | | | <- self.upper_ind_id
+             self: A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A
+                   |  S  |  S  |  S  |  S  |  S  | <- lower_ind_id
+            other: B-B-B-B-B-B-B-B-B-B-B-B-B-B-B-B
+                   | | | | | | | | | | | | | | | | <- other.upper_ind_id
+
+                                   -->
+
+                   | | | | | | | | | | | | | | | | | |   <- other.upper_ind_id
+              out: C=C=C=C=C=C=C=C=C=C=C=C=C=C=C=C=C=C
+                   | | | | | | | | | | | | | | | | | |   <- other.lower_ind_id
+
+        The resulting TN will have the same structure/indices as ``other``, but
+        probably with larger bonds (depending on compression).
+
+
+        Parameters
+        ----------
+        other : SpacedMatrixProductOperator or MatrixProductState
+            The object to act on.
+        compress : bool, optional
+            Whether to compress the resulting object.
+        compress_opts
+            Supplied to :meth:`TensorNetwork1DFlat.compress`.
+
+        Returns
+        -------
+        MatrixProductOperator or MatrixProductState
+        """
+        if isinstance(other, MatrixProductState):
+            return self.apply_mps(other, compress=compress, **compress_opts)
+        elif isinstance(other, SpacedMatrixProductOperator):
+            return self.apply_smpo(other, compress=compress, **compress_opts)
+        else:
+            raise TypeError("Can only Dot with a SpacedMatrixProductOperator or a "
+                            f"MatrixProductState, got {type(other)}")
