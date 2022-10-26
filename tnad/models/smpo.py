@@ -1,11 +1,11 @@
 import itertools
+import math
+from typing import Tuple
+
+import autoray as a
 import quimb as qu
 import quimb.tensor as qtn
-from typing import Tuple
-import autoray as a
-import numpy as np
-import math
-from quimb.tensor.tensor_1d import TensorNetwork1DOperator, TensorNetwork1DFlat
+from quimb.tensor.tensor_1d import TensorNetwork, TensorNetwork1DFlat, TensorNetwork1DOperator
 from tnad.models import Model
 
 class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, Model):
@@ -23,7 +23,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
     def __init__(self, arrays, shape="lrud", site_tag_id="I{}", tags=None, upper_ind_id="k{}", lower_ind_id="b{}", bond_name="bond{}", **tn_opts):
         if isinstance(arrays, SpacedMatrixProductOperator):
-            super().__init__(arrays)
+            TensorNetwork.__init__(self, arrays)
             return
 
         arrays = tuple(arrays)
@@ -94,7 +94,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         last_down_ind = [lower_ind_id.format(self.L - 1)] if (self.L - 1) % self.spacing == 0 else []
         inds += [(pbond, *cyc_bond, next(upper_inds), *last_down_ind)]
         tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
-        super().__init__(tensors, virtual=True, **tn_opts)
+        TensorNetwork.__init__(self, tensors, virtual=True, **tn_opts)
 
     def normalize(self, insert=0): 
         # normalize

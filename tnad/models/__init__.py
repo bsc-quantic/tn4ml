@@ -1,62 +1,57 @@
-import abc
-from quimb import tensor as qtn
-from tqdm import tqdm
+import functools
+import operator
+from concurrent.futures import Executor, ProcessPoolExecutor
+from typing import Any, Callable, Collection, Optional, Sequence
+
 import funcy
+import jax
 import numpy as np
-import tnad.models.util as u
-from tnad.loss import error_logquad, reg_norm_logrelu
-from IPython.display import clear_output
-import matplotlib.pyplot as plt
-
-def lambda_value(lambda_init=1e-3, epoch=0, decay_rate=0.01):
-    return lambda_init * np.power((1 - decay_rate / 100), epoch)
+from quimb import tensor as qtn
+from scipy.optimize import OptimizeResult
+from tnad.strategy import *
+from tqdm import tqdm
 
 
-class Model:
+class Model(qtn.TensorNetwork):
+    def __init__(self):
+        self.loss_fn = None
+        self.strategy = Global()
+        self.optimizer = qtn.optimize.ADAM()
 
-    # NOTE data already embedded
-    def configure(self, loss, strategy="dmrg", optimizer="adam", **kwargs):
-        self.loss = loss
+    def configure(self, **kwargs):
+        for key, value in kwargs.items():
+            if key == "strategy":
+                if isinstance(value, Strategy):
+                    self.strategy = value
+                elif value in ["sweeps", "local", "dmrg"]:
+                    self.strategy = Sweeps()
+                elif value in ["global"]:
+                    self.strategy = Global()
+                else:
+                    raise ValueError(f'Strategy "{value}" not found')
+            elif key in ["optimizer", "loss_fn"]:
+                setattr(self, key, value)
+            else:
+                raise AttributeError(f"Attribute {key} not found")
 
-        if isinstance(strategy, Strategy):
-            pass
-        elif strategy in ["sweeps", "local", "dmrg"]:
-            strategy = Sweeps()  # TODO
-        elif strategy in ["global"]:
-            strategy = Global()  # TODO
-        else:
-            raise ValueError(f'Strategy "{strategy}" not found')
-        self.strategy = strategy
-
-        self.optimizer = optimizer
-
-    def train(self, data, batch_size=None, epochs=1, initial_epochs=None, decay_rate=0.01, **kwargs):
-        
-        self.history = dict()
-        self.history['loss']=[]; self.history['loss_miss']=[]; self.history['loss_reg']=[];
-        self.history['grad_miss']=[]; self.history['grad_reg']=[];
-        self.history['norm']=[];
+    def train(self, data, batch_size=None, nepochs=1, callbacks=None, **kwargs):
+        if self.loss_fn is None:
+            raise ValueError("`loss_fn` not yet configured. Call `Model.configure(loss_fn=...)` first.")
 
         # regularization parameter
         if "alpha" in kwargs:
-            alpha = kwargs['alpha']
-        
+            alpha = kwargs["alpha"]
+
         # split data in batches
         if batch_size:
             data = np.split(data, data.shape[0] // batch_size)
         else:
             data = [data]  # NOTE fixes `for batch in data`
 
-        for epoch in (pbar := tqdm(range(epochs))):
+        for epoch in (pbar := tqdm(range(nepochs))):
             pbar.set_description(f"Epoch #{epoch}")
             for batch in data:
-                if not isinstance(self.optimizer, str) and initial_epochs and epoch >= initial_epochs:
-                    lambda_it = lambda_value(lambda_init=self.optimizer.learning_rate, epoch=epoch - initial_epochs, decay_rate=decay_rate)
-                    self.optimizer.learning_rate = lambda_it
-                if "hardcode" in kwargs:
-                    self.fit_step_hardcoded(loss_fn=self.loss, data = batch, batch_size=batch_size, alpha=alpha)
-                else: self.fit_step(loss_fn=self.loss, loss_constants={"batch_data": batch}, **kwargs)
-        return self.history
+                _fit(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, **kwargs)
 
     def fit_step(self, loss_fn, niter=1, **kwargs):
         for sites in self.strategy.iterate_sites(self):
@@ -95,123 +90,124 @@ class Model:
 
             # split tensors (if needed) & renormalize (if configured)
             self.strategy.posthook(self, sites)
-    
-    def fit_step_hardcoded(self, loss_fn, data, **kwargs):
-        self.history['norm'].append(self.norm())
-        grad_per_site=[]
-        for site in self.sites:
-            grad, total_loss, history_epoch = u.get_total_grad_and_loss(self, site, data, loss_fn, kwargs['batch_size'], kwargs['alpha']) # get grad per tensor
-            grad_per_site.append(grad)
-            self.history['loss'].append(total_loss)
-            
-        for tensor, grad in enumerate(grad_per_site):
-            site_tag = self.site_tag(tensor)
-            (tensor_orig,) = self.select_tensors(site_tag, which="any")
-            tensor_orig.modify(data = self.optimizer(tensor_orig, grad))
-            
-        if 'renormalize' in kwargs:
-            if kwargs['renormalize']:
-                self.normalize(inplace=True)
-        
-        ## remove later
-        self.history['loss_miss'].append(history_epoch['loss_miss'])
-        self.history['loss_reg'].append(history_epoch['loss_reg'])
-        self.history['grad_miss'].append(history_epoch['grad_miss'])
-        self.history['grad_reg'].append(history_epoch['grad_reg'])
-        
-        
-        plt.figure()
-        clear_output(wait=True)
-        plt.plot(range(1, len(self.history['loss_miss'])+1), self.history['loss_miss'], label='loss miss')
-        plt.plot(range(1, len(self.history['loss_miss'])+1), self.history['loss_reg'], label='loss reg')
-        plt.plot(range(1, len(self.history['loss_miss'])+1), self.history['loss'], label='loss total')
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
-                                
+
     def predict(self, x):
-        return self @ x
+        return (self @ x).norm()
 
 
-class Strategy:
-    """Decides how the gradients are computed. i.e. compute the gradients of each tensor separately or only of one site."""
+class LossWrapper:
+    def __init__(self, loss_fn, tn):
+        self.tn = tn
+        self.loss_fn = loss_fn
 
-    def __init__(self, renormalize=False):
-        self.renormalize = renormalize
+    def __call__(self, arrays, **kwargs):
+        tn = self.tn.copy()
 
-    def prehook(self, model, sites):
-        """Modify `model` before computing gradient(s). Usually contract tensors."""
-        pass
+        kwargs = qtn.optimize.parse_constant_arg(kwargs, jax.numpy.asarray)
+        loss_fn = functools.partial(self.loss_fn, **kwargs)
 
-    def posthook(self, model, sites):
-        """Modify `model` after optimizing tensors. Usually split tensors."""
-        pass
+        for tensor, array in zip(tn.tensors, arrays):
+            tensor.modify(data=array)
 
-    @abc.abstractmethod
-    def iterate_sites(self, sites):
-        pass
+        with qtn.contract_backend("jax"):
+            return loss_fn(tn)
 
 
-class Sweeps(Strategy):
-    """DMRG-like local optimization."""
+def _fit(
+    model: Model,
+    loss_fn: Callable,
+    data: Collection,
+    strategy: Strategy = Global(),
+    optimizer: Optional[Callable] = None,
+    executor: Optional[Executor] = None,
+    epoch: Optional[int] = None,
+    callbacks: Optional[Sequence[Callable[[Model, OptimizeResult, qtn.optimize.Vectorizer], Any]]] = None,
+    **hyperparams,
+):
+    """
+    ## Arguments
+    - model: `Model`
+    - loss_fn: `Callable`
+    - data: `Sequence` of `numpy.ndarray`
+    - reg_fn: `Callable`
+    - strategy: `Strategy`
+    - optimizer: `Callable` or `None`
+    - executor: `concurrent.futures.Executor` or `None`
+    """
 
-    def __init__(self, grouping: int = 2, two_way=True, split_opts={"cutoff": 1e-3}, **kwargs):
-        self.grouping = grouping
-        self.two_way = two_way
-        self.split_opts = split_opts
-        super().__init__(**kwargs)
+    if not isinstance(strategy, Global):
+        raise NotImplementedError("non-`Global` strategies are not implemented yet for function `_fit`")
 
-    def iterate_sites(self, model):
-        for i in model.sites[: len(model.sites) - self.grouping + 1]:
-            yield tuple(model.sites[i + j] for j in range(self.grouping))
+    if optimizer is None:
+        optimizer = qtn.optimize.SGD()
 
-    def prehook(self, model, sites):
-        model.canonize(sites)
+    if executor is None:
+        executor = ProcessPoolExecutor()
 
-        sitetags = tuple(model.site_tag(site) for site in sites)
-        model.contract_tags(sitetags, inplace=True)
+    metrics = None
+    if callbacks:
+        metrics = []
 
-    def posthook(self, model, sites):
-        sitetags = [model.site_tag(site) for site in sites]
-        tensor = model.select_tensors(sitetags, which="all")[0]
-        # normalize
-        if self.renormalize:
-            tensor.normalize(inplace=True)
+    for sites in strategy.iterate_sites(model):
+        # contract sites in groups
+        strategy.prehook(model, sites)
 
-        # split tensor
-        # TODO right now only support grouping <= 2
-        if self.grouping > 2:
-            raise RuntimeError(f"{self.grouping=} > 2")
+        arrays = model.arrays
+        vectorizer = qtn.optimize.Vectorizer(arrays)
 
-        sitel, siter = sites
-        site_ind_prefix = model.upper_ind_id.rstrip("{}")
-        
-        vindl = [model.upper_ind(sitel)] + ([model.bond(sitel - 1, sitel)] if sitel > 0 else [])
-        #vindr = [model.upper_ind(siter)] + ([model.bond(siter, siter + 1)] if siter < model.nsites - 1 else []) + ([model.lower_ind(siter)] if model.tensors[siter].ndim == 4 or (siter==model.L-1 and model.tensors[siter].ndim == 3) else [])
-                
-        lower_ind = [f'{model.lower_ind_id}{sitel}'] if f'{model.lower_ind_id}{sitel}' in model.lower_inds else []
-        model.split_tensor(sitetags, left_inds=[*vindl, *lower_ind], **self.split_opts)
-        # fix tags
-        for tag in sitetags:
-            for tensor in model.select_tensors(tag):
-                tensor.drop_tags()
-                site_ind = next(filter(lambda ind: ind.removeprefix(site_ind_prefix).isdecimal(), tensor.inds))
-                site = site_ind.removeprefix(site_ind_prefix)
-                tensor.add_tag(model.site_tag(site))
+        error_wrapper = LossWrapper(loss_fn, model)
 
-class Global(Strategy):
-    """Global optimization through Gradient descent."""
+        def jac(x):
+            # compute grad of error term
+            error_grad = jax.grad(error_wrapper)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+            arrays = tuple(map(jax.numpy.asarray, vectorizer.unpack(x)))
+            futures = executor.map(lambda sample: error_grad(arrays, data=sample), data)
 
-    def iterate_sites(self, model):
-        yield model.sites
+            # tree fold for parallelization
+            futures = list(futures)
+            while len(futures) > 1:
+                futures = [executor.submit(operator.add, *chunk) if len(chunk) > 1 else chunk[0] for chunk in funcy.chunks(2, futures)]
 
-    def posthook(self, model, sites):
-        # renormalize
-        if self.renormalize:
-            model.normalize(inplace=True)
+            # normalize gradients
+            n = len(data)
+            grad_arrays = tuple(array / n for array in futures[0].result())
+
+            return vectorizer.pack(grad_arrays, name="grad")
+
+        # call quimb's optimizers with vectorizer
+        def loss(x):
+            arrays = vectorizer.unpack(x)
+            futures = executor.map(lambda sample: error_wrapper(arrays, data=sample), data)
+
+            # tree fold for parallelization
+            futures = list(futures)
+            while len(futures) > 1:
+                futures = [executor.submit(operator.add, *chunk) if len(chunk) > 1 else chunk[0] for chunk in funcy.chunks(2, futures)]
+
+            return futures[0].result() / len(data)
+
+        # prepare hyperparameters
+        hyperparams = {key: value(epoch) if callable(value) else value for key, value in hyperparams.items()}
+        if "maxiter" not in hyperparams:
+            hyperparams["maxiter"] = 1
+
+        x = vectorizer.pack(arrays)
+        res = optimizer(loss, x, jac, **hyperparams)
+
+        opt_arrays = vectorizer.unpack(res.x)
+
+        for tensor, array in zip(model.tensors, opt_arrays):
+            tensor.modify(data=array)
+
+        # split sites
+        strategy.posthook(model, sites)
+
+        if callbacks:
+            metrics.append(tuple(fn(model, res, vectorizer)) for fn in callbacks)  # type: ignore
+            return (res.fun, *metrics)  # type: ignore
+
+        return res.fun
 
 
 from .smpo import SpacedMatrixProductOperator

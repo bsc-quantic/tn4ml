@@ -13,3 +13,8 @@ This will install the package and its dependencies while you can still edit it a
 
 - Python ≥ 3.8
 - NumPy ≥ 1.20
+
+This code requires a patch in `quimb` that is already upstream but that it is not available in release yet. Please install `quimb` from the HEAD:
+```bash
+pip install git+https://github.com/jcmgray/quimb.git@develop
+```

@@ -1,7 +1,10 @@
 from numbers import Number
+from typing import Callable, Optional
+
 import quimb.tensor as qtn
 from autoray import do
-import tnad.embeddings
+
+from tnad.embeddings import Embedding, embed
 
 
 def no_reg(x):
@@ -18,20 +21,15 @@ def reg_norm_quad(P):
     return do("power", do("add", P.H & P ^ all, -1.0), 2)
 
 
-def loss(model, batch_data, error=None, reg=no_reg) -> Number:
-    acc = tnad.loss.reg_norm_quad(model)
-    n = len(batch_data)
-    for sample in batch_data:
-        acc = acc + tnad.loss.error_quad(model, sample) / n
-
-    return acc
-
-
-def error_logquad(P, phi):
-    mps = qtn.tensor_network_apply_op_vec(P, phi)
+def error_logquad(P, data):
+    mps = qtn.tensor_network_apply_op_vec(P, data)
     return do("power", do("add", do("log", mps.H & mps ^ all), -1.0), 2)
 
 
-def error_quad(P, phi):
-    mps = qtn.tensor_network_apply_op_vec(P, phi)
+def error_quad(P, data):
+    mps = qtn.tensor_network_apply_op_vec(P, data)
     return do("power", do("add", mps.H & mps ^ all, -1.0), 2)
+
+
+def loss(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Embedding] = None) -> Number:
+    return do("mean", [error(model, embed(sample, embedding) if embedding else sample) for sample in data]) + reg(model)
