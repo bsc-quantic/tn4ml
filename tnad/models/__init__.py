@@ -48,10 +48,15 @@ class Model(qtn.TensorNetwork):
         else:
             data = [data]  # NOTE fixes `for batch in data`
 
+        metrics = []
+
         for epoch in (pbar := tqdm(range(nepochs))):
             pbar.set_description(f"Epoch #{epoch}")
             for batch in data:
-                _fit(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, **kwargs)
+                metrics_cur = _fit(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, callbacks=callbacks, **kwargs)
+                metrics.append(metrics_cur)
+
+        return metrics
 
     def fit_step(self, loss_fn, niter=1, **kwargs):
         for sites in self.strategy.iterate_sites(self):
@@ -203,11 +208,11 @@ def _fit(
         # split sites
         strategy.posthook(model, sites)
 
-        if callbacks:
-            metrics.append(tuple(fn(model, res, vectorizer)) for fn in callbacks)  # type: ignore
-            return (res.fun, *metrics)  # type: ignore
+    if callbacks:
+        metrics = tuple(fn(model, res, vectorizer) for fn in callbacks)  # type: ignore
+        return (res.fun, *metrics)  # type: ignore
 
-        return res.fun
+    return res.fun
 
 
 from .smpo import SpacedMatrixProductOperator
