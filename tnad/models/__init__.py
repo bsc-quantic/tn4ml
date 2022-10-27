@@ -3,9 +3,11 @@ import operator
 from concurrent.futures import Executor, ProcessPoolExecutor
 from typing import Any, Callable, Collection, Optional, Sequence
 
+import autoray
 import funcy
 import jax
 import numpy as np
+import tnad.embeddings
 from quimb import tensor as qtn
 from scipy.optimize import OptimizeResult
 from tnad.strategy import *
@@ -213,6 +215,99 @@ def _fit(
         return (res.fun, *metrics)  # type: ignore
 
     return res.fun
+
+
+def _fit_jax_vmap(
+    model: Model,
+    loss_fn: Callable,
+    data: Collection,
+    strategy: Strategy = Global(),
+    optimizer: Optional[Callable] = None,
+    epoch: Optional[int] = None,
+    callbacks: Optional[Sequence[Callable[[Model, OptimizeResult, qtn.optimize.Vectorizer], Any]]] = None,
+    embedding: tnad.embeddings.Embedding = tnad.embeddings.trigonometric(),
+    **hyperparams,
+):
+    """
+    ## Arguments
+    - model: `Model`
+    - loss_fn: `Callable`
+    - data: `Sequence` of `numpy.ndarray`
+    - reg_fn: `Callable`
+    - strategy: `Strategy`
+    - optimizer: `Callable` or `None`
+    """
+
+    if not isinstance(strategy, Global):
+        raise NotImplementedError("non-`Global` strategies are not implemented yet for function `_fit`")
+
+    if optimizer is None:
+        optimizer = qtn.optimize.SGD()
+
+    metrics = None
+    if callbacks:
+        metrics = []
+
+    for sites in strategy.iterate_sites(model):
+        # contract sites in groups
+        strategy.prehook(model, sites)
+
+        vectorizer = qtn.optimize.Vectorizer(model.arrays)
+
+        def jac(x):
+            arrays = vectorizer.unpack(x)
+
+            def foo(x, *model_arrays):
+                tn = model.copy()
+                for tensor, array in zip(tn.tensors, model_arrays):
+                    tensor.modify(data=array)
+
+                phi = tnad.embeddings.embed(x, embedding)
+                return loss_fn(tn, phi)
+
+            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
+                x = jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(model.L)]), in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
+                x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
+
+            return np.concatenate(x, axis=None)
+
+        # call quimb's optimizers with vectorizer
+        def loss(x):
+            arrays = vectorizer.unpack(x)
+
+            def foo(sample, *model_arrays):
+                tn = model.copy()
+                for tensor, array in zip(tn.tensors, model_arrays):
+                    tensor.modify(data=array)
+
+                phi = tnad.embeddings.embed(sample, embedding)
+                return loss_fn(model, phi)
+
+            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
+                x = jax.vmap(foo, in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
+                return jax.numpy.sum(x) / data.shape[0]
+
+        # prepare hyperparameters
+        hyperparams = {key: value(epoch) if callable(value) else value for key, value in hyperparams.items()}
+        if "maxiter" not in hyperparams:
+            hyperparams["maxiter"] = 1
+
+        x = vectorizer.pack(model.arrays)
+        res = optimizer(loss, x, jac, **hyperparams)
+
+        opt_arrays = vectorizer.unpack(res.x)
+
+        for tensor, array in zip(model.tensors, opt_arrays):
+            tensor.modify(data=array)
+
+        # split sites
+        strategy.posthook(model, sites)
+
+        if callbacks:
+            metrics.append(tuple(fn(model, res, vectorizer)) for fn in callbacks)  # type: ignore
+            return (res.fun, *metrics)  # type: ignore
+
+        return res.fun
 
 
 from .smpo import SpacedMatrixProductOperator
