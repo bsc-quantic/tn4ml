@@ -215,7 +215,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
     
     def apply_smpo(tn_op_1, tn_op_2, compress=False, **compress_opts):
         """
-        Version of _apply_mpo() for SpacedMatrixProductOperator class
+        Version of _apply_mpo() for SpacedMatrixProductOperator class - computes trace
         
         Parameters
         ----------
@@ -232,7 +232,23 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         -------
         mpo : MatrixProductOperator
         """
-        pass
+        
+        #assume that A and B have same spacing
+        assert tn_op_1.spacing == tn_op_2.spacing
+        
+        A, B = tn_op_1.copy(), tn_op_2.copy()
+        
+        tn = A | B
+
+        for tag in A.site_tags:
+            tn.contract_tags([tag], inplace=True)
+        
+        # optionally compress
+        if compress:
+            tn.compress(**compress_opts)
+            
+        trace = tn.contract_cumulative(tn.site_tags)
+        return trace
     
     def apply(self, other, compress=False, **compress_opts):
         r"""Act with this SMPO on another SMPO or MPS, such that the resulting
