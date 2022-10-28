@@ -204,6 +204,10 @@ def get_losses(all_phis,P,batch=None,alpha=0.4,total=True):
 def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lamda_init, lamda_init_2, bond_dim, decay_rate=None, expdecay_tol=None, alg_depth=2, jit_fn=False, par_client=None, loss_detail=False, backend = 'jax', optimizer='L-BFGS-B'):
 
     loss_array = []
+    if backend == 'jax':
+        from jax.config import config
+        # to fix nans in jax, we need this setting
+        config.update("jax_enable_x64", True)
     
     for epoch in range(n_epochs):
         for it in (pbar := tqdm(range(n_iters))):
@@ -255,7 +259,7 @@ def automatic_differentiation(P, n_epochs, n_iters, data, batch_size, alpha, lam
                 # print(len(x))
                 loss, grad_full = tnopt.vectorized_value_and_grad(x) # extract the loss and the gradient
                 loss_array.append(loss)
-                # print(f'grad is {grad_full}')
+                print(f'grad is {grad_full}')
                 tnopt.vectorizer.vector[:] = grad_full
                 grad_tn = tnopt.get_tn_opt()
                 # print(f'grad_tn is {grad_tn}')
