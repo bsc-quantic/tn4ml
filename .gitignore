@@ -287,3 +287,5 @@ $RECYCLE.BIN/
 *.whl
 *.ipynb
 *.pkl
+*.svg
+*.png
