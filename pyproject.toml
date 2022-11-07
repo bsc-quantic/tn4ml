@@ -8,9 +8,12 @@ description = "Tensor Networks for Anomaly Detection"
 version = "0.1"
 readme = "README.md"
 dependencies = [
-	"quimb>=1.4.0",
+	"autoray>=0.3.0",
+	"dask",
+	"funcy",
 	"numpy",
-	"autoray",
+	"opt_einsum>=3.3.0",
+	"quimb>=1.4.0",
 	"tensorflow",
 	"jax",
 ]

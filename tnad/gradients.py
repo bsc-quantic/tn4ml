@@ -26,7 +26,6 @@ def gradient_miss(phi, P_orig, P_rem, sites):
     # relabel (quimb requirement)
     phi_orig_renamed = phi.reindex({f'k{site}':f'k_{site}' for site in range(phi.nsites)})
     P_orig_renamed = P_orig.reindex({f'k{site}':f'k_{site}' for site in range(P_orig.nsites)})
-
     # l2_norm
     l2_norm = (phi_orig_renamed.H&P_orig_renamed.H&P_orig&phi)^all
     
