@@ -32,4 +32,4 @@ def error_quad(P, data):
 
 
 def loss(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Embedding] = None) -> Number:
-    return do("mean", [error(model, embed(sample, embedding) if embedding else sample) for sample in data]) + reg(model)
+    return do("mean", [error(model, embed(sample, embedding)) for sample in data] if embedding else error(model, data)) + reg(model)
