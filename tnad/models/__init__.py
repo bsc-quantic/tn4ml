@@ -1,22 +1,23 @@
 import functools
 import operator
 from concurrent.futures import Executor, ProcessPoolExecutor
-from typing import Any, Callable, Collection, Optional, Sequence
+from typing import Any, Callable, Collection, Optional, Sequence, NamedTuple
 
 import autoray
 import funcy
 import jax
 import numpy as np
-import tnad.embeddings
+import tnad
+import tnad.embeddings as embeddings
+from tnad.util import EarlyStopping
 from quimb import tensor as qtn
 from scipy.optimize import OptimizeResult
 from tnad.strategy import *
 from tqdm import tqdm
 
-
 class Model(qtn.TensorNetwork):
     def __init__(self):
-        self.loss_fn = None
+        self.loss_fn = None # dict()
         self.strategy = Global()
         self.optimizer = qtn.optimize.ADAM()
 
@@ -36,29 +37,96 @@ class Model(qtn.TensorNetwork):
             else:
                 raise AttributeError(f"Attribute {key} not found")
 
-    def train(self, data, batch_size=None, nepochs=1, callbacks=None, **kwargs):
-        if self.loss_fn is None:
-            raise ValueError("`loss_fn` not yet configured. Call `Model.configure(loss_fn=...)` first.")
+    def train(self, 
+            data: Collection,
+            batch_size: Optional[int] = None,
+            nepochs: Optional[int] = 1,
+            embedding: embeddings.Embedding = embeddings.trigonometric(),
+            callbacks: Optional[Sequence[tuple[str, Callable]]] = None,
+            earlystop: Optional[EarlyStopping] = None,
+            **kwargs):
+        
+        """
+        ## Arguments
+        - data: `Sequence` of `numpy.ndarray`
+        - batch_size: `Integer` indicating batch size or `None` 
+        - nepochs: `Integer` indicating number of epochs for training
+        - embedding: data embedding function
+        - callbacks: `Sequence` of callbacks (metrics) - tuple(callback name, function - `Callable`) or `None`
+                    function receives (Model, res, vectorizer)
+        - earlystop: `EarlyStopping` object for stopping training when monitored metric stopped improving
 
-        # regularization parameter
-        if "alpha" in kwargs:
-            alpha = kwargs["alpha"]
+        ## Returns
+        - history: `dict` - records training loss and metric values
+        - memory: `dict` - tracking the EarlyStopping - Optional
+        """
+        
+        num_batches = (len(data)//batch_size)
+        
+        history = dict()
+        history['loss'] = []
+        if callbacks:
+            for name, _ in callbacks:
+                history[name] = []
+        
+        if earlystop:
+            if earlystop.monitor not in history.keys():
+                raise ValueError(f'This metric {earlystop.monitor} is not monitored. Change metric for EarlyStopping.')
+            if earlystop.mode not in ['min', 'max']:
+                raise ValueError(f'EarlyStopping mode can be either "min" or "max".')
+                
+            memory = dict()
+            memory['best'] = np.Inf if earlystop.mode == 'min' else -np.Inf
+            memory['best_epoch'] = 0 # track on each epoch
+            if earlystop.mode == 'min': 
+                min_delta = earlystop.min_delta*(-1)
+                operator = np.less
+            else:
+                min_delta = earlystop.min_delta*1
+                operator = np.greater
+            memory['wait'] = 0
+            
+        with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(data)//batch_size)-1, desc="batch") as innerbar:
+            for epoch in range(nepochs):
+                innerbar.reset()
+                
+                for batch in funcy.partition(batch_size, data):
+                    batch = jax.numpy.asarray(batch)
 
-        # split data in batches
-        if batch_size:
-            data = np.split(data, data.shape[0] // batch_size)
-        else:
-            data = [data]  # NOTE fixes `for batch in data`
+                    loss_cur, res, vectorizer = _fit_jax_vmap(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, embedding=embedding)
+                    history['loss'].append(loss_cur)
+                    # model.normalize()
+                    
+                    if callbacks:
+                        for name, fn in callbacks:
+                            history[name].append(fn(self, res, vectorizer))
 
-        metrics = []
+                    innerbar.update()
+                    innerbar.set_postfix(loss=history["loss"][-1])
+                    
+                if earlystop:
+                    current = sum(history[earlystop.monitor][-num_batches:])/num_batches
 
-        for epoch in (pbar := tqdm(range(nepochs))):
-            pbar.set_description(f"Epoch #{epoch}")
-            for batch in data:
-                metrics_cur = _fit(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, callbacks=callbacks, **kwargs)
-                metrics.append(metrics_cur)
-
-        return metrics
+                    if memory['wait'] == 0 and epoch == 0:
+                        memory['best'] = current
+                        memory['best_model'] = self
+                        memory['best_epoch'] = epoch
+                        #memory['wait'] += 1
+                    if epoch > 0: memory['wait'] += 1
+                    if operator(current - min_delta, memory['best']):
+                        memory['best'] = current
+                        memory['best_model'] = self
+                        memory['best_epoch'] = epoch
+                        memory['wait'] = 0
+                    if memory['wait'] >= earlystop.patience and epoch > 0:
+                        best_epoch = memory['best_epoch']
+                        print(f'Training stopped by EarlyStopping on epoch: {best_epoch}')
+                        self = memory['best_model']
+                        return history, memory
+                    print('Waiting for ' + str(memory['wait']) + ' epochs.')
+                outerbar.update()
+        if earlystop: return history, memory
+        return history
 
     def fit_step(self, loss_fn, niter=1, **kwargs):
         for sites in self.strategy.iterate_sites(self):
@@ -224,8 +292,7 @@ def _fit_jax_vmap(
     strategy: Strategy = Global(),
     optimizer: Optional[Callable] = None,
     epoch: Optional[int] = None,
-    callbacks: Optional[Sequence[Callable[[Model, OptimizeResult, qtn.optimize.Vectorizer], Any]]] = None,
-    embedding: tnad.embeddings.Embedding = tnad.embeddings.trigonometric(),
+    embedding: embeddings.Embedding = embeddings.trigonometric(),
     **hyperparams,
 ):
     """
@@ -233,9 +300,15 @@ def _fit_jax_vmap(
     - model: `Model`
     - loss_fn: `Callable`
     - data: `Sequence` of `numpy.ndarray`
-    - reg_fn: `Callable`
     - strategy: `Strategy`
-    - optimizer: `Callable` or `None`
+    - optimizer: `Callable` or `None` - Quimb optimizer
+    - epoch: `Integer` indicating current epoch
+    - embedding: data embedding function
+    
+    ## Returns
+    - res.fun - value of objective function
+    - res - output of the OptimizeResult
+    - vectorizer - vectorizer data of the tensor network
     """
 
     if not isinstance(strategy, Global):
@@ -243,10 +316,6 @@ def _fit_jax_vmap(
 
     if optimizer is None:
         optimizer = qtn.optimize.SGD()
-
-    metrics = None
-    if callbacks:
-        metrics = []
 
     for sites in strategy.iterate_sites(model):
         # contract sites in groups
@@ -303,11 +372,7 @@ def _fit_jax_vmap(
         # split sites
         strategy.posthook(model, sites)
 
-        if callbacks:
-            metrics.append(tuple(fn(model, res, vectorizer)) for fn in callbacks)  # type: ignore
-            return (res.fun, *metrics)  # type: ignore
-
-        return res.fun
+        return res.fun, res, vectorizer
 
 
 from .smpo import SpacedMatrixProductOperator
