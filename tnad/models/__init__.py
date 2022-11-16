@@ -32,7 +32,7 @@ class Model(qtn.TensorNetwork):
                     self.strategy = Global()
                 else:
                     raise ValueError(f'Strategy "{value}" not found')
-            elif key in ["optimizer", "loss_fn"]:
+            elif key in ["optimizer", "loss_fn", "learning_rate"]:
                 setattr(self, key, value)
             else:
                 raise AttributeError(f"Attribute {key} not found")
@@ -93,7 +93,7 @@ class Model(qtn.TensorNetwork):
                 for batch in funcy.partition(batch_size, data):
                     batch = jax.numpy.asarray(batch)
 
-                    loss_cur, res, vectorizer = _fit_jax_vmap(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, embedding=embedding)
+                    loss_cur, res, vectorizer = _fit_jax_vmap(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
                     history['loss'].append(loss_cur)
                     # model.normalize()
                     
