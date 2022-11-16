@@ -11,6 +11,7 @@ import tnad
 import tnad.embeddings as embeddings
 from tnad.util import EarlyStopping
 from quimb import tensor as qtn
+import quimb as qu
 from scipy.optimize import OptimizeResult
 from tnad.strategy import *
 from tqdm import tqdm
@@ -20,7 +21,10 @@ class Model(qtn.TensorNetwork):
         self.loss_fn = None # dict()
         self.strategy = Global()
         self.optimizer = qtn.optimize.ADAM()
-
+    
+    def save(self, model_name, dir_name='~'):
+        qu.save_to_disk(self, f'{dir_name}/{model_name}.pkl')
+    
     def configure(self, **kwargs):
         for key, value in kwargs.items():
             if key == "strategy":
