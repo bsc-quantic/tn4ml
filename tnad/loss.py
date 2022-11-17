@@ -2,7 +2,6 @@ from numbers import Number
 from typing import Callable, Optional
 
 import quimb.tensor as qtn
-import autoray
 from autoray import do
 
 from tnad.embeddings import Embedding, embed
@@ -28,5 +27,4 @@ def error_quad(P, data):
     return do("power", do("add", mps.H & mps ^ all, -1.0), 2)
 
 def loss(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Embedding] = None) -> Number:
-    with autoray.backend_like("jax"):
-        return do("mean", [error(model, embed(sample, embedding)) for sample in data] if embedding else error(model, data)) + reg(model)
+    return do("mean", [error(model, embed(sample, embedding)) for sample in data] if embedding else error(model, data)) + reg(model)
