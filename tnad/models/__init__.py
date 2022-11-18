@@ -173,6 +173,8 @@ class Model(qtn.TensorNetwork):
     def predict(self, x):
         return (self @ x).norm()
 
+def load_model(dir_name, model_name):
+    return qu.load_from_disk(f'{dir_name}/{model_name}.pkl')
 
 class LossWrapper:
     def __init__(self, loss_fn, tn):
@@ -190,7 +192,6 @@ class LossWrapper:
 
         with qtn.contract_backend("jax"):
             return loss_fn(tn)
-
 
 def _fit(
     model: Model,
