@@ -124,10 +124,10 @@ class Model(qtn.TensorNetwork):
                         memory['wait'] = 0
                     if memory['wait'] >= earlystop.patience and epoch > 0:
                         best_epoch = memory['best_epoch']
-                        print(f'Training stopped by EarlyStopping on epoch: {best_epoch}')
+                        print(f'Training stopped by EarlyStopping on epoch: {best_epoch}', flush=True)
                         self = memory['best_model']
                         return history, memory
-                    print('Waiting for ' + str(memory['wait']) + ' epochs.')
+                    print('Waiting for ' + str(memory['wait']) + ' epochs.', flush=True)
                 outerbar.update()
         if earlystop: return history, memory
         return history
