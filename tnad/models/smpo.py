@@ -212,7 +212,9 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         sorted_tensors = sort_tensors(result)
         arrays = [tensor.data for tensor in sorted_tensors]
-        vec = MatrixProductState(arrays, shape="rlp")
+        arrays[0] = a.do("reshape", arrays[0], (1, *arrays[0].shape))
+        arrays[-1] = a.do("reshape", arrays[-1], (*arrays[-1].shape, 1))
+        vec = MatrixProductState(arrays, shape="lpr")
 
         # optionally compress
         if compress:
