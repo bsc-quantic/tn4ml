@@ -189,7 +189,24 @@ class Model(qtn.TensorNetwork):
             self.strategy.posthook(self, sites)
 
     def predict(self, x):
-        return (self @ x).norm()
+        """
+        Performs action of Model on input data.
+        Args
+            x: Embedded data in MatrixProductState form.
+        Return
+            MatrixProductState of result
+        """
+        return (self @ x)
+    
+    def predict_norm(self, x):
+        """
+        Computed norm for 'action of Model on input data'.
+        Args
+            x: Embedded data in MatrixProductState form.
+        Return
+            norm of `predict(x)`
+        """
+        return self.predict(x).norm()
 
 def load_model(dir_name, model_name):
     """
