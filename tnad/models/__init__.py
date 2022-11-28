@@ -17,15 +17,34 @@ from tnad.strategy import *
 from tqdm import tqdm
 
 class Model(qtn.TensorNetwork):
+    
+    """
+    `Model` class models training model of the class Tensor Network
+    
+    Args:
+        loss_fn: Loss function. See `tnad/loss.py` for examples. Default `None`.
+        strategy: Strategy for computing gradients. See `Strategy` class in `strategy.py`. Default `strategy.Global()`
+        optimizer: `quimb.tensor.optimize.TNOptimizer` instance or different possibilities of optimizers from `quimb.tensor.optimize`. 
+    """
+    
     def __init__(self):
         self.loss_fn = None # dict()
         self.strategy = Global()
         self.optimizer = qtn.optimize.ADAM()
     
     def save(self, model_name, dir_name='~'):
+        """
+        Saves the Model to pickle file.
+        Args
+            model_name: name of Model. `str`.
+            dir_name: directory for saving Model. `str`.
+        """
         qu.save_to_disk(self, f'{dir_name}/{model_name}.pkl')
     
     def configure(self, **kwargs):
+        """
+        Configures Model for training setting the arguments.
+        """
         for key, value in kwargs.items():
             if key == "strategy":
                 if isinstance(value, Strategy):
@@ -51,18 +70,18 @@ class Model(qtn.TensorNetwork):
             **kwargs):
         
         """
-        ## Arguments
-        - data: `Sequence` of `numpy.ndarray`
-        - batch_size: `Integer` indicating batch size or `None` 
-        - nepochs: `Integer` indicating number of epochs for training
-        - embedding: data embedding function
-        - callbacks: `Sequence` of callbacks (metrics) - tuple(callback name, function - `Callable`) or `None`
-                    function receives (Model, res, vectorizer)
-        - earlystop: `EarlyStopping` object for stopping training when monitored metric stopped improving
+        Performs the training procedure of the model
+        
+        Args:
+            data: Data used for training procedure. `Sequence` of `numpy.ndarray`
+            batch_size: Number of samples per gradient update. `Integer` or default `None` 
+            nepochs: Number of epochs for training the Model. `Integer`.
+            embedding: Data embedding function. `embeddings.Embedding` instance.
+            callbacks: Metrics for monitoring training progress. `Sequence` of callbacks (metrics) - tuple(callback name, function - `Callable`) or default `None`. Each metric function receives (Model, return value of `scipy.optimize.OptimizeResult`, `quimb.tensor.optimize.Vectorizer`).
+            earlystop: Early stopping training when monitored metric stopped improving. `EarlyStopping` instance.
 
-        ## Returns
-        - history: `dict` - records training loss and metric values
-        - memory: `dict` - tracking the EarlyStopping - Optional
+        Return
+            history: Records training loss and metric values. `dictionary`.
         """
         
         num_batches = (len(data)//batch_size)
@@ -126,10 +145,9 @@ class Model(qtn.TensorNetwork):
                         best_epoch = memory['best_epoch']
                         print(f'Training stopped by EarlyStopping on epoch: {best_epoch}', flush=True)
                         self = memory['best_model']
-                        return history, memory
+                        return history
                     print('Waiting for ' + str(memory['wait']) + ' epochs.', flush=True)
                 outerbar.update()
-        if earlystop: return history, memory
         return history
 
     def fit_step(self, loss_fn, niter=1, **kwargs):
@@ -174,9 +192,22 @@ class Model(qtn.TensorNetwork):
         return (self @ x).norm()
 
 def load_model(dir_name, model_name):
+    """
+    Loads the Model from pickle file.
+    Args
+        dir_name: Directory where model is stored. `str`.
+        model_name: Name of model. `str`.
+    """
     return qu.load_from_disk(f'{dir_name}/{model_name}.pkl')
 
 class LossWrapper:
+    """
+    Wrapper of loss function to make it compatible with JAX.
+    
+    Args:
+        tn: Tensor network on which training is performed.
+        loss_fn: Loss function.
+    """
     def __init__(self, loss_fn, tn):
         self.tn = tn
         self.loss_fn = loss_fn
@@ -193,7 +224,99 @@ class LossWrapper:
         with qtn.contract_backend("jax"):
             return loss_fn(tn)
 
+
 def _fit(
+    model: Model,
+    loss_fn: Callable,
+    data: Collection,
+    strategy: Strategy = Global(),
+    optimizer: Optional[Callable] = None,
+    epoch: Optional[int] = None,
+    embedding: embeddings.Embedding = embeddings.trigonometric(),
+    **hyperparams,
+):
+    """
+    Perfoms training procedure with using JAX to compute gradients of loss function.
+    
+    Args
+        model: Model for training. `Model`.
+        loss_fn: Loss function. `Callable`.
+        data: Data for training Model. `Sequence` of `numpy.ndarray`.
+        strategy: Strategy for computing gradients. `Strategy`.
+        optimizer: `quimb.tensor.optimize.TNOptimizer` instance or different possibilities of optimizers from `quimb.tensor.optimize` or default `None`.
+        epoch: Current epoch. `Integer`.
+        embedding: Data embedding function. `embeddings.Embedding` instance.
+    
+    Return
+        res.fun - Value of loss function. `float`.
+        res - return value of `scipy.optimize.OptimizeResult`. See `scipy.optimize.OptimizeResult`
+        vectorizer - Vectorizer data of Tensor Network. `quimb.tensor.optimize.Vectorizer` instance.
+    """
+
+    if not isinstance(strategy, Global):
+        raise NotImplementedError("non-`Global` strategies are not implemented yet for function `_fit`")
+
+    if optimizer is None:
+        optimizer = qtn.optimize.SGD()
+
+    for sites in strategy.iterate_sites(model):
+        # contract sites in groups
+        strategy.prehook(model, sites)
+
+        vectorizer = qtn.optimize.Vectorizer(model.arrays)
+
+        def jac(x):
+            arrays = vectorizer.unpack(x)
+
+            def foo(x, *model_arrays):
+                tn = model.copy()
+                for tensor, array in zip(tn.tensors, model_arrays):
+                    tensor.modify(data=array)
+
+                phi = tnad.embeddings.embed(x, embedding)
+                return loss_fn(tn, phi)
+
+            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
+                x = jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(model.L)]), in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
+                x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
+
+            return np.concatenate(x, axis=None)
+
+        # call quimb's optimizers with vectorizer
+        def loss(x):
+            arrays = vectorizer.unpack(x)
+
+            def foo(sample, *model_arrays):
+                tn = model.copy()
+                for tensor, array in zip(tn.tensors, model_arrays):
+                    tensor.modify(data=array)
+
+                phi = tnad.embeddings.embed(sample, embedding)
+                return loss_fn(model, phi)
+
+            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
+                x = jax.vmap(foo, in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
+                return jax.numpy.sum(x) / data.shape[0]
+
+        # prepare hyperparameters
+        hyperparams = {key: value(epoch) if callable(value) else value for key, value in hyperparams.items()}
+        if "maxiter" not in hyperparams:
+            hyperparams["maxiter"] = 1
+
+        x = vectorizer.pack(model.arrays)
+        res = optimizer(loss, x, jac, **hyperparams)
+
+        opt_arrays = vectorizer.unpack(res.x)
+
+        for tensor, array in zip(model.tensors, opt_arrays):
+            tensor.modify(data=array)
+
+        # split sites
+        strategy.posthook(model, sites)
+
+        return res.fun, res, vectorizer
+
+def _fit_test(
     model: Model,
     loss_fn: Callable,
     data: Collection,
@@ -205,14 +328,7 @@ def _fit(
     **hyperparams,
 ):
     """
-    ## Arguments
-    - model: `Model`
-    - loss_fn: `Callable`
-    - data: `Sequence` of `numpy.ndarray`
-    - reg_fn: `Callable`
-    - strategy: `Strategy`
-    - optimizer: `Callable` or `None`
-    - executor: `concurrent.futures.Executor` or `None`
+    Performs training procedure. Currently in testing stage. Not used.
     """
 
     if not isinstance(strategy, Global):
@@ -288,96 +404,5 @@ def _fit(
         return (res.fun, *metrics)  # type: ignore
 
     return res.fun
-
-
-def _fit_jax_vmap(
-    model: Model,
-    loss_fn: Callable,
-    data: Collection,
-    strategy: Strategy = Global(),
-    optimizer: Optional[Callable] = None,
-    epoch: Optional[int] = None,
-    embedding: embeddings.Embedding = embeddings.trigonometric(),
-    **hyperparams,
-):
-    """
-    ## Arguments
-    - model: `Model`
-    - loss_fn: `Callable`
-    - data: `Sequence` of `numpy.ndarray`
-    - strategy: `Strategy`
-    - optimizer: `Callable` or `None` - Quimb optimizer
-    - epoch: `Integer` indicating current epoch
-    - embedding: data embedding function
-    
-    ## Returns
-    - res.fun - value of objective function
-    - res - output of the OptimizeResult
-    - vectorizer - vectorizer data of the tensor network
-    """
-
-    if not isinstance(strategy, Global):
-        raise NotImplementedError("non-`Global` strategies are not implemented yet for function `_fit`")
-
-    if optimizer is None:
-        optimizer = qtn.optimize.SGD()
-
-    for sites in strategy.iterate_sites(model):
-        # contract sites in groups
-        strategy.prehook(model, sites)
-
-        vectorizer = qtn.optimize.Vectorizer(model.arrays)
-
-        def jac(x):
-            arrays = vectorizer.unpack(x)
-
-            def foo(x, *model_arrays):
-                tn = model.copy()
-                for tensor, array in zip(tn.tensors, model_arrays):
-                    tensor.modify(data=array)
-
-                phi = tnad.embeddings.embed(x, embedding)
-                return loss_fn(tn, phi)
-
-            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
-                x = jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(model.L)]), in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
-                x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
-
-            return np.concatenate(x, axis=None)
-
-        # call quimb's optimizers with vectorizer
-        def loss(x):
-            arrays = vectorizer.unpack(x)
-
-            def foo(sample, *model_arrays):
-                tn = model.copy()
-                for tensor, array in zip(tn.tensors, model_arrays):
-                    tensor.modify(data=array)
-
-                phi = tnad.embeddings.embed(sample, embedding)
-                return loss_fn(model, phi)
-
-            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
-                x = jax.vmap(foo, in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
-                return jax.numpy.sum(x) / data.shape[0]
-
-        # prepare hyperparameters
-        hyperparams = {key: value(epoch) if callable(value) else value for key, value in hyperparams.items()}
-        if "maxiter" not in hyperparams:
-            hyperparams["maxiter"] = 1
-
-        x = vectorizer.pack(model.arrays)
-        res = optimizer(loss, x, jac, **hyperparams)
-
-        opt_arrays = vectorizer.unpack(res.x)
-
-        for tensor, array in zip(model.tensors, opt_arrays):
-            tensor.modify(data=array)
-
-        # split sites
-        strategy.posthook(model, sites)
-
-        return res.fun, res, vectorizer
-
 
 from .smpo import SpacedMatrixProductOperator
