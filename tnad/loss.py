@@ -6,6 +6,7 @@ from autoray import do
 
 from tnad.embeddings import Embedding, embed
 
+""" Examples of Loss functions """
 
 def no_reg(x):
     return 0
@@ -27,4 +28,17 @@ def error_quad(P, data):
     return do("power", do("add", mps.H & mps ^ all, -1.0), 2)
 
 def loss(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Embedding] = None) -> Number:
+    """
+    Example of Loss function.
+    
+    Args
+       model: Model
+       data: Data used for computing the loss value. `numpy.ndarray`.
+       error: Function of error calculation. 
+       reg: Function of regularization value calculation.
+       embedding: Data embedding function. `embeddings.Embedding` instance.
+    
+    Return
+        Number
+    """
     return do("mean", [error(model, embed(sample, embedding)) for sample in data] if embedding else error(model, data)) + reg(model)
