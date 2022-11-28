@@ -2,6 +2,9 @@ import re
 from typing import NamedTuple
 
 def return_digits(array):
+    """
+    Helper function to convert array of string numbers to integers.
+    """
     digits=[]
     for text in array:
         split_text = re.split(r'(\d+)', text)
