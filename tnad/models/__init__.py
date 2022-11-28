@@ -35,6 +35,7 @@ class Model(qtn.TensorNetwork):
     def save(self, model_name, dir_name='~'):
         """
         Saves the Model to pickle file.
+        
         Args
             model_name: name of Model. `str`.
             dir_name: directory for saving Model. `str`.
@@ -211,6 +212,7 @@ class Model(qtn.TensorNetwork):
 def load_model(dir_name, model_name):
     """
     Loads the Model from pickle file.
+    
     Args
         dir_name: Directory where model is stored. `str`.
         model_name: Name of model. `str`.

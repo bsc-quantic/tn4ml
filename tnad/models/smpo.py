@@ -11,20 +11,26 @@ from tnad.util import return_digits
 
 
 def sort_tensors(tn):
+    """
+    Helper function for sorting tensors of tensor network in alphabetic order by tags.
+    Args
+        tn: Tensor network. `TensorNetwork` instance.
+    Return
+        Tuple of sorted tensors.
+    """
     ts_and_sorted_tags = [(t, sorted(return_digits(t.tags))) for t in tn]
     ts_and_sorted_tags.sort(key=lambda x: x[1])
     return tuple(x[0] for x in ts_and_sorted_tags)
 
 
 class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, Model):
-    """A MatrixProductOperator with a decimated number of output indices.
+    """
+    A MatrixProductOperator with a decimated number of output indices.
 
     Parameters
-    ----------
-    spacing : int
-        Spacing paramater, or space between output indices in number of sites.
-    embed_dim : int
-    physical_dim : int
+        spacing : Spacing paramater, or space between output indices in number of sites. `int`.
+        arrays: The tensor arrays to form into a MPO. `sequence of arrays`.
+        See `quimb.tensor.tensor_1d.MatrixProductOperator` for explanation of other parameters.
     """
 
     _EXTRA_PROPS = ("_site_tag_id", "_upper_ind_id", "_lower_ind_id", "_L", "_spacing", "_orders")
@@ -104,8 +110,13 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
         TensorNetwork.__init__(self, tensors, virtual=True, **tn_opts)
 
-    def normalize(self, insert=0):
-        # normalize
+    def normalize(self, insert=None):
+        """
+        Function for normalizing tensors of SpacedMatrixProductOperator.
+        
+        Args:
+            insert: index of tensor divided by norm, default=0, or `None` - then norm division distributed across all tensors
+        """
         norm = self.norm()
         if insert == None:
             for tensor in self.tensors:
@@ -114,10 +125,33 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             self.tensors[insert].modify(data=self.tensors[insert].data / norm)
 
     def norm(self, **contract_opts):
+        """
+        Calculating norm of SpacedMatrixProductOperator.
+        
+        Return
+            norm of SpacedMatrixProductOperator
+        """
         norm = self.conj() & self
         return norm.contract(**contract_opts) ** 0.5
 
     def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, insert=0, **kwargs):
+        """
+        Generate SpacedMatrixProductOperator with random tensor arrays.
+        
+        Args
+           n: Number of tensors. `int`.
+           spacing: Spacing paramater, or space between output indices in number of sites. `int`.
+           bond_dim: Dimension of virtual indices between tensors. `int` (default=4).
+           phys_dim: Dimension of physical indices for individual tensor - `up` and `down`. `Tuple(`int`, `int`).
+           cyclic: Flag for indicating if SpacedMatrixProductOperator is cyclic. `Bool` (default=False).
+           init_func: Type of random number for generating arrays data. `str` (default='uniform').
+           scale: The width of the distribution (standard deviation if init_func='normal').
+           seed: Seed for generating random number. `int` or `None`(default).
+           insert: index of tensor divided by norm, default=0, or `None` - then norm division distributed across all tensors
+           
+        Return
+            SpacedMatrixProductOperator
+        """
         arrays = []
         for i, hasoutput in zip(range(n), itertools.cycle([True, *[False] * (spacing - 1)])):
             if hasoutput:
@@ -160,19 +194,13 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         Version of _apply_mps() for SpacedMatrixProductOperator class
 
         Parameters
-        ----------
-        tn_op : TensorNetwork
-            The tensor network representing the operator.
-        tn_vec : TensorNetwork
-            The tensor network representing the vector.
-        compress : bool
-            Whether to compress the resulting tensor network.
-        compress_opts
-            Options to pass to ``tn_vec.compress``.
+            tn_op: The tensor network representing the operator. `TensorNetwork`.
+            tn_vec: The tensor network representing the vector. `TensorNetwork`.
+            compress: Whether to compress the resulting tensor network. `bool`.
+            compress_opts: Options to pass to ``tn_vec.compress``.
 
-        Returns
-        -------
-        mps : MatrixProductState
+        Return
+            MatrixProductState
         """
 
         smpo, mps = tn_op.copy(), tn_vec.copy()
@@ -226,19 +254,13 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         Version of _apply_mpo() for SpacedMatrixProductOperator class - computes trace
 
         Parameters
-        ----------
-        tn_op_1 : TensorNetwork
-            The tensor network representing the operator 1.
-        tn_op_2 : TensorNetwork
-            The tensor network representing the operator 2.
-        compress : bool
-            Whether to compress the resulting tensor network.
-        compress_opts
-            Options to pass to ``tn_vec.compress``.
+            tn_op_1: The tensor network representing the operator 1. `TensorNetwork`.
+            tn_op_2: The tensor network representing the operator 2. `TensorNetwork`.
+            compress: Whether to compress the resulting tensor network. `bool`.
+            compress_opts: Options to pass to ``tn_vec.compress``.
 
-        Returns
-        -------
-        mpo : MatrixProductOperator
+        Return
+            MatrixProductOperator
         """
 
         # assume that A and B have same spacing
@@ -259,7 +281,8 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         return trace
 
     def apply(self, other, compress=False, **compress_opts):
-        r"""Act with this SMPO on another SMPO or MPS, such that the resulting
+        """
+        Act with this SMPO on another SMPO or MPS, such that the resulting
         object has the same tensor network structure/indices as ``other``.
 
         For an MPS::
@@ -293,17 +316,12 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
 
         Parameters
-        ----------
-        other : SpacedMatrixProductOperator or MatrixProductState
-            The object to act on.
-        compress : bool, optional
-            Whether to compress the resulting object.
-        compress_opts
-            Supplied to :meth:`TensorNetwork1DFlat.compress`.
+            other : The object to act on. SpacedMatrixProductOperator or MatrixProductState.
+            compress : Whether to compress the resulting object. `bool`, optional.
+            compress_opts: Supplied to :meth:`TensorNetwork1DFlat.compress`.
 
-        Returns
-        -------
-        MatrixProductOperator or MatrixProductState
+        Return
+            MatrixProductOperator or MatrixProductState
         """
         if isinstance(other, MatrixProductState):
             return self.apply_mps(other, compress=compress, **compress_opts)
