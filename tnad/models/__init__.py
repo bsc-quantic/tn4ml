@@ -21,7 +21,7 @@ class Model(qtn.TensorNetwork):
     """
     `Model` class models training model of the class Tensor Network
     
-    Args:
+    Parameters:
         loss_fn: Loss function. See `tnad/loss.py` for examples. Default `None`.
         strategy: Strategy for computing gradients. See `Strategy` class in `strategy.py`. Default `strategy.Global()`
         optimizer: `quimb.tensor.optimize.TNOptimizer` instance or different possibilities of optimizers from `quimb.tensor.optimize`. 
