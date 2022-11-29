@@ -8,6 +8,12 @@ import quimb.tensor as qtn
 
 
 class Embedding:
+    """
+    Data embedding (feature map) class.
+    
+    Parameters
+        dype: Data type. `Numpy dype`, default=numpy.float32
+    """
     def __init__(self, dtype=onp.float32):
         self.dtype = dtype
 
@@ -22,6 +28,9 @@ class Embedding:
 
 
 class trigonometric(Embedding):
+    """
+    Trigonometric feature map.
+    """
     def __init__(self, k: int = 1, **kwargs):
         assert k >= 1
 
@@ -37,6 +46,9 @@ class trigonometric(Embedding):
 
 
 class fourier(Embedding):
+    """
+    Fourier feature map.
+    """
     def __init__(self, p: int = 2, **kwargs):
         assert p >= 2
 
@@ -52,7 +64,14 @@ class fourier(Embedding):
 
 
 def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
-    """Creates a product state from a vector of features `x`."""
+    """
+    Creates a product state from a vector of features `x`.
+    
+    Args
+        x: Vector of features. `numpy.ndarray`.
+        phi: Embedding type. `Embedding` instance.
+        mps_opts: Additional arguments passed to MatrixProductState class.
+    """
     assert x.ndim == 1
 
     arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
