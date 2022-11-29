@@ -2,7 +2,12 @@ import abc
 
 
 class Strategy:
-    """Decides how the gradients are computed. i.e. compute the gradients of each tensor separately or only of one site."""
+    """
+    Decides how the gradients are computed. i.e. computes the gradients of each tensor separately or only of one site.
+    
+    Parameters
+        renormalize: Flag for renormalization. `bool`, default=False.
+    """
 
     def __init__(self, renormalize=False):
         self.renormalize = renormalize
@@ -21,7 +26,14 @@ class Strategy:
 
 
 class Sweeps(Strategy):
-    """DMRG-like local optimization."""
+    """
+    DMRG-like local optimization.
+    
+    Parameters
+        grouping: Number of tensors to group together. `int`, default=2.
+        two_way: Flag indicating wheather sweeping happens two-way or one-way. `bool`, default=True (two-way sweep).
+        split_opts: Additional args passed to `model.split_tensor()`.
+    """
 
     def __init__(self, grouping: int = 2, two_way=True, split_opts={"cutoff": 1e-3}, **kwargs):
         self.grouping = grouping
@@ -69,7 +81,9 @@ class Sweeps(Strategy):
 
 
 class Global(Strategy):
-    """Global optimization through Gradient descent."""
+    """
+    Global optimization through Gradient descent.
+    """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
