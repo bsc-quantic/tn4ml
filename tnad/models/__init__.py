@@ -151,47 +151,9 @@ class Model(qtn.TensorNetwork):
                 outerbar.update()
         return history
 
-    def fit_step(self, loss_fn, niter=1, **kwargs):
-        for sites in self.strategy.iterate_sites(self):
-            # contract tensors (if needed)
-            self.strategy.prehook(self, sites)
-
-            if isinstance(loss_fn, dict):
-                error = loss_fn["error"]
-                data = kwargs["loss_constants"].pop("batch_data")
-
-                loss_fn = [lambda model: error(model, sample) for sample in data]
-
-                if "reg" in loss_fn:
-                    loss_fn.append(loss_fn["reg"])
-
-            target_site_tags = tuple(self.site_tag(site) for site in funcy.flatten(sites))
-            opt = qtn.TNOptimizer(
-                self,
-                loss_fn=loss_fn,
-                optimizer=self.optimizer,
-                tags=target_site_tags,
-                **kwargs,
-            )
-
-            if isinstance(self.optimizer, str):
-                optself = opt.optimize(niter)
-                self._tensors = optself.tensors
-            else:
-                x = opt.vectorizer.vector
-                _, grads = opt.vectorized_value_and_grad(x)
-                grads = opt.vectorizer.unpack(grads)
-
-                tensors = self.select_tensors(target_site_tags, which="any")
-                for tensor, grad in zip(tensors, grads):
-                    tensor.modify(data=self.optimizer(tensor.data, grad))
-
-            # split tensors (if needed) & renormalize (if configured)
-            self.strategy.posthook(self, sites)
-
     def predict(self, x):
         """
-        Performs action of Model on input data.
+        Performs Model's transformation on input data.
         Args
             x: Embedded data in MatrixProductState form.
         Return
@@ -201,7 +163,7 @@ class Model(qtn.TensorNetwork):
     
     def predict_norm(self, x):
         """
-        Computed norm for 'action of Model on input data'.
+        Computing norm for 'Model's transformation on input data'.
         Args
             x: Embedded data in MatrixProductState form.
         Return
