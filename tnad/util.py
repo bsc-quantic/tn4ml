@@ -12,7 +12,7 @@ def return_digits(array):
             else: continue
     return digits
 
-class EarlyStopping(NamedTuple):
+class EarlyStopping:
     """ Variation of `EarlyStopping` class from :class:tensorflow.
     
     Attributes
@@ -26,7 +26,8 @@ class EarlyStopping(NamedTuple):
     mode: str
         Two options are valid: `min` - minimization, `max` - maximization of objective function
     """
-    monitor: str
-    min_delta: float
-    patience: int
-    mode: str
+    def __init__(self, monitor, min_delta, patience, mode):
+        self.monitor = monitor
+        self.min_delta = min_delta
+        self.patience = patience
+        self.mode = mode
