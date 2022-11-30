@@ -2,8 +2,7 @@ import re
 from typing import NamedTuple
 
 def return_digits(array):
-    """
-    Helper function to convert array of string numbers to integers.
+    """Helper function to convert array of string numbers to integers.
     """
     digits=[]
     for text in array:
@@ -14,8 +13,20 @@ def return_digits(array):
     return digits
 
 class EarlyStopping(NamedTuple):
-    """ Variation of EarlyStopping class from Tensorflow """
-    monitor: str # name of metric to be monitored
-    min_delta: float # minimum change in the monitored quantity to qualify as an improvement
-    patience: int # number of epochs for tracking the metric, if no improvement after training is stopped
-    mode: str # 'min' - minimization, 'max' - maximization of objective function
+    """ Variation of `EarlyStopping` class from :class:tensorflow.
+    
+    Attributes
+    ----------
+    monitor : str
+        Name of metric to be monitored.
+    min_delta : float
+        Minimum change in the monitored quantity to qualify as an improvement.
+    patience : int
+        Number of epochs for tracking the metric, if no improvement after training is stopped.
+    mode: str
+        Two options are valid: `min` - minimization, `max` - maximization of objective function
+    """
+    monitor: str
+    min_delta: float
+    patience: int
+    mode: str
