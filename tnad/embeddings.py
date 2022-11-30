@@ -8,11 +8,12 @@ import quimb.tensor as qtn
 
 
 class Embedding:
-    """
-    Data embedding (feature map) class.
+    """Data embedding (feature map) class.
     
-    Parameters
-        dype: Data type. `Numpy dype`, default=numpy.float32
+    Attributes
+    ----------
+        dype: :class:`numpy.dype`
+            Data Type
     """
     def __init__(self, dtype=onp.float32):
         self.dtype = dtype
@@ -20,6 +21,8 @@ class Embedding:
     @property
     @abc.abstractmethod
     def dim(self) -> int:
+        """Mapping dimension.
+        """
         pass
 
     @abc.abstractmethod
@@ -28,10 +31,16 @@ class Embedding:
 
 
 class trigonometric(Embedding):
-    """
-    Trigonometric feature map.
+    """Trigonometric feature map.
     """
     def __init__(self, k: int = 1, **kwargs):
+        """Constructor
+
+        Attributes
+        ----------
+        k : int
+            Custom parameter = ``dim/2``.
+        """
         assert k >= 1
 
         self.k = 1
@@ -46,10 +55,16 @@ class trigonometric(Embedding):
 
 
 class fourier(Embedding):
-    """
-    Fourier feature map.
+    """Fourier feature map.
     """
     def __init__(self, p: int = 2, **kwargs):
+        """Constructor
+
+        Attributes
+        ----------
+        p : int
+            Mapping dimension.
+        """
         assert p >= 2
 
         self.p = 2
@@ -64,13 +79,16 @@ class fourier(Embedding):
 
 
 def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
-    """
-    Creates a product state from a vector of features `x`.
+    """Creates a product state from a vector of features `x`.
     
-    Args
-        x: Vector of features. `numpy.ndarray`.
-        phi: Embedding type. `Embedding` instance.
-        mps_opts: Additional arguments passed to MatrixProductState class.
+    Parameters
+    ----------
+    x : :class:`numpy.ndarray`
+        Vector of features.
+    phi: :class:`tnad.embeddings.Embedding`
+        Embedding type.
+    mps_opts: optional
+        Additional arguments passed to MatrixProductState class.
     """
     assert x.ndim == 1
 
