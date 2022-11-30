@@ -1,38 +1,64 @@
 import abc
 
-
 class Strategy:
-    """
-    Decides how the gradients are computed. i.e. computes the gradients of each tensor separately or only of one site.
+    """Decides how the gradients are computed. i.e. computes the gradients of each tensor separately or only of one site.
     
-    Parameters
-        renormalize: Flag for renormalization. `bool`, default=False.
+    Attributes
+    ----------
+    renormalize : bool
+        Flag for renormalization. *Default*=**False**.
     """
 
     def __init__(self, renormalize=False):
         self.renormalize = renormalize
 
     def prehook(self, model, sites):
-        """Modify `model` before computing gradient(s). Usually contract tensors."""
+        """Modify `model` before computing gradient(s). Usually contract tensors.
+        
+        Parameters
+        ----------
+        model : :class:`tnad.models.Model``
+            Model
+        sites : sequence of `str`
+            List of tensors' tags.
+        """
         pass
 
     def posthook(self, model, sites):
-        """Modify `model` after optimizing tensors. Usually split tensors."""
+        """Modify `model` after optimizing tensors. Usually split tensors.
+        
+        Parameters
+        ----------
+        model : :class:`tnad.models.Model``
+            Model
+        sites : sequence of `str`
+            List of tensors' tags.
+        """
         pass
 
     @abc.abstractmethod
     def iterate_sites(self, sites):
+        """ Function for iterating selected tensors.
+
+        Parameters
+        ----------
+        sites : sequence of `str`
+            List of tensors' tags.
+        """
         pass
 
 
 class Sweeps(Strategy):
-    """
-    DMRG-like local optimization.
+    """DMRG-like local optimization.
     
-    Parameters
-        grouping: Number of tensors to group together. `int`, default=2.
-        two_way: Flag indicating wheather sweeping happens two-way or one-way. `bool`, default=True (two-way sweep).
-        split_opts: Additional args passed to `model.split_tensor()`.
+    Attributes
+    ----------
+    grouping : int
+    Number of tensors to group together. *Default*=**2**.
+    two_way : bool
+        Flag indicating wheather sweeping happens two-way or one-way. *Default*=**True** *(two-way sweep)*.
+    split_opts: optional
+        Additional args passed to ``model.split_tensor()``.
     """
 
     def __init__(self, grouping: int = 2, two_way=True, split_opts={"cutoff": 1e-3}, **kwargs):
@@ -81,8 +107,7 @@ class Sweeps(Strategy):
 
 
 class Global(Strategy):
-    """
-    Global optimization through Gradient descent.
+    """Global optimization through Gradient Descent.
     """
 
     def __init__(self, **kwargs):
