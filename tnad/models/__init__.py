@@ -17,35 +17,43 @@ from tnad.strategy import *
 from tqdm import tqdm
 
 class Model(qtn.TensorNetwork):
-    
-    """
-    `Model` class models training model of the class Tensor Network
-    
-    Parameters:
-        loss_fn: Loss function. See `tnad/loss.py` for examples. Default `None`.
-        strategy: Strategy for computing gradients. See `Strategy` class in `strategy.py`. Default `strategy.Global()`
-        optimizer: `quimb.tensor.optimize.TNOptimizer` instance or different possibilities of optimizers from `quimb.tensor.optimize`. 
+    """:class:`tnad.models.Model` class models training model of class :class:`quimb.tensor.tensor_core.TensorNetwork`.
+
+    Attributes
+    ----------
+    loss_fn : `Callable`, or `None`
+        Loss function. See `tnad/loss.py` for examples.
+    strategy : :class:`tnad.strategy.Strategy`
+        Strategy for computing gradients.
+    optimizer : :class:`quimb.tensor.optimize.TNOptimizer`, or different possibilities of optimizers from :func:`quimb.tensor.optimize`. 
     """
     
     def __init__(self):
+        """Constructor
+        """
         self.loss_fn = None # dict()
         self.strategy = Global()
         self.optimizer = qtn.optimize.ADAM()
     
     def save(self, model_name, dir_name='~'):
+
+        """Saves :class:`tnad.models.Model` to pickle file.
+
+        Parameters
+        ----------
+        model_name : str
+            Name of Model.
+        dir_name: str
+            Directory for saving Model.
         """
-        Saves the Model to pickle file.
-        
-        Args
-            model_name: name of Model. `str`.
-            dir_name: directory for saving Model. `str`.
-        """
+
         qu.save_to_disk(self, f'{dir_name}/{model_name}.pkl')
     
     def configure(self, **kwargs):
+
+        """Configures :class:`tnad.models.Model` for training setting the arguments.
         """
-        Configures Model for training setting the arguments.
-        """
+
         for key, value in kwargs.items():
             if key == "strategy":
                 if isinstance(value, Strategy):
@@ -70,19 +78,28 @@ class Model(qtn.TensorNetwork):
             earlystop: Optional[EarlyStopping] = None,
             **kwargs):
         
-        """
-        Performs the training procedure of the model
-        
-        Args:
-            data: Data used for training procedure. `Sequence` of `numpy.ndarray`
-            batch_size: Number of samples per gradient update. `Integer` or default `None` 
-            nepochs: Number of epochs for training the Model. `Integer`.
-            embedding: Data embedding function. `embeddings.Embedding` instance.
-            callbacks: Metrics for monitoring training progress. `Sequence` of callbacks (metrics) - tuple(callback name, function - `Callable`) or default `None`. Each metric function receives (Model, return value of `scipy.optimize.OptimizeResult`, `quimb.tensor.optimize.Vectorizer`).
-            earlystop: Early stopping training when monitored metric stopped improving. `EarlyStopping` instance.
+        """Performs the training procedure of :class:`tnad.models.Model`.
 
-        Return
-            history: Records training loss and metric values. `dictionary`.
+        Parameters
+        ----------
+        data : sequence of :class:`numpy.ndarray`
+            Data used for training procedure. 
+        batch_size : int, or default `None`
+            Number of samples per gradient update.
+        nepochs : int
+            Number of epochs for training the Model.
+        embedding : :class:`tnad.embeddings.Embedding`
+            Data embedding function.
+        callbacks : sequence of callbacks (metrics) - `tuple`(callback name, function - `Callable`), or default `None`
+            List of metrics for monitoring training progress. Each metric function receives (Model, return value of `scipy.optimize.OptimizeResult`, `quimb.tensor.optimize.Vectorizer`).
+        earlystop : `EarlyStopping` instance
+            Early stopping training when monitored metric stopped improving.
+
+
+        Returns
+        -------
+        history: dict
+            Records training loss and metric values.
         """
         
         num_batches = (len(data)//batch_size)
@@ -152,54 +169,92 @@ class Model(qtn.TensorNetwork):
         return history
 
     def predict(self, x):
+        """Performs transformation on input data.
+
+        Parameters
+        ----------
+        x : :class:`quimb.tensor.tensor_1d.MatrixProductState`, or :class:`quimb.tensor.tensor_core.TensorNetwork`
+            Embedded data in MatrixProductState form.
+        
+        Returns
+        -------
+        :class:`quimb.tensor.tensor_1d.MatrixProductState`
+            A MatrixProductState of result
         """
-        Performs Model's transformation on input data.
-        Args
-            x: Embedded data in MatrixProductState form.
-        Return
-            MatrixProductState of result
-        """
+
         return (self @ x)
     
     def predict_norm(self, x):
+
+        """Computes norm for output of ``predict(x)``.
+
+        Parameters
+        ----------
+        x : :class:`quimb.tensor.tensor_1d.MatrixProductState`, or :class:`quimb.tensor.tensor_core.TensorNetwork`
+            Embedded data in MatrixProductState form.
+        
+        Returns
+        -------
+        float
+            Norm of `predict(x)`
         """
-        Computing norm for 'Model's transformation on input data'.
-        Args
-            x: Embedded data in MatrixProductState form.
-        Return
-            norm of `predict(x)`
-        """
+
         return self.predict(x).norm()
 
 def load_model(dir_name, model_name):
+    """Loads the Model from pickle file.
+
+    Parameters
+    ----------
+    dir_name : str
+        Directory where model is stored.
+    model_name : str
+        Name of model.
     """
-    Loads the Model from pickle file.
-    
-    Args
-        dir_name: Directory where model is stored. `str`.
-        model_name: Name of model. `str`.
-    """
+
     return qu.load_from_disk(f'{dir_name}/{model_name}.pkl')
 
 class LossWrapper:
+    """Wrapper of loss function to make it compatible with JAX.
+
+    Attributes
+    ----------
+    tn : :class:`quimb.tensor.tensor_core.TensorNetwork`
+        Tensor network on which training is performed.
+    loss_fn: function
+        Loss function.
     """
-    Wrapper of loss function to make it compatible with JAX.
-    
-    Args:
-        tn: Tensor network on which training is performed.
-        loss_fn: Loss function.
-    """
+
     def __init__(self, loss_fn, tn):
+        """Constructor
+
+        Attributes
+        ----------
+        tn : :class:`quimb.tensor.tensor_core.TensorNetwork``
+            Tensor Network.
+        loss_fn : function
+            Loss function.
+        """
         self.tn = tn
         self.loss_fn = loss_fn
 
-    def __call__(self, arrays, **kwargs):
+    def __call__(self, tensor_arrays, **kwargs):
+        """Wraps and executes loss function.
+
+        Parameters
+        ----------
+        tensor_arrays : sequence of :class:`numpy.ndarray``
+            
+        Returns
+        -------
+        :class:`functools.partial`
+        """
         tn = self.tn.copy()
 
         kwargs = qtn.optimize.parse_constant_arg(kwargs, jax.numpy.asarray)
         loss_fn = functools.partial(self.loss_fn, **kwargs)
 
-        for tensor, array in zip(tn.tensors, arrays):
+        for tensor, array in zip(tn.tensors, tensor_arrays):
             tensor.modify(data=array)
 
         with qtn.contract_backend("jax"):
@@ -216,22 +271,33 @@ def _fit(
     embedding: embeddings.Embedding = embeddings.trigonometric(),
     **hyperparams,
 ):
-    """
-    Perfoms training procedure with using JAX to compute gradients of loss function.
+    """Perfoms training procedure with using JAX to compute gradients of loss function.
+
+    Parameters
+    ----------
+    model : :class:`tnad.models.Model`
+        Model for training.
+    loss_fn : `Callable`
+        Loss function.
+    data : sequence` of :class:`numpy.ndarray`
+        Data for training Model.
+    strategy : :class:`tnad.strategy.Strategy`
+        Strategy for computing gradients.
+    optimizer : :class:`quimb.tensor.optimize.TNOptimizer`, or different possibilities of optimizers from :func:`quimb.tensor.optimize`,or `None`
+        Optimizer.
+    epoch : int
+        Current epoch.
+    embedding : :class:`tnad.embeddings.Embedding`
+        Data embedding function.
     
-    Args
-        model: Model for training. `Model`.
-        loss_fn: Loss function. `Callable`.
-        data: Data for training Model. `Sequence` of `numpy.ndarray`.
-        strategy: Strategy for computing gradients. `Strategy`.
-        optimizer: `quimb.tensor.optimize.TNOptimizer` instance or different possibilities of optimizers from `quimb.tensor.optimize` or default `None`.
-        epoch: Current epoch. `Integer`.
-        embedding: Data embedding function. `embeddings.Embedding` instance.
-    
-    Return
-        res.fun - Value of loss function. `float`.
-        res - return value of `scipy.optimize.OptimizeResult`. See `scipy.optimize.OptimizeResult`
-        vectorizer - Vectorizer data of Tensor Network. `quimb.tensor.optimize.Vectorizer` instance.
+    Returns
+    -------
+    float
+        Value of loss function
+    :class:`scipy.optimize.OptimizeResult`
+        See :class:`scipy.optimize.OptimizeResult` for more information.
+    :class:`quimb.tensor.optimize.Vectorizer`
+        Vectorizer data of Tensor Network.
     """
 
     if not isinstance(strategy, Global):
@@ -308,8 +374,8 @@ def _fit_test(
     callbacks: Optional[Sequence[Callable[[Model, OptimizeResult, qtn.optimize.Vectorizer], Any]]] = None,
     **hyperparams,
 ):
-    """
-    Performs training procedure. Currently in testing stage. Not used.
+
+    """Performs training procedure. Currently in testing stage. Not used.
     """
 
     if not isinstance(strategy, Global):
