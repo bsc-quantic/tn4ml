@@ -22,7 +22,7 @@ class Model(qtn.TensorNetwork):
     Attributes
     ----------
     loss_fn : `Callable`, or `None`
-        Loss function. See `tnad/loss.py` for examples.
+        Loss function. See :mod:`tnad.loss` for examples.
     strategy : :class:`tnad.strategy.Strategy`
         Strategy for computing gradients.
     optimizer : :class:`quimb.tensor.optimize.TNOptimizer`, or different possibilities of optimizers from :func:`quimb.tensor.optimize`. 
@@ -90,12 +90,11 @@ class Model(qtn.TensorNetwork):
             Number of epochs for training the Model.
         embedding : :class:`tnad.embeddings.Embedding`
             Data embedding function.
-        callbacks : sequence of callbacks (metrics) - `tuple`(callback name, function - `Callable`), or default `None`
-            List of metrics for monitoring training progress. Each metric function receives (Model, return value of `scipy.optimize.OptimizeResult`, `quimb.tensor.optimize.Vectorizer`).
-        earlystop : `EarlyStopping` instance
+        callbacks : sequence of callbacks (metrics) - ``tuple(callback name, `Callable`)``, or default `None`
+            List of metrics for monitoring training progress. Each metric function receives (:class:`tnad.models.Model`, :class:`scipy.optimize.OptimizeResult`, :class:`quimb.tensor.optimize.Vectorizer`).
+        earlystop : :class:`tnad.util.EarlyStopping`
             Early stopping training when monitored metric stopped improving.
-
-
+        
         Returns
         -------
         history: dict
@@ -179,7 +178,7 @@ class Model(qtn.TensorNetwork):
         Returns
         -------
         :class:`quimb.tensor.tensor_1d.MatrixProductState`
-            A MatrixProductState of result
+            Matrix product state of result
         """
 
         return (self @ x)

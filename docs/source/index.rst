@@ -8,12 +8,14 @@ Tensor Network for Anomaly Detection
 
 .. toctree::
    :maxdepth: 2
+   :titlesonly:
    :caption: Getting started
 
    install
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+   :titlesonly:
    :caption: Modules
 
    tnad.models

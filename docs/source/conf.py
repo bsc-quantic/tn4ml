@@ -36,6 +36,7 @@ napoleon_numpy_docstring = True
 napoleon_include_init_with_doc = True
 autodoc_member_order = 'bysource'
 nbsphinx_allow_errors = True
+nbsphinx_execute = 'never'
 
 templates_path = ['_templates']
 exclude_patterns = ['build', 'Thumbs.db', '.DS_Store', 'test', '.ipynb_checkpoints']
