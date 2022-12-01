@@ -251,7 +251,6 @@ class LossWrapper:
         """
         tn = self.tn.copy()
 
-        kwargs = qtn.optimize.parse_constant_arg(kwargs, jax.numpy.asarray)
         loss_fn = functools.partial(self.loss_fn, **kwargs)
 
         for tensor, array in zip(tn.tensors, tensor_arrays):
