@@ -449,3 +449,5 @@ def _fit_test(
         return (res.fun, *metrics)  # type: ignore
 
     return res.fun
+
+from .smpo import SpacedMatrixProductOperator
