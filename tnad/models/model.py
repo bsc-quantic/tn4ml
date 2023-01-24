@@ -24,16 +24,16 @@ class Model(qtn.TensorNetwork):
         Loss function. See :mod:`tnad.loss` for examples.
     strategy : :class:`tnad.strategy.Strategy`
         Strategy for computing gradients.
-    optimizer : :class:`quimb.tensor.optimize.TNOptimizer`, or different possibilities of optimizers from :func:`quimb.tensor.optimize`. 
+    optimizer : :class:`quimb.tensor.optimize.TNOptimizer`, or different possibilities of optimizers from :func:`quimb.tensor.optimize`.
     """
-    
+
     def __init__(self):
         """Constructor
         """
         self.loss_fn = None
         self.strategy = Global()
         self.optimizer = qtn.optimize.ADAM()
-    
+
     def save(self, model_name, dir_name='~'):
 
         """Saves :class:`tnad.models.Model` to pickle file.
@@ -47,7 +47,7 @@ class Model(qtn.TensorNetwork):
         """
 
         qu.save_to_disk(self, f'{dir_name}/{model_name}.pkl')
-    
+
     def configure(self, **kwargs):
 
         """Configures :class:`tnad.models.Model` for training setting the arguments.
@@ -68,7 +68,7 @@ class Model(qtn.TensorNetwork):
             else:
                 raise AttributeError(f"Attribute {key} not found")
 
-    def train(self, 
+    def train(self,
             data: Collection,
             batch_size: Optional[int] = None,
             nepochs: Optional[int] = 1,
@@ -76,13 +76,13 @@ class Model(qtn.TensorNetwork):
             callbacks: Optional[Sequence[tuple[str, Callable]]] = None,
             earlystop: Optional[EarlyStopping] = None,
             **kwargs):
-        
+
         """Performs the training procedure of :class:`tnad.models.Model`.
 
         Parameters
         ----------
         data : sequence of :class:`numpy.ndarray`
-            Data used for training procedure. 
+            Data used for training procedure.
         batch_size : int, or default `None`
             Number of samples per gradient update.
         nepochs : int
@@ -93,56 +93,56 @@ class Model(qtn.TensorNetwork):
             List of metrics for monitoring training progress. Each metric function receives (:class:`tnad.models.Model`, :class:`scipy.optimize.OptimizeResult`, :class:`quimb.tensor.optimize.Vectorizer`).
         earlystop : :class:`tnad.util.EarlyStopping`
             Early stopping training when monitored metric stopped improving.
-        
+
         Returns
         -------
         history: dict
             Records training loss and metric values.
         """
-        
+
         num_batches = (len(data)//batch_size)
-        
+
         history = dict()
         history['loss'] = []
         if callbacks:
             for name, _ in callbacks:
                 history[name] = []
-        
+
         if earlystop:
             if earlystop.monitor not in history.keys():
                 raise ValueError(f'This metric {earlystop.monitor} is not monitored. Change metric for EarlyStopping.')
             if earlystop.mode not in ['min', 'max']:
                 raise ValueError(f'EarlyStopping mode can be either "min" or "max".')
-                
+
             memory = dict()
             memory['best'] = np.Inf if earlystop.mode == 'min' else -np.Inf
             memory['best_epoch'] = 0 # track on each epoch
-            if earlystop.mode == 'min': 
+            if earlystop.mode == 'min':
                 min_delta = earlystop.min_delta*(-1)
                 operator = np.less
             else:
                 min_delta = earlystop.min_delta*1
                 operator = np.greater
             memory['wait'] = 0
-            
+
         with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(data)//batch_size)-1, desc="batch") as innerbar:
             for epoch in range(nepochs):
                 innerbar.reset()
-                
+
                 for batch in funcy.partition(batch_size, data):
                     batch = jax.numpy.asarray(batch)
 
                     loss_cur, res, vectorizer = _fit(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
                     history['loss'].append(loss_cur)
                     # model.normalize()
-                    
+
                     if callbacks:
                         for name, fn in callbacks:
                             history[name].append(fn(self, res, vectorizer))
 
                     innerbar.update()
                     innerbar.set_postfix(loss=history["loss"][-1])
-                    
+
                 if earlystop:
                     current = sum(history[earlystop.monitor][-num_batches:])/num_batches
 
@@ -173,7 +173,7 @@ class Model(qtn.TensorNetwork):
         ----------
         x : :class:`quimb.tensor.tensor_1d.MatrixProductState`, or :class:`quimb.tensor.tensor_core.TensorNetwork`
             Embedded data in MatrixProductState form.
-        
+
         Returns
         -------
         :class:`quimb.tensor.tensor_1d.MatrixProductState`
@@ -181,7 +181,7 @@ class Model(qtn.TensorNetwork):
         """
 
         return (self @ x)
-    
+
     def predict_norm(self, x):
 
         """Computes norm for output of ``predict(x)``.
@@ -190,7 +190,7 @@ class Model(qtn.TensorNetwork):
         ----------
         x : :class:`quimb.tensor.tensor_1d.MatrixProductState`, or :class:`quimb.tensor.tensor_core.TensorNetwork`
             Embedded data in MatrixProductState form.
-        
+
         Returns
         -------
         float
@@ -242,7 +242,7 @@ class LossWrapper:
         Parameters
         ----------
         tensor_arrays : sequence of :class:`numpy.ndarray``
-            
+
         Returns
         -------
         :class:`functools.partial`
@@ -286,7 +286,7 @@ def _fit(
         Current epoch.
     embedding : :class:`tnad.embeddings.Embedding`
         Data embedding function.
-    
+
     Returns
     -------
     float
@@ -316,9 +316,9 @@ def _fit(
                 tn = model.copy()
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
-                                
+
                 phi = embed(x, embedding)
-                
+
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(model.L)]), in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
                 x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
