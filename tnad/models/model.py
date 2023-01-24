@@ -323,6 +323,8 @@ def _fit(
 
                 phi = embed(x, embedding)
 
+                return loss_fn(tn, phi)
+                
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(model.L)]), in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
                 x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
@@ -339,6 +341,7 @@ def _fit(
                     tensor.modify(data=array)
 
                 phi = embed(sample, embedding)
+                return loss_fn(model, phi)
 
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(foo, in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
