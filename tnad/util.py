@@ -14,7 +14,7 @@ def return_digits(array):
 
 class EarlyStopping:
     """ Variation of `EarlyStopping` class from :class:tensorflow.
-    
+
     Attributes
     ----------
     monitor : str
@@ -31,3 +31,35 @@ class EarlyStopping:
         self.min_delta = min_delta
         self.patience = patience
         self.mode = mode
+
+class ExponentialDecay:
+    """ Variation of `ExponentialDecay` class from :class:tensorflow. Once
+    the exponential decay has started, the learning rate at each step is computed
+    as: initial_learning_rate * decay_rate ^ (step / decay_steps) .
+
+    Attributes
+    ----------
+    initial_learning_rate : float
+        Initial learning rate.
+    decay_steps : int
+        Number of decay_steps
+    decay_rate : float
+        Decay rate of the algorithm.
+    start_decay : int
+        The step in which the exponential decay starts.
+    """
+    def __init__(
+        self,
+        initial_learning_rate: float,
+        decay_steps: int,
+        decay_rate: float,
+        start_decay: int = 0
+        ):
+
+        self.initial_learning_rate = initial_learning_rate
+        self.decay_steps = decay_steps
+        self.decay_rate = decay_rate
+        self.start_decay = start_decay
+
+    def __call__(self, step):
+        return self.initial_learning_rate * (self.decay_rate ** (step / self.decay_steps))

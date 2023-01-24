@@ -12,7 +12,7 @@ import quimb as qu
 from scipy.optimize import OptimizeResult
 # from .smpo import SpacedMatrixProductOperator
 from ..embeddings import Embedding, trigonometric, embed, image_to_mps
-from ..util import EarlyStopping
+from ..util import EarlyStopping, ExponentialDecay
 from ..strategy import *
 
 class Model(qtn.TensorNetwork):
@@ -75,6 +75,7 @@ class Model(qtn.TensorNetwork):
             embedding: Embedding = trigonometric(),
             callbacks: Optional[Sequence[tuple[str, Callable]]] = None,
             earlystop: Optional[EarlyStopping] = None,
+            exp_decay: Optional[ExponentialDecay] = None,
             **kwargs):
 
         """Performs the training procedure of :class:`tnad.models.Model`.
@@ -128,6 +129,9 @@ class Model(qtn.TensorNetwork):
         with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(data)//batch_size)-1, desc="batch") as innerbar:
             for epoch in range(nepochs):
                 innerbar.reset()
+
+                if exp_decay and epoch >= exp_decay.start_decay:
+                    self.learning_rate = exp_decay(epoch)
 
                 for batch in funcy.partition(batch_size, data):
                     batch = jax.numpy.asarray(batch)
