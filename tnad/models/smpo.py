@@ -1,13 +1,14 @@
 import itertools
 import math
 from typing import Tuple
+import numpy as np
 
 import autoray as a
 import quimb as qu
 import quimb.tensor as qtn
 from quimb.tensor.tensor_1d import TensorNetwork, TensorNetwork1DFlat, TensorNetwork1DOperator, MatrixProductState
-from tnad.models import Model
-from tnad.util import return_digits
+from .model import Model
+from ..util import return_digits
 
 def sort_tensors(tn):
     """Helper function for sorting tensors of tensor network in alphabetic order by tags.
@@ -55,8 +56,9 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         self.cyclic = qtn.array_ops.ndim(arrays[0]) == 4
         dims = [x.ndim for x in arrays]
-        q = dims.count(4) + 1 + (1 if dims[-1] == 3 else 0)
-        self._spacing = math.ceil((self.L - 1) / (q - 1)) - (0 if (self.L - 1) % (q - 1) == 0 else 1)
+        if dims.count(4) == 0: 
+            raise ValueError('There is only one output index --> spacing >= L. Consider changing the value.')
+        self._spacing = dims.index(4, dims.index(4) + 1) - dims.index(4)
         lower_inds = map(lower_ind_id.format, range(0, self.L, self.spacing))
 
         # process orders
@@ -238,10 +240,10 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         smpo.upper_ind_id = mps.site_ind_id
 
         result = smpo & mps
-
+        
         for ind in mps.outer_inds():
             result.contract_ind(ind=ind)
-
+            
         list_tensors = result.tensors
         number_of_sites = len(list_tensors)
         tags = list(qtn.tensor_core.get_tags(result))
@@ -261,15 +263,30 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 if len(tags_to_drop) == 0:
                     tags_to_drop.append(tags[i + 1])
                 result.drop_tags(tags_to_drop)
-
         result.fuse_multibonds_()
-
+        
         sorted_tensors = sort_tensors(result)
         arrays = [tensor.data for tensor in sorted_tensors]
+        
+        if len(arrays[0].shape) == 3:
+            arr = np.squeeze(arrays[0])
+            arrays[0] = arr
         arrays[0] = a.do("reshape", arrays[0], (1, *arrays[0].shape))
-        arrays[-1] = a.do("reshape", arrays[-1], (*arrays[-1].shape, 1))
-        vec = MatrixProductState(arrays, shape="lpr")
-
+        
+        if len(arrays[-1].shape) == 3:
+            arr = np.squeeze(arrays[-1])
+            arrays[-1] = arr
+        
+        if S == 1: 
+            arrays[-1] = a.do("reshape", arrays[-1], (arrays[-1].shape[0], 1, arrays[-1].shape[1]))
+        else: 
+            arrays[-1] = a.do("reshape", arrays[-1], (*arrays[-1].shape, 1))
+        
+        # set shape
+        if S==1: shape = 'lrp'
+        else: shape = 'lpr'
+        
+        vec = MatrixProductState(arrays, shape=shape)
         # optionally compress
         if compress:
             vec.compress(**compress_opts)
