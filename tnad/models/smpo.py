@@ -17,7 +17,7 @@ def sort_tensors(tn):
     ----------
     tn : :class:`quimb.tensor.tensor_core.TensorNetwork`
         Tensor network.
-    
+
     Returns
     -------
     tuple
@@ -56,7 +56,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         self.cyclic = qtn.array_ops.ndim(arrays[0]) == 4
         dims = [x.ndim for x in arrays]
-        if dims.count(4) == 0: 
+        if dims.count(4) == 0:
             raise ValueError('There is only one output index --> spacing >= L. Consider changing the value.')
         self._spacing = dims.index(4, dims.index(4) + 1) - dims.index(4)
         lower_inds = map(lower_ind_id.format, range(0, self.L, self.spacing))
@@ -117,7 +117,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         Parameters
         ----------
         insert : int
-            Index of tensor divided by norm. *Default = 0*. When `None` the norm division is distributed across all tensors.
+            Index of tensor divided by norm. *Default = None*. When `None` the norm division is distributed across all tensors.
         """
 
         norm = self.norm()
@@ -129,7 +129,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
     def norm(self, **contract_opts):
         """Calculates norm of :class:`tnad.models.smpo.SpacedMatrixProductOperator`.
-        
+
         Parameters
         ----------
         contract_opts : Optional
@@ -146,7 +146,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
     def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, insert=0, **kwargs):
         """Generates :class:`tnad.models.smpo.SpacedMatrixProductOperator` with random tensor arrays.
-        
+
         Parameters
         ----------
         n: int
@@ -154,7 +154,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         spacing : int
             Spacing paramater, or space between output indices in number of sites.
         bond_dim : int
-            Dimension of virtual indices between tensors. *Default = 4*. 
+            Dimension of virtual indices between tensors. *Default = 4*.
         phys_dim :  tuple(int, int)
             Dimension of physical indices for individual tensor - *up* and *down*.
         cyclic : bool
@@ -167,7 +167,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             Seed for generating random number.
         insert : int
             Index of tensor divided by norm. *Default = 0*. When `None` the norm division is distributed across all tensors.
-           
+
         Returns
         -------
         :class:`tnad.models.smpo.SpacedMatrixProductOperator`
@@ -240,10 +240,10 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         smpo.upper_ind_id = mps.site_ind_id
 
         result = smpo & mps
-        
+
         for ind in mps.outer_inds():
             result.contract_ind(ind=ind)
-            
+
         list_tensors = result.tensors
         number_of_sites = len(list_tensors)
         tags = list(qtn.tensor_core.get_tags(result))
@@ -264,28 +264,28 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                     tags_to_drop.append(tags[i + 1])
                 result.drop_tags(tags_to_drop)
         result.fuse_multibonds_()
-        
+
         sorted_tensors = sort_tensors(result)
         arrays = [tensor.data for tensor in sorted_tensors]
-        
+
         if len(arrays[0].shape) == 3:
             arr = np.squeeze(arrays[0])
             arrays[0] = arr
         arrays[0] = a.do("reshape", arrays[0], (1, *arrays[0].shape))
-        
+
         if len(arrays[-1].shape) == 3:
             arr = np.squeeze(arrays[-1])
             arrays[-1] = arr
-        
-        if S == 1: 
+
+        if S == 1:
             arrays[-1] = a.do("reshape", arrays[-1], (arrays[-1].shape[0], 1, arrays[-1].shape[1]))
-        else: 
+        else:
             arrays[-1] = a.do("reshape", arrays[-1], (*arrays[-1].shape, 1))
-        
+
         # set shape
         if S==1: shape = 'lrp'
         else: shape = 'lpr'
-        
+
         vec = MatrixProductState(arrays, shape=shape)
         # optionally compress
         if compress:

@@ -74,6 +74,7 @@ class Model(qtn.TensorNetwork):
             nepochs: Optional[int] = 1,
             embedding: Embedding = trigonometric(),
             callbacks: Optional[Sequence[tuple[str, Callable]]] = None,
+            normalize: Optional[bool] = False,
             earlystop: Optional[EarlyStopping] = None,
             exp_decay: Optional[ExponentialDecay] = None,
             **kwargs):
@@ -92,8 +93,12 @@ class Model(qtn.TensorNetwork):
             Data embedding function.
         callbacks : sequence of callbacks (metrics) - ``tuple(callback name, `Callable`)``, or default `None`
             List of metrics for monitoring training progress. Each metric function receives (:class:`tnad.models.Model`, :class:`scipy.optimize.OptimizeResult`, :class:`quimb.tensor.optimize.Vectorizer`).
+        normalize : bool
+            If True, the model is normalized after each iteration.
         earlystop : :class:`tnad.util.EarlyStopping`
             Early stopping training when monitored metric stopped improving.
+        exp_decay : `ExponentialDecay` instance
+            Exponential decay of the learning rate.
 
         Returns
         -------
@@ -138,7 +143,10 @@ class Model(qtn.TensorNetwork):
 
                     loss_cur, res, vectorizer = _fit(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
                     history['loss'].append(loss_cur)
-                    # model.normalize()
+
+                    if normalize:
+                        self.canonize(0)
+                        self.normalize()
 
                     if callbacks:
                         for name, fn in callbacks:
@@ -324,7 +332,7 @@ def _fit(
                 phi = embed(x, embedding)
 
                 return loss_fn(tn, phi)
-                
+
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(model.L)]), in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
                 x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
