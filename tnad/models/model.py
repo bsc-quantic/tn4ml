@@ -11,7 +11,7 @@ from quimb import tensor as qtn
 import quimb as qu
 from scipy.optimize import OptimizeResult
 # from .smpo import SpacedMatrixProductOperator
-from ..embeddings import Embedding, trigonometric, embed, image_to_mps
+from ..embeddings import Embedding, trigonometric, embed
 from ..util import EarlyStopping, ExponentialDecay
 from ..strategy import *
 
