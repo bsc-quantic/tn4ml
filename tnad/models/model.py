@@ -1,6 +1,6 @@
 import functools
 import operator
-from tqdm import tqdm
+from tqdm import tqdm, trange
 from concurrent.futures import Executor, ProcessPoolExecutor
 from typing import Any, Callable, Collection, Optional, Sequence, NamedTuple
 import autoray
@@ -11,9 +11,10 @@ from quimb import tensor as qtn
 import quimb as qu
 from scipy.optimize import OptimizeResult
 # from .smpo import SpacedMatrixProductOperator
-from ..embeddings import Embedding, trigonometric, embed, image_to_mps
+from ..embeddings import Embedding, trigonometric, embed
 from ..util import EarlyStopping, ExponentialDecay
 from ..strategy import *
+from time import time
 
 class Model(qtn.TensorNetwork):
     """:class:`tnad.models.Model` class models training model of class :class:`quimb.tensor.tensor_core.TensorNetwork`.
@@ -76,7 +77,9 @@ class Model(qtn.TensorNetwork):
             callbacks: Optional[Sequence[tuple[str, Callable]]] = None,
             normalize: Optional[bool] = False,
             earlystop: Optional[EarlyStopping] = None,
+            time_limit: Optional[int] = None,
             exp_decay: Optional[ExponentialDecay] = None,
+            start_epoch: Optional[int] = 0,
             **kwargs):
 
         """Performs the training procedure of :class:`tnad.models.Model`.
@@ -110,6 +113,8 @@ class Model(qtn.TensorNetwork):
 
         history = dict()
         history['loss'] = []
+        history['epoch_time'] = []
+        history['unfinished'] = False # default
         if callbacks:
             for name, _ in callbacks:
                 history[name] = []
@@ -131,8 +136,10 @@ class Model(qtn.TensorNetwork):
                 operator = np.greater
             memory['wait'] = 0
 
-        with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(data)//batch_size)-1, desc="batch") as innerbar:
-            for epoch in range(nepochs):
+        start_train = time()
+        with trange(start_epoch, nepochs, initial=start_epoch, total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(data)//batch_size)-1, desc="batch") as innerbar:
+            for epoch in range(start_epoch, nepochs):
+                time_epoch = time()
                 innerbar.reset()
 
                 if exp_decay and epoch >= exp_decay.start_decay:
@@ -174,7 +181,17 @@ class Model(qtn.TensorNetwork):
                         print(f'Training stopped by EarlyStopping on epoch: {best_epoch}', flush=True)
                         self = memory['best_model']
                         return history
-                    if memory['wait'] > 0: print('Waiting for ' + str(memory['wait']) + ' epochs.', flush=True)
+                    print('Waiting for ' + str(memory['wait']) + ' epochs.', flush=True)
+                history['epoch_time'].append(time() - time_epoch)
+                if time_limit is not None and (time() - start_train + np.mean(history['epoch_time']) >= time_limit):
+                    print("Elapsed time since the beginning of the training: ", time()-start_train)
+                    print("Approximate time left:", time_limit-(start_train-time()))
+                    print("Average epoch duration:", np.mean(history["epoch_time"]))
+                    print()
+                    print("Unable to finish the training in time, saving the unfinished models instead...")
+                    history["unfinished"] = True
+
+                    return history
                 outerbar.update()
         return history
 
