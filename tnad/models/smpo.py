@@ -192,11 +192,17 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale))
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
         mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
+
+        for i, tensor in enumerate(mpo.tensors):
+            tensor_norm = tensor.norm()
+            tensor.modify(data=tensor.data / np.sqrt(tensor_norm))
+
         if insert == None:
             mpo.normalize(insert)
         else:
             mpo.canonize(insert)
             mpo.normalize(insert)
+
         return mpo
 
     @property
