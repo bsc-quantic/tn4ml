@@ -4,7 +4,7 @@ from typing import Callable, Optional
 import quimb.tensor as qtn
 from autoray import do
 
-from tnad.embeddings import Embedding, embed
+from .embeddings import Embedding, embed
 
 """ Examples of Loss functions """
 
@@ -46,8 +46,8 @@ def error_logquad(P, data):
     ----------
     P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
-    data: :class:`numpy.ndarray`
-        Input data.
+    data: :class:`quimb.tensor.MatrixProductState`
+        Input mps.
     Returns
     -------
     float
@@ -62,14 +62,30 @@ def error_quad(P, data):
     ----------
     P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
-    data: :class:`numpy.ndarray`
-        Input data.
+    data: :class:`quimb.tensor.MatrixProductState`
+        Input mps.
     Returns
     -------
     float
     """
     mps = P.apply(data)
     return do("power", do("add", mps.H & mps ^ all, -1.0), 2)
+
+def error_distance_to_origin(P, data):
+    """Example of error calculation when applying :class:`tnad.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
+    
+    Parameters
+    ----------
+    P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+        Spaced Matrix Product Operator
+    data: :class:`quimb.tensor.MatrixProductState`
+        Input mps.
+    Returns
+    -------
+    float
+    """
+    mps = P.apply(data)
+    return - (mps.H & mps ^ all)
 
 def loss(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Embedding] = None) -> Number:
     """Example of Loss function with calculation of error on input data and regularization.
