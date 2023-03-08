@@ -149,7 +149,6 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         insert : int
             Index of tensor divided by norm. *Default = None*. When `None` the norm division is distributed across all tensors.
         """
-
         norm = self.norm()
         if insert == None:
             for tensor in self.tensors:
@@ -170,7 +169,6 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         float
             Norm of :class:`tnad.models.smpo.SpacedMatrixProductOperator`
         """
-
         norm = self.conj() & self
         return norm.contract(**contract_opts) ** 0.5
 
