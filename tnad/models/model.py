@@ -69,7 +69,8 @@ class Model(qtn.TensorNetwork):
                 raise AttributeError(f"Attribute {key} not found")
 
     def train(self,
-            data: Collection,
+            inputs: Collection,
+            targets: Optional[Collection] = None,
             batch_size: Optional[int] = None,
             nepochs: Optional[int] = 1,
             embedding: Embedding = trigonometric(),
@@ -83,8 +84,10 @@ class Model(qtn.TensorNetwork):
 
         Parameters
         ----------
-        data : sequence of :class:`numpy.ndarray`
+        inputs : sequence of :class:`numpy.ndarray`
             Data used for training procedure.
+        targets: sequence of :class:
+            Targets for training procedure (if training is supervised).
         batch_size : int, or default `None`
             Number of samples per gradient update.
         nepochs : int
@@ -106,7 +109,7 @@ class Model(qtn.TensorNetwork):
             Records training loss and metric values.
         """
 
-        num_batches = (len(data)//batch_size)
+        num_batches = (len(inputs)//batch_size)
 
         history = dict()
         history['loss'] = []
@@ -131,12 +134,18 @@ class Model(qtn.TensorNetwork):
                 operator = np.greater
             memory['wait'] = 0
 
-        with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(data)//batch_size)-1, desc="batch") as innerbar:
+        with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(inputs)//batch_size)-1, desc="batch") as innerbar:
             for epoch in range(nepochs):
                 innerbar.reset()
 
                 if exp_decay and epoch >= exp_decay.start_decay:
                     self.learning_rate = exp_decay(epoch)
+
+                if targets:
+                    if targets.dim == 1: 
+                        targets = np.expand_dims(targets, axis=1)
+                    data = np.concatenate([inputs, targets], axis=1)
+                else: data = inputs
 
                 for batch in funcy.partition(batch_size, data):
                     batch = jax.numpy.asarray(batch)
@@ -289,7 +298,7 @@ def _fit(
     loss_fn : `Callable`
         Loss function.
     data : sequence` of :class:`numpy.ndarray`
-        Data for training Model.
+        Data for training Model. Can contain targets (if training is supervised).
     strategy : :class:`tnad.strategy.Strategy`
         Strategy for computing gradients.
     optimizer : :class:`quimb.tensor.optimize.TNOptimizer`, or different possibilities of optimizers from :func:`quimb.tensor.optimize`,or `None`
@@ -320,18 +329,25 @@ def _fit(
         strategy.prehook(model, sites)
 
         vectorizer = qtn.optimize.Vectorizer(model.arrays)
-
+        
         def jac(x):
+            # x = model
             arrays = vectorizer.unpack(x)
 
-            def foo(x, *model_arrays):
-                tn = model.copy()
+            def foo(sample, *model_arrays):
+                #unpack
+                # sample = data input
+                tn = model.copy() # create model mps as reference!
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
 
-                phi = embed(x, embedding)
-
-                return loss_fn(tn, phi)
+                if sample.shape[1] > model.L:
+                    sample, target = sample[:, :model.L], sample[:, model.L:]
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi, target)
+                else:
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi)
 
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(model.L)]), in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
@@ -341,15 +357,22 @@ def _fit(
 
         # call quimb's optimizers with vectorizer
         def loss(x):
+            # x = model
             arrays = vectorizer.unpack(x)
 
             def foo(sample, *model_arrays):
+                # sample = data input
                 tn = model.copy()
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
 
-                phi = embed(sample, embedding)
-                return loss_fn(model, phi)
+                if sample.shape[1] > model.L:
+                    sample, target = sample[:, :model.L], sample[:, model.L:]
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi, target)
+                else:
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi)
 
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(foo, in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
