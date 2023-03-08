@@ -28,6 +28,36 @@ def sort_tensors(tn):
     ts_and_sorted_tags.sort(key=lambda x: x[1])
     return tuple(x[0] for x in ts_and_sorted_tags)
 
+def gramschmidt(A):
+    """Function that creates an orthogonal basis from a matrix `A`.
+
+    Parameters
+    ----------
+    A : Matrix
+
+    Returns
+    -------
+    `np.numpy.ndarray`
+        Matrix in a orthogonal basis
+
+    """
+    m = A.shape[0]
+
+    for i in range(m-1):
+        v = [A[i, :]]
+        v /= np.linalg.norm(v)
+        A[i, :] = v
+
+
+        sA = A[i+1:, :]
+        u = np.matmul(sA, np.transpose(v))
+        sA -= np.matmul(u, np.conjugate(v))
+        A[i+1:, :] = sA
+        u = np.matmul(sA, np.transpose(v))
+
+    A[-1,:] /= np.linalg.norm(A[-1,:])
+    return A
+
 class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, Model):
     """A MatrixProductOperator with a decimated number of output indices.
     See :class:`quimb.tensor.tensor_1d.MatrixProductOperator` for explanation of other attributes and methods.
@@ -144,7 +174,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         norm = self.conj() & self
         return norm.contract(**contract_opts) ** 0.5
 
-    def rand(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, insert=0, **kwargs):
+    def rand_distribution(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, insert = 0, **kwargs):
         """Generates :class:`tnad.models.smpo.SpacedMatrixProductOperator` with random tensor arrays.
 
         Parameters
@@ -203,6 +233,77 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             mpo.canonize(insert)
             mpo.normalize(insert)
 
+        return mpo
+
+    def rand_orthogonal(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
+        """Generates :class:`tnad.models.smpo.SpacedMatrixProductOperator` with random tensors in a
+        orthogonal basis, which fulfill that the `tnad.models.smpo.SpacedMatrixProductOperator` is
+        normalized. Currently this function is only supported for `cyclic=False`.
+
+        Parameters
+        ----------
+        n: int
+            Number of tensors.
+        spacing : int
+            Spacing paramater, or space between output indices in number of sites.
+        bond_dim : int
+            Dimension of virtual indices between tensors. *Default = 4*.
+        phys_dim :  tuple(int, int)
+            Dimension of physical indices for individual tensor - *up* and *down*.
+        cyclic : bool
+            Flag for indicating if SpacedMatrixProductOperator is cyclic. *Default=False*.
+        init_func : str
+            Type of random number for generating arrays data. *Default='uniform'*.
+        scale : float
+            The width of the distribution (standard deviation if `init_func='normal'`).
+        seed : int, or `None`
+            Seed for generating random number.
+
+        Returns
+        -------
+        :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+        """
+
+        if cyclic:
+            raise NotImplementedError()
+
+        arrays = []
+        for i, hasoutput in zip(range(n), itertools.cycle([True, *[False] * (spacing - 1)])):
+            if i < n // 2:
+                j = i
+            else:
+                j = (n - 1 - abs(2*i - n)) // 2
+
+            chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** (1 + j // spacing))
+            chir = min(bond_dim, phys_dim[0] ** j * phys_dim[1] ** (1 + (j+1) // spacing))
+
+            if i > n // 2:
+                (chil, chir) = (chir, chil)
+
+            if hasoutput:
+                if i == 0:
+                    shape = (chir, *phys_dim)
+                elif i == n - 1:
+                    shape = (chil, *phys_dim)
+                else:
+                    shape = (chil, chir, *phys_dim)
+            else:
+                if i == 0:
+                    shape = (chir, phys_dim[0])
+                elif i == n - 1:
+                    shape = (chil, phys_dim[0])
+                else:
+                    shape = (chil, chir, phys_dim[0])
+
+            if seed != None:
+                A = gramschmidt(qu.gen.rand.randn([shape[0], np.prod(shape[1:])], dist=init_func, scale=scale, seed=seed))
+            else:
+                A = gramschmidt(qu.gen.rand.randn([shape[0], np.prod(shape[1:])], dist=init_func, scale=scale))
+            arrays.append(np.reshape(A, shape))
+
+        arrays[0] /= np.sqrt(phys_dim[0])
+
+        mpo = SpacedMatrixProductOperator(arrays, **kwargs)
         return mpo
 
     @property
