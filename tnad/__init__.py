@@ -4,6 +4,7 @@ from .embeddings import (
     Embedding,
     trigonometric,
     fourier,
+    physics_embedding,
     embed
 )
 
@@ -13,7 +14,8 @@ from .loss import (
     reg_norm_quad,
     error_logquad,
     error_quad,
-    loss
+    error_cross_entropy,
+    loss_fn,
 )
 
 from .strategy import (
