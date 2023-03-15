@@ -86,7 +86,7 @@ class Model(qtn.TensorNetwork):
         ----------
         inputs : sequence of :class:`numpy.ndarray`
             Data used for training procedure.
-        targets: sequence of :class:
+        targets: sequence of :class:`numpy.ndarray`
             Targets for training procedure (if training is supervised).
         batch_size : int, or default `None`
             Number of samples per gradient update.
@@ -141,8 +141,8 @@ class Model(qtn.TensorNetwork):
                 if exp_decay and epoch >= exp_decay.start_decay:
                     self.learning_rate = exp_decay(epoch)
 
-                if targets:
-                    if targets.dim == 1: 
+                if targets is not None:
+                    if targets.ndim == 1: 
                         targets = np.expand_dims(targets, axis=1)
                     data = np.concatenate([inputs, targets], axis=1)
                 else: data = inputs
@@ -341,8 +341,8 @@ def _fit(
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
 
-                if sample.shape[1] > model.L:
-                    sample, target = sample[:, :model.L], sample[:, model.L:]
+                if sample.shape[0] > model.L:
+                    sample, target = sample[:model.L], sample[model.L:]
                     phi = embed(sample, embedding)
                     return loss_fn(tn, phi, target)
                 else:
