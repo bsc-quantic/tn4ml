@@ -13,12 +13,12 @@ def no_reg(x):
 
 def reg_norm_logrelu(P):
     """Regularization cost using ReLU of the log of the Frobenius-norm of `P`.
-    
+
     Parameters
     ----------
     P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
-    
+
     Returns
     -------
     float
@@ -27,12 +27,12 @@ def reg_norm_logrelu(P):
 
 def reg_norm_quad(P):
     """Regularization cost using the quadratic formula centered in 1 of the Frobenius-norm of `P`.
-    
+
     Parameters
     ----------
     P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
-    
+
     Returns
     -------
     float
@@ -41,7 +41,7 @@ def reg_norm_quad(P):
 
 def error_logquad(P, data):
     """Example of error calculation when applying :class:`tnad.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
-    
+
     Parameters
     ----------
     P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
@@ -57,7 +57,7 @@ def error_logquad(P, data):
 
 def error_quad(P, data):
     """Example of error calculation when applying :class:`tnad.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
-    
+
     Parameters
     ----------
     P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
@@ -73,7 +73,7 @@ def error_quad(P, data):
 
 def error_distance_to_origin(P, data):
     """Example of error calculation when applying :class:`tnad.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
-    
+
     Parameters
     ----------
     P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
@@ -89,19 +89,19 @@ def error_distance_to_origin(P, data):
 
 def loss(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Embedding] = None) -> Number:
     """Example of Loss function with calculation of error on input data and regularization.
-    
+
     Parameters
     ----------
     model : :class:`tnad.models.Model`
     data: :class:`numpy.ndarray`
         Data used for computing the loss value.
     error: function
-        Function for error calculation. 
+        Function for error calculation.
     reg: function
         Function for regularization value calculation.
     embedding: :class:`tnad.embeddings.Embedding`
         Data embedding function.
-    
+
     Returns
     -------
     float

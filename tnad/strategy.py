@@ -2,7 +2,7 @@ import abc
 
 class Strategy:
     """Decides how the gradients are computed. i.e. computes the gradients of each tensor separately or only of one site.
-    
+
     Attributes
     ----------
     renormalize : bool
@@ -14,7 +14,7 @@ class Strategy:
 
     def prehook(self, model, sites):
         """Modify `model` before computing gradient(s). Usually contract tensors.
-        
+
         Parameters
         ----------
         model : :class:`tnad.models.Model``
@@ -26,7 +26,7 @@ class Strategy:
 
     def posthook(self, model, sites):
         """Modify `model` after optimizing tensors. Usually split tensors.
-        
+
         Parameters
         ----------
         model : :class:`tnad.models.Model``
@@ -50,7 +50,7 @@ class Strategy:
 
 class Sweeps(Strategy):
     """DMRG-like local optimization.
-    
+
     Attributes
     ----------
     grouping : int

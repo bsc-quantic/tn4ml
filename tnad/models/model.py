@@ -142,7 +142,7 @@ class Model(qtn.TensorNetwork):
                     self.learning_rate = exp_decay(epoch)
 
                 if targets is not None:
-                    if targets.ndim == 1: 
+                    if targets.ndim == 1:
                         targets = np.expand_dims(targets, axis=1)
                     data = np.concatenate([inputs, targets], axis=1)
                 else: data = inputs
@@ -329,7 +329,7 @@ def _fit(
         strategy.prehook(model, sites)
 
         vectorizer = qtn.optimize.Vectorizer(model.arrays)
-        
+
         def jac(x):
             # x = model
             arrays = vectorizer.unpack(x)

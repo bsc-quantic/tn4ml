@@ -12,7 +12,7 @@ import math
 
 class Embedding:
     """Data embedding (feature map) class.
-    
+
     Attributes
     ----------
         dype: :class:`numpy.dype`
@@ -69,7 +69,7 @@ class fourier(Embedding):
             Mapping dimension.
         """
         assert p >= 2
-        
+
         self.p = p
         super().__init__(**kwargs)
 
@@ -84,10 +84,10 @@ def physics_embedding(data: onp.ndarray, pT_embed_func: Embedding, **mps_opts):
     theta = data[:, 0]
     phi = data[:, 1]
     pT = data[:, 2]
-    
+
     # encode pT
     pT_embed = [pT_embed_func(pt) for pt in pT]
-    
+
     # add phi and theta
     data_embed = []
     for i, j, k in zip(phi, theta, pT_embed):
@@ -95,15 +95,15 @@ def physics_embedding(data: onp.ndarray, pT_embed_func: Embedding, **mps_opts):
         pt_phi_norm = np.linalg.norm([k[0]*np.cos(i), k[1]*np.cos(i), pt_norm*np.sin(i)])
         data_vector = np.asarray([k[0]*np.cos(i)*np.cos(j), k[1]*np.cos(i)*np.cos(j), pt_norm*np.sin(i)*np.cos(j), pt_phi_norm*np.sin(j)])
         data_embed.append(data_vector)
-    
+
     # reshape for mps
     data_embed_reshaped = [x.reshape((1,1,4)) for x in data_embed]
-    
+
     return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
 
 def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
     """Creates a product state from a vector of features `x`.
-    
+
     Parameters
     ----------
     x : :class:`numpy.ndarray`

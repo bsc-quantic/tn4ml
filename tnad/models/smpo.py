@@ -88,13 +88,13 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         dims = [x.ndim for x in arrays]
         # if dims.count(4) == 0:
         #     raise ValueError('There is only one output index --> spacing >= L. Consider changing the value.')
-        
+
         # enable spacing ==  (to have one output)
         if dims.count(4) == 0:
             self._spacing = self.L
-        else: 
+        else:
             self._spacing = dims.index(4, dims.index(4) + 1) - dims.index(4)
-        
+
         lower_inds = map(lower_ind_id.format, range(0, self.L, self.spacing))
 
         # process orders
@@ -277,9 +277,9 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 j = (n + 1 - abs(2*i - n - 1)) // 2
             else:
                 j = i
-            
+
             chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)//spacing))
-            chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** ((j)//spacing))  
+            chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** ((j)//spacing))
 
             if i > n // 2:
                 (chil, chir) = (chir, chil)
@@ -304,7 +304,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             else:
                 A = gramschmidt(qu.gen.rand.randn([shape[0], np.prod(shape[1:])], dist=init_func, scale=scale))
             arrays.append(np.reshape(A, shape))
-        
+
         arrays[0] /= np.sqrt(min(bond_dim, phys_dim[0]))
 
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
