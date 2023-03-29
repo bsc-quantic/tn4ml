@@ -11,3 +11,7 @@ from .model import (
 from .smpo import(
     SpacedMatrixProductOperator
 )
+
+from .deep_model import(
+    DeepTensorNetwork
+)
