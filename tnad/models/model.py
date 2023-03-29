@@ -12,7 +12,7 @@ import quimb as qu
 from scipy.optimize import OptimizeResult
 # from .smpo import SpacedMatrixProductOperator
 from ..embeddings import Embedding, trigonometric, embed
-from ..util import EarlyStopping, ExponentialDecay
+from ..util import EarlyStopping, ExponentialDecay, ExponentialGrowth
 from ..strategy import *
 
 class Model(qtn.TensorNetwork):
@@ -78,6 +78,7 @@ class Model(qtn.TensorNetwork):
             normalize: Optional[bool] = False,
             earlystop: Optional[EarlyStopping] = None,
             exp_decay: Optional[ExponentialDecay] = None,
+            exp_growth: Optional[ExponentialGrowth] = None,
             **kwargs):
 
         """Performs the training procedure of :class:`tnad.models.Model`.
@@ -102,6 +103,8 @@ class Model(qtn.TensorNetwork):
             Early stopping training when monitored metric stopped improving.
         exp_decay : `ExponentialDecay` instance
             Exponential decay of the learning rate.
+        exp_growth : `ExponentialGrowth` instance
+            Exponential growth of the learning rate.
 
         Returns
         -------
@@ -118,28 +121,15 @@ class Model(qtn.TensorNetwork):
                 history[name] = []
 
         if earlystop:
-            if earlystop.monitor not in history.keys():
-                raise ValueError(f'This metric {earlystop.monitor} is not monitored. Change metric for EarlyStopping.')
-            if earlystop.mode not in ['min', 'max']:
-                raise ValueError(f'EarlyStopping mode can be either "min" or "max".')
-
-            memory = dict()
-            memory['best'] = np.Inf if earlystop.mode == 'min' else -np.Inf
-            memory['best_epoch'] = 0 # track on each epoch
-            if earlystop.mode == 'min':
-                min_delta = earlystop.min_delta*(-1)
-                operator = np.less
-            else:
-                min_delta = earlystop.min_delta*1
-                operator = np.greater
-            memory['wait'] = 0
+            earlystop.on_begin_train(history)
 
         with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(inputs)//batch_size)-1, desc="batch") as innerbar:
             for epoch in range(nepochs):
-                innerbar.reset()
-
+                # innerbar.reset()
                 if exp_decay and epoch >= exp_decay.start_decay:
                     self.learning_rate = exp_decay(epoch)
+                if exp_growth and epoch >= exp_growth.start_step:
+                    self.learning_rate = exp_growth(epoch)
 
                 if targets is not None:
                     if targets.ndim == 1:
@@ -147,11 +137,12 @@ class Model(qtn.TensorNetwork):
                     data = np.concatenate([inputs, targets], axis=1)
                 else: data = inputs
 
+                loss_batch = 0
                 for batch in funcy.partition(batch_size, data):
                     batch = jax.numpy.asarray(batch)
 
                     loss_cur, res, vectorizer = _fit(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
-                    history['loss'].append(loss_cur)
+                    loss_batch += loss_cur
 
                     if normalize:
                         self.canonize(0)
@@ -161,30 +152,24 @@ class Model(qtn.TensorNetwork):
                         for name, fn in callbacks:
                             history[name].append(fn(self, res, vectorizer))
 
-                    innerbar.update()
-                    innerbar.set_postfix(loss=history["loss"][-1])
+                    #innerbar.update()
+                    #innerbar.set_postfix({'loss': loss_batch/(batch_num+1)})
+                
+                history['loss'].append(loss_batch/num_batches)
+                outerbar.update()
+                # innerbar.reset()
+                outerbar.set_postfix({'loss': loss_batch/num_batches})
 
                 if earlystop:
-                    current = sum(history[earlystop.monitor][-num_batches:])/num_batches
+                    if earlystop.monitor == 'loss':
+                        current = loss_batch/num_batches
+                    else:
+                        current = sum(history[earlystop.monitor][-num_batches:])/num_batches
+                    return_value = earlystop.on_end_epoch(current, epoch)
+                    if return_value==0: continue
+                    else: return history
+                #print(f'Current loss: {loss_batch/num_batches}')
 
-                    if memory['wait'] == 0 and epoch == 0:
-                        memory['best'] = current
-                        memory['best_model'] = self
-                        memory['best_epoch'] = epoch
-                        #memory['wait'] += 1
-                    if epoch > 0: memory['wait'] += 1
-                    if operator(current - min_delta, memory['best']):
-                        memory['best'] = current
-                        memory['best_model'] = self
-                        memory['best_epoch'] = epoch
-                        memory['wait'] = 0
-                    if memory['wait'] >= earlystop.patience and epoch > 0:
-                        best_epoch = memory['best_epoch']
-                        print(f'Training stopped by EarlyStopping on epoch: {best_epoch}', flush=True)
-                        self = memory['best_model']
-                        return history
-                    if memory['wait'] > 0: print('Waiting for ' + str(memory['wait']) + ' epochs.', flush=True)
-                outerbar.update()
         return history
 
     def predict(self, x):
@@ -366,8 +351,8 @@ def _fit(
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
 
-                if sample.shape[1] > model.L:
-                    sample, target = sample[:, :model.L], sample[:, model.L:]
+                if sample.shape[0] > model.L:
+                    sample, target = sample[:model.L], sample[model.L:]
                     phi = embed(sample, embedding)
                     return loss_fn(tn, phi, target)
                 else:
