@@ -79,6 +79,25 @@ class fourier(Embedding):
 
     def __call__(self, x: Number) -> onp.ndarray:
         return 1 / self.p * np.asarray([np.abs(sum((np.exp(1j * 2 * onp.pi * k * ((self.p - 1) * x - j) / self.p) for k in range(self.p)))) for j in range(self.p)])
+    
+
+class linear(Embedding):
+    """Linear feature map.
+        [x, 1-x] where x = feature in range [0,1]
+    """
+    def __init__(self, **kwargs):
+        """Constructor
+
+        """        
+        self.p = 2
+        super().__init__(**kwargs)
+
+    @property
+    def dim(self) -> int:
+        return self.p
+
+    def __call__(self, x: Number) -> onp.ndarray:
+        return np.asarray([x, 1-x])
 
 def physics_embedding(data: onp.ndarray, pT_embed_func: Embedding, **mps_opts):
     theta = data[:, 0]
