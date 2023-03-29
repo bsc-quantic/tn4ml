@@ -86,12 +86,11 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         self.cyclic = qtn.array_ops.ndim(arrays[0]) == 4
         dims = [x.ndim for x in arrays]
-        # if dims.count(4) == 0:
-        #     raise ValueError('There is only one output index --> spacing >= L. Consider changing the value.')
-
-        # enable spacing ==  (to have one output)
+        # enable spacing == (to have one output)
         if dims.count(4) == 0:
             self._spacing = self.L
+        elif dims.count(4) == 1:
+            self._spacing = dims.index(4)
         else:
             self._spacing = dims.index(4, dims.index(4) + 1) - dims.index(4)
 
