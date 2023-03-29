@@ -25,5 +25,7 @@ from .strategy import (
 )
 
 from .util import (
-    EarlyStopping
+    EarlyStopping,
+    ExponentialDecay,
+    ExponentialGrowth
 )
