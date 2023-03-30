@@ -14,7 +14,7 @@ dependencies = [
 	"numpy",
 	"opt_einsum>=3.3.0",
 	"quimb>=1.4.1",
-	"jaxlib"
+	"jaxlib",
 	"jax",
 ]
 
