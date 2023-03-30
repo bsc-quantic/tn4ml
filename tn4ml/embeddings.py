@@ -111,7 +111,7 @@ def physics_embedding(data: onp.ndarray, pT_embed_func: Embedding, **mps_opts):
     data_embed = []
     for i, j, k in zip(phi, theta, pT_embed):
         pt_norm = np.linalg.norm(k)
-        pt_phi_norm = np.linalg.norm([k[0]*np.cos(i), k[1]*np.cos(i), pt_norm*np.sin(i)])
+        pt_phi_norm = np.linalg.norm(np.asarray([k[0]*np.cos(i), k[1]*np.cos(i), pt_norm*np.sin(i)]))
         data_vector = np.asarray([k[0]*np.cos(i)*np.cos(j), k[1]*np.cos(i)*np.cos(j), pt_norm*np.sin(i)*np.cos(j), pt_phi_norm*np.sin(j)])
         data_embed.append(data_vector)
 
