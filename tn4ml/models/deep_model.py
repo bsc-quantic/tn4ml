@@ -1,8 +1,7 @@
 import functools
 import operator
 from tqdm import tqdm
-from concurrent.futures import Executor, ProcessPoolExecutor
-from typing import Any, Callable, Collection, Optional, Sequence, NamedTuple
+from typing import Any, Callable, Collection, Optional, Sequence, sTuple
 import autoray
 import funcy
 import jax
@@ -14,7 +13,6 @@ import quimb.tensor as qtn
 import quimb as qu
 import autoray as a
 from quimb.tensor import TensorNetwork
-from .model import Model, LossWrapper
 from .smpo import SpacedMatrixProductOperator
 from ..embeddings import Embedding, trigonometric, embed
 from ..util import EarlyStopping, ExponentialDecay, ExponentialGrowth
@@ -122,7 +120,7 @@ class DeepTensorNetwork(TensorNetwork):
             batch_size: Optional[int] = None,
             nepochs: Optional[int] = 1,
             embedding: Embedding = trigonometric(),
-            callbacks: Optional[Sequence[tuple[str, Callable]]] = None,
+            callbacks: Optional[Sequence[Tuple[str, Callable]]] = None,
             normalize: Optional[bool] = False,
             earlystop: Optional[EarlyStopping] = None,
             exp_decay: Optional[ExponentialDecay] = None,
