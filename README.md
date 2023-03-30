@@ -1,4 +1,4 @@
-# Tensor Networks for Anomaly Detection
+# Tensor Networks for Machine Learning
 
 ## Installation
 
