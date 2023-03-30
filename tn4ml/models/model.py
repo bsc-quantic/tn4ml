@@ -2,7 +2,7 @@ import functools
 import operator
 from tqdm import tqdm
 from concurrent.futures import Executor, ProcessPoolExecutor
-from typing import Any, Callable, Collection, Optional, Sequence, NamedTuple
+from typing import Any, Callable, Collection, Optional, Sequence, Tuple
 import autoray
 import funcy
 import jax
@@ -74,7 +74,7 @@ class Model(qtn.TensorNetwork):
             batch_size: Optional[int] = None,
             nepochs: Optional[int] = 1,
             embedding: Embedding = trigonometric(),
-            callbacks: Optional[Sequence[tuple[str, Callable]]] = None,
+            callbacks: Optional[Sequence[Tuple[str, Callable]]] = None,
             normalize: Optional[bool] = False,
             earlystop: Optional[EarlyStopping] = None,
             exp_decay: Optional[ExponentialDecay] = None,
