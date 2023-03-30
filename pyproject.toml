@@ -3,8 +3,8 @@ requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tnad"
-description = "Tensor Networks for Anomaly Detection"
+name = "tn4ml"
+description = "Tensor Networks for Machine Learning"
 version = "0.1"
 readme = "README.md"
 dependencies = [
@@ -21,4 +21,4 @@ dependencies = [
 dev = ["pytest", "black", "pylint"]
 
 [tool.setuptools]
-packages = ["tnad"]
+packages = ["tn4ml"]

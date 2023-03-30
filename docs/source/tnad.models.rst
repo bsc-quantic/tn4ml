@@ -1,15 +1,15 @@
 Model
 -----
 
-.. autoclass:: tnad.models.Model
+.. autoclass:: tn4ml.models.Model
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. autofunction:: tnad.models.load_model
-.. autofunction:: tnad.models._fit
+.. autofunction:: tn4ml.models.load_model
+.. autofunction:: tn4ml.models._fit
    
-.. autoclass:: tnad.models.smpo.SpacedMatrixProductOperator
+.. autoclass:: tn4ml.models.smpo.SpacedMatrixProductOperator
    :members:
    :undoc-members:
    :show-inheritance:

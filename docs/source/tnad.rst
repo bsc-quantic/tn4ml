@@ -2,21 +2,21 @@
 Embeddings
 ----------
 
-.. autoclass:: tnad.embeddings.Embedding
+.. autoclass:: tn4ml.embeddings.Embedding
    :members:
    :undoc-members:
    :show-inheritance:
 
 Trigonometric
 ^^^^^^^^^^^^^
-.. autoclass:: tnad.embeddings.trigonometric
+.. autoclass:: tn4ml.embeddings.trigonometric
    :members:
    :undoc-members:
    :show-inheritance:
 
 Fourier
 ^^^^^^^
-.. autoclass:: tnad.embeddings.fourier
+.. autoclass:: tn4ml.embeddings.fourier
    :members:
    :undoc-members:
    :show-inheritance:
@@ -24,14 +24,14 @@ Fourier
 Loss functions
 --------------
 
-.. automodule:: tnad.loss
+.. automodule:: tn4ml.loss
    :members:
    :undoc-members:
 
 Strategy
 --------
 
-.. autoclass:: tnad.strategy.Strategy
+.. autoclass:: tn4ml.strategy.Strategy
    :members:
    :undoc-members:
    :show-inheritance:
@@ -39,6 +39,6 @@ Strategy
 Util
 ----
 
-.. autoclass:: tnad.util.EarlyStopping
+.. autoclass:: tn4ml.util.EarlyStopping
    :members:
    :undoc-members:

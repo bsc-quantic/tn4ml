@@ -127,7 +127,7 @@ def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
     ----------
     x : :class:`numpy.ndarray`
         Vector of features.
-    phi: :class:`tnad.embeddings.Embedding`
+    phi: :class:`tn4ml.embeddings.Embedding`
         Embedding type.
     mps_opts: optional
         Additional arguments passed to MatrixProductState class.

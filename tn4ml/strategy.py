@@ -17,7 +17,7 @@ class Strategy:
 
         Parameters
         ----------
-        model : :class:`tnad.models.Model``
+        model : :class:`tn4ml.models.Model``
             Model
         sites : sequence of `str`
             List of tensors' tags.
@@ -29,7 +29,7 @@ class Strategy:
 
         Parameters
         ----------
-        model : :class:`tnad.models.Model``
+        model : :class:`tn4ml.models.Model``
             Model
         sites : sequence of `str`
             List of tensors' tags.

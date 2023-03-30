@@ -34,7 +34,7 @@ alg_depth = 2
 #     print('using tnopt.vectorized_value_and_grad and converting only at the end')
 
 # Again, we can activate this section to select and test using jit vs not using jit.
-# In this case, not using jit was favourable when doing tests with TNAD and it was set as default. It might become advantageous to use it with very large tensors, but it is not completely clear due to the changing sizes of the operations (adverse for jit)
+# In this case, not using jit was favourable when doing tests with tn4ml and it was set as default. It might become advantageous to use it with very large tensors, but it is not completely clear due to the changing sizes of the operations (adverse for jit)
 
 jit_fn = False
 # jit = input("Do you want to use jit? (y/n) \n")
@@ -51,8 +51,8 @@ client = None
 
 # %%time
 
-from tnad.optimization import train_SMPO, load_mnist_train_data, data_preprocessing
-import tnad.procedures as p
+from tn4ml.optimization import train_SMPO, load_mnist_train_data, data_preprocessing
+import tn4ml.procedures as p
 
 train_data = load_mnist_train_data(train_size=train_size, seed=123456)
 data = data_preprocessing(train_data, strides=strides, pool_size=pool_size, padding=padding, reduced_shape=reduced_shape)

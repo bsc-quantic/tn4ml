@@ -55,7 +55,7 @@ class DeepTensorNetwork(TensorNetwork):
     
     def save(self, model_name, dir_name='~'):
 
-        """Saves :class:`tnad.models.Model` to pickle file.
+        """Saves :class:`tn4ml.models.Model` to pickle file.
 
         Parameters
         ----------
@@ -69,7 +69,7 @@ class DeepTensorNetwork(TensorNetwork):
 
     def configure(self, **kwargs):
 
-        """Configures :class:`tnad.models.Model` for training setting the arguments.
+        """Configures :class:`tn4ml.models.Model` for training setting the arguments.
         """
 
         for key, value in kwargs.items():
@@ -88,7 +88,7 @@ class DeepTensorNetwork(TensorNetwork):
                 raise AttributeError(f"Attribute {key} not found")
     
     def normalize(self):
-        """Function for normalizing tensors of :class:`tnad.models.smpo.SpacedMatrixProductOperator`.
+        """Function for normalizing tensors of :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
 
         Parameters
         ----------
@@ -101,7 +101,7 @@ class DeepTensorNetwork(TensorNetwork):
             tensor.modify(data=tensor.data / a.do("power", norm, 1 / n_tensors))
     
     def norm(self, **contract_opts):
-        """Calculates norm of :class:`tnad.models.smpo.SpacedMatrixProductOperator`.
+        """Calculates norm of :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
 
         Parameters
         ----------
@@ -111,7 +111,7 @@ class DeepTensorNetwork(TensorNetwork):
         Returns
         -------
         float
-            Norm of :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+            Norm of :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         """
         norm = self.model.H & self.model
         return norm.contract(**contract_opts) ** 0.5
@@ -129,7 +129,7 @@ class DeepTensorNetwork(TensorNetwork):
             exp_growth: Optional[ExponentialGrowth] = None,
             **kwargs):
 
-        """Performs the training procedure of :class:`tnad.models.Model`.
+        """Performs the training procedure of :class:`tn4ml.models.Model`.
 
         Parameters
         ----------
@@ -141,13 +141,13 @@ class DeepTensorNetwork(TensorNetwork):
             Number of samples per gradient update.
         nepochs : int
             Number of epochs for training the Model.
-        embedding : :class:`tnad.embeddings.Embedding`
+        embedding : :class:`tn4ml.embeddings.Embedding`
             Data embedding function.
         callbacks : sequence of callbacks (metrics) - ``tuple(callback name, `Callable`)``, or default `None`
-            List of metrics for monitoring training progress. Each metric function receives (:class:`tnad.models.Model`, :class:`scipy.optimize.OptimizeResult`, :class:`quimb.tensor.optimize.Vectorizer`).
+            List of metrics for monitoring training progress. Each metric function receives (:class:`tn4ml.models.Model`, :class:`scipy.optimize.OptimizeResult`, :class:`quimb.tensor.optimize.Vectorizer`).
         normalize : bool
             If True, the model is normalized after each iteration.
-        earlystop : :class:`tnad.util.EarlyStopping`
+        earlystop : :class:`tn4ml.util.EarlyStopping`
             Early stopping training when monitored metric stopped improving.
         exp_decay : `ExponentialDecay` instance
             Exponential decay of the learning rate.

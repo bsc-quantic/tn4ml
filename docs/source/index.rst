@@ -1,4 +1,4 @@
-.. tnad documentation master file, created by
+.. tn4ml documentation master file, created by
    sphinx-quickstart on Wed Nov 30 09:42:34 2022.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
@@ -18,8 +18,8 @@ Tensor Network for Anomaly Detection
    :titlesonly:
    :caption: Modules
 
-   tnad.models
-   tnad
+   tn4ml.models
+   tn4ml
 
 .. toctree::
    :maxdepth: 2

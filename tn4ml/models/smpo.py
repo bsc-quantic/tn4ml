@@ -147,7 +147,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         TensorNetwork.__init__(self, tensors, virtual=True, **tn_opts)
 
     def normalize(self, insert=None):
-        """Function for normalizing tensors of :class:`tnad.models.smpo.SpacedMatrixProductOperator`.
+        """Function for normalizing tensors of :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
 
         Parameters
         ----------
@@ -162,7 +162,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             self.tensors[insert].modify(data=self.tensors[insert].data / norm)
 
     def norm(self, **contract_opts):
-        """Calculates norm of :class:`tnad.models.smpo.SpacedMatrixProductOperator`.
+        """Calculates norm of :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
 
         Parameters
         ----------
@@ -172,13 +172,13 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         Returns
         -------
         float
-            Norm of :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+            Norm of :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         """
         norm = self.conj() & self
         return norm.contract(**contract_opts) ** 0.5
 
     def rand_distribution(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, insert = 0, **kwargs):
-        """Generates :class:`tnad.models.smpo.SpacedMatrixProductOperator` with random tensor arrays.
+        """Generates :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` with random tensor arrays.
 
         Parameters
         ----------
@@ -203,7 +203,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         Returns
         -------
-        :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+        :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         """
 
         arrays = []
@@ -239,8 +239,8 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         return mpo
 
     def rand_orthogonal(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
-        """Generates :class:`tnad.models.smpo.SpacedMatrixProductOperator` with random tensors in a
-        orthogonal basis, which fulfill that the `tnad.models.smpo.SpacedMatrixProductOperator` is
+        """Generates :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` with random tensors in a
+        orthogonal basis, which fulfill that the `tn4ml.models.smpo.SpacedMatrixProductOperator` is
         normalized. Currently this function is only supported for `cyclic=False`.
 
         Parameters
@@ -264,7 +264,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         Returns
         -------
-        :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+        :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         """
 
         if cyclic:
@@ -323,7 +323,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         return self._orders
 
     def apply_mps(tn_op, tn_vec, compress=False, **compress_opts):
-        """Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator._apply_mps()` for :class:`tnad.models.smpo.SpacedMatrixProductOperator`.
+        """Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator._apply_mps()` for :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
 
         Parameters
         ----------
@@ -403,7 +403,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         return vec
 
     def apply_smpo(tn_op_1, tn_op_2, compress=False, **compress_opts):
-        """Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator._apply_mpo()` for :class:`tnad.models.smpo.SpacedMatrixProductOperator` - computes trace.
+        """Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator._apply_mpo()` for :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` - computes trace.
 
         Parameters
         ----------
@@ -439,7 +439,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         return trace
 
     def apply(self, other, compress=False, **compress_opts):
-        """Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator.apply`for :class:`tnad.models.smpo.SpacedMatrixProductOperator`.
+        """Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator.apply`for :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
         Act with this SMPO on another SMPO or MPS, such that the resulting
         object has the same tensor network structure/indices as ``other``.
         For an MPS:
@@ -473,7 +473,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         Parameters
         ----------
-        other : :class:`tnad.models.smpo.SpacedMatrixProductOperator`, or :class:`quimb.tensor.tensor_1d.MatrixProductState`.
+        other : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`, or :class:`quimb.tensor.tensor_1d.MatrixProductState`.
             The object to act on.
         compress : bool
             Whether to compress the resulting object.

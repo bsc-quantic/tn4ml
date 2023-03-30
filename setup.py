@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name='tnad',
-    description='Tensor Networks for Anomaly Detection',
+    name='tn4ml',
+    description='Tensor Networks for Machine Learning',
     author='Sergio Sanchez Ramirez, Ema Puljak, Sergi Masot Llima, Jofre Valles Muns',
 )

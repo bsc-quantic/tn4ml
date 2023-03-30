@@ -16,13 +16,13 @@ from ..util import EarlyStopping, ExponentialDecay, ExponentialGrowth
 from ..strategy import *
 
 class Model(qtn.TensorNetwork):
-    """:class:`tnad.models.Model` class models training model of class :class:`quimb.tensor.tensor_core.TensorNetwork`.
+    """:class:`tn4ml.models.Model` class models training model of class :class:`quimb.tensor.tensor_core.TensorNetwork`.
 
     Attributes
     ----------
     loss_fn : `Callable`, or `None`
-        Loss function. See :mod:`tnad.loss` for examples.
-    strategy : :class:`tnad.strategy.Strategy`
+        Loss function. See :mod:`tn4ml.loss` for examples.
+    strategy : :class:`tn4ml.strategy.Strategy`
         Strategy for computing gradients.
     optimizer : :class:`quimb.tensor.optimize.TNOptimizer`, or different possibilities of optimizers from :func:`quimb.tensor.optimize`.
     """
@@ -36,7 +36,7 @@ class Model(qtn.TensorNetwork):
 
     def save(self, model_name, dir_name='~'):
 
-        """Saves :class:`tnad.models.Model` to pickle file.
+        """Saves :class:`tn4ml.models.Model` to pickle file.
 
         Parameters
         ----------
@@ -50,7 +50,7 @@ class Model(qtn.TensorNetwork):
 
     def configure(self, **kwargs):
 
-        """Configures :class:`tnad.models.Model` for training setting the arguments.
+        """Configures :class:`tn4ml.models.Model` for training setting the arguments.
         """
 
         for key, value in kwargs.items():
@@ -81,7 +81,7 @@ class Model(qtn.TensorNetwork):
             exp_growth: Optional[ExponentialGrowth] = None,
             **kwargs):
 
-        """Performs the training procedure of :class:`tnad.models.Model`.
+        """Performs the training procedure of :class:`tn4ml.models.Model`.
 
         Parameters
         ----------
@@ -93,13 +93,13 @@ class Model(qtn.TensorNetwork):
             Number of samples per gradient update.
         nepochs : int
             Number of epochs for training the Model.
-        embedding : :class:`tnad.embeddings.Embedding`
+        embedding : :class:`tn4ml.embeddings.Embedding`
             Data embedding function.
         callbacks : sequence of callbacks (metrics) - ``tuple(callback name, `Callable`)``, or default `None`
-            List of metrics for monitoring training progress. Each metric function receives (:class:`tnad.models.Model`, :class:`scipy.optimize.OptimizeResult`, :class:`quimb.tensor.optimize.Vectorizer`).
+            List of metrics for monitoring training progress. Each metric function receives (:class:`tn4ml.models.Model`, :class:`scipy.optimize.OptimizeResult`, :class:`quimb.tensor.optimize.Vectorizer`).
         normalize : bool
             If True, the model is normalized after each iteration.
-        earlystop : :class:`tnad.util.EarlyStopping`
+        earlystop : :class:`tn4ml.util.EarlyStopping`
             Early stopping training when monitored metric stopped improving.
         exp_decay : `ExponentialDecay` instance
             Exponential decay of the learning rate.
@@ -278,19 +278,19 @@ def _fit(
 
     Parameters
     ----------
-    model : :class:`tnad.models.Model`
+    model : :class:`tn4ml.models.Model`
         Model for training.
     loss_fn : `Callable`
         Loss function.
     data : sequence` of :class:`numpy.ndarray`
         Data for training Model. Can contain targets (if training is supervised).
-    strategy : :class:`tnad.strategy.Strategy`
+    strategy : :class:`tn4ml.strategy.Strategy`
         Strategy for computing gradients.
     optimizer : :class:`quimb.tensor.optimize.TNOptimizer`, or different possibilities of optimizers from :func:`quimb.tensor.optimize`,or `None`
         Optimizer.
     epoch : int
         Current epoch.
-    embedding : :class:`tnad.embeddings.Embedding`
+    embedding : :class:`tn4ml.embeddings.Embedding`
         Data embedding function.
 
     Returns

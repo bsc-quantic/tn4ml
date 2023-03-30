@@ -19,7 +19,7 @@ def reg_norm_logrelu(P):
 
     Parameters
     ----------
-    P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
 
     Returns
@@ -33,7 +33,7 @@ def reg_norm_quad(P):
 
     Parameters
     ----------
-    P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
 
     Returns
@@ -43,11 +43,11 @@ def reg_norm_quad(P):
     return do("power", do("add", P.H.apply(P), -1.0), 2)
 
 def error_logquad(P, data):
-    """Example of error calculation when applying :class:`tnad.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
+    """Example of error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
 
     Parameters
     ----------
-    P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
     data: :class:`quimb.tensor.MatrixProductState`
         Input mps.
@@ -59,11 +59,11 @@ def error_logquad(P, data):
     return do("power", do("add", do("log", mps.H & mps ^ all), -1.0), 2)
 
 def error_quad(P, data):
-    """Example of error calculation when applying :class:`tnad.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
+    """Example of error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
 
     Parameters
     ----------
-    P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
     data: :class:`quimb.tensor.MatrixProductState`
         Input mps.
@@ -75,11 +75,11 @@ def error_quad(P, data):
     return do("power", do("add", mps.H & mps ^ all, -1.0), 2)
 
 def error_distance_to_origin(P, data):
-    """Example of error calculation when applying :class:`tnad.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
+    """Example of error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
 
     Parameters
     ----------
-    P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
     data: :class:`quimb.tensor.MatrixProductState`
         Input mps.
@@ -95,11 +95,11 @@ def softmax(z):
     return jnp.asarray([do("power", math.e, z_i)/sum_z for z_i in z])
 
 def error_cross_entropy(P, data, mps_target):
-    """Example of supervised error calculation when applying :class:`tnad.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
+    """Example of supervised error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
     
     Parameters
     ----------
-    P : :class:`tnad.models.smpo.SpacedMatrixProductOperator`
+    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
     data: :class:`quimb.tensor.MatrixProductState`
         Input mps.
@@ -120,14 +120,14 @@ def loss_fn(model, data, error: Callable = error_logquad, reg: Callable = no_reg
 
     Parameters
     ----------
-    model : :class:`tnad.models.Model`
+    model : :class:`tn4ml.models.Model`
     data: :class:`numpy.ndarray`
         Data used for computing the loss value.
     error: function
         Function for error calculation.
     reg: function
         Function for regularization value calculation.
-    embedding: :class:`tnad.embeddings.Embedding`
+    embedding: :class:`tn4ml.embeddings.Embedding`
         Data embedding function.
 
     Returns

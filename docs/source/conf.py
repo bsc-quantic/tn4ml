@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.abspath('../../'))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'tnad'
+project = 'tn4ml'
 copyright = '2022, Barcelona Supercomputing Center - Centro Nacional de Supercomputación'
 author = 'Sergio Sánchez Ramírez, Ema Puljak, Sergi Masor Llima, Jofre Valles Muns'
 release = '0.1'
