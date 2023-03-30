@@ -1,7 +1,7 @@
 import functools
 import operator
 from tqdm import tqdm
-from typing import Any, Callable, Collection, Optional, Sequence, sTuple
+from typing import Any, Callable, Collection, Optional, Sequence, Tuple
 import autoray
 import funcy
 import jax
