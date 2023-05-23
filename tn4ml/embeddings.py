@@ -164,7 +164,7 @@ def embed(x: onp.ndarray, phi: Embedding, rad: bool=False, **mps_opts):
 
     if jets:
         if rad:
-            return physics_embedding_angle_to_rad(x, phi, **mps_opts)
+            return physics_embedding_angle_rad(x, phi, **mps_opts)
         else:
             return physics_embedding(x, phi, **mps_opts)
     else:
