@@ -132,11 +132,11 @@ def physics_embedding_angle_rad(data: onp.ndarray, embed_func: Embedding, **mps_
     pT = data[:, 2]
     
     # encode eta
-    eta_embed = [embed_func(e) for e in eta]
+    eta_embed = np.array([embed_func(e) for e in eta])
     # encode pT
-    phi_embed = [embed_func(p) for p in phi]
+    phi_embed = np.array([embed_func(p) for p in phi])
     # encode pT
-    pT_embed = [embed_func(pt) for pt in pT]
+    pT_embed = np.array([embed_func(pt) for pt in pT])
     
     eta_embed = eta_embed.reshape(eta_embed.shape[0], 1, 1, 2)
     phi_embed = phi_embed.reshape(phi_embed.shape[0], 1, 1, 2)
