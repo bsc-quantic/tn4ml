@@ -115,12 +115,38 @@ def physics_embedding(data: onp.ndarray, pT_embed_func: Embedding, **mps_opts):
         data_vector = np.asarray([k[0]*np.cos(i)*np.cos(j), k[1]*np.cos(i)*np.cos(j), pt_norm*np.sin(i)*np.cos(j), pt_phi_norm*np.sin(j)])
         data_embed.append(data_vector)
 
+    # for i, j, k in zip(phi, theta, pT_embed):
+    #     pt_norm = np.linalg.norm(k)
+    #     pt_phi_norm = np.linalg.norm([k[0]*np.cos(i), k[1]*np.cos(i), k[2]*np.cos(i), pt_norm*np.sin(i)])
+    #     data_vector = np.asarray([k[0]*np.cos(i)*np.cos(j), k[1]*np.cos(i)*np.cos(j), k[2]*np.cos(i)*np.cos(j), pt_norm*np.sin(i)*np.cos(j), pt_phi_norm*np.sin(j)])
+    #     data_embed.append(data_vector)
+
     # reshape for mps
     data_embed_reshaped = [x.reshape((1,1,4)) for x in data_embed]
 
     return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
 
-def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
+def physics_embedding_angle_rad(data: onp.ndarray, embed_func: Embedding, **mps_opts):
+    eta = data[:, 0]
+    phi = data[:, 1]
+    pT = data[:, 2]
+    
+    # encode eta
+    eta_embed = [embed_func(e) for e in eta]
+    # encode pT
+    phi_embed = [embed_func(p) for p in phi]
+    # encode pT
+    pT_embed = [embed_func(pt) for pt in pT]
+    
+    eta_embed = eta_embed.reshape(eta_embed.shape[0], 1, 1, 2)
+    phi_embed = phi_embed.reshape(phi_embed.shape[0], 1, 1, 2)
+    pT_embed = pT_embed.reshape(pT_embed.shape[0], 1, 1, 2)
+    
+    mps_arrays = np.concatenate((eta_embed, phi_embed, pT_embed), axis=-1)
+    
+    return qtn.MatrixProductState(mps_arrays, **mps_opts)
+
+def embed(x: onp.ndarray, phi: Embedding, rad: bool=False, **mps_opts):
     """Creates a product state from a vector of features `x`.
 
     Parameters
@@ -137,7 +163,10 @@ def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
     else: jets = False
 
     if jets:
-        return physics_embedding(x, phi, **mps_opts)
+        if rad:
+            return physics_embedding_angle_to_rad(x, phi, **mps_opts)
+        else:
+            return physics_embedding(x, phi, **mps_opts)
     else:
         arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
         for i in [0, -1]:

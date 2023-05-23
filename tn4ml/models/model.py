@@ -15,6 +15,10 @@ from ..embeddings import Embedding, trigonometric, embed
 from ..util import EarlyStopping, ExponentialDecay, ExponentialGrowth
 from ..strategy import *
 
+def shuffle_along_axis(a, axis):
+    idx = np.random.rand(*a.shape).argsort(axis=axis)
+    return np.take_along_axis(a,idx,axis=axis)
+
 class Model(qtn.TensorNetwork):
     """:class:`tn4ml.models.Model` class models training model of class :class:`quimb.tensor.tensor_core.TensorNetwork`.
 
@@ -139,6 +143,7 @@ class Model(qtn.TensorNetwork):
 
                 loss_batch = 0
                 for batch in funcy.partition(batch_size, data):
+                    data = shuffle_along_axis(data, axis=1)
                     batch = jax.numpy.asarray(batch)
 
                     loss_cur, res, vectorizer = _fit(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
