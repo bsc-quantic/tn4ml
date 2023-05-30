@@ -126,27 +126,7 @@ def physics_embedding(data: onp.ndarray, pT_embed_func: Embedding, **mps_opts):
 
     return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
 
-def physics_embedding_angle_rad(data: onp.ndarray, embed_func: Embedding, **mps_opts):
-    eta = data[:, 0]
-    phi = data[:, 1]
-    pT = data[:, 2]
-    
-    # encode eta
-    eta_embed = np.array([embed_func(e) for e in eta])
-    # encode pT
-    phi_embed = np.array([embed_func(p) for p in phi])
-    # encode pT
-    pT_embed = np.array([embed_func(pt) for pt in pT])
-    
-    eta_embed = eta_embed.reshape(eta_embed.shape[0], 1, 1, 2)
-    phi_embed = phi_embed.reshape(phi_embed.shape[0], 1, 1, 2)
-    pT_embed = pT_embed.reshape(pT_embed.shape[0], 1, 1, 2)
-    
-    mps_arrays = np.concatenate((eta_embed, phi_embed, pT_embed), axis=-1)
-    
-    return qtn.MatrixProductState(mps_arrays, **mps_opts)
-
-def embed(x: onp.ndarray, phi: Embedding, rad: bool=False, **mps_opts):
+def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
     """Creates a product state from a vector of features `x`.
 
     Parameters
@@ -163,10 +143,7 @@ def embed(x: onp.ndarray, phi: Embedding, rad: bool=False, **mps_opts):
     else: jets = False
 
     if jets:
-        if rad:
-            return physics_embedding_angle_rad(x, phi, **mps_opts)
-        else:
-            return physics_embedding(x, phi, **mps_opts)
+        return physics_embedding(x, phi, **mps_opts)
     else:
         arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
         for i in [0, -1]:
