@@ -330,7 +330,6 @@ def _fit(
                 tn = model.copy() # create model mps as reference!
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
-
                 if sample.shape[0] > model.L:
                     sample, target = sample[:model.L], sample[model.L:]
                     phi = embed(sample, embedding)
@@ -355,7 +354,6 @@ def _fit(
                 tn = model.copy()
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
-
                 if sample.shape[0] > model.L:
                     sample, target = sample[:model.L], sample[model.L:]
                     phi = embed(sample, embedding)

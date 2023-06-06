@@ -1,6 +1,6 @@
 import itertools
 import math
-from typing import Tuple
+from typing import Tuple, Collection
 import numpy as np
 
 import autoray as a
@@ -48,7 +48,6 @@ def gramschmidt(A):
         v /= np.linalg.norm(v)
         A[i, :] = v
 
-
         sA = A[i+1:, :]
         u = np.matmul(sA, np.transpose(v))
         sA -= np.matmul(u, np.conjugate(v))
@@ -63,9 +62,9 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
     See :class:`quimb.tensor.tensor_1d.MatrixProductOperator` for explanation of other attributes and methods.
     """
 
-    _EXTRA_PROPS = ("_site_tag_id", "_upper_ind_id", "_lower_ind_id", "_L", "_spacing", "_orders")
+    _EXTRA_PROPS = ("_site_tag_id", "_upper_ind_id", "_lower_ind_id", "_L", "_spacing", "_spacings", "_orders")
 
-    def __init__(self, arrays, shape="lrud", site_tag_id="I{}", tags=None, upper_ind_id="k{}", lower_ind_id="b{}", bond_name="bond{}", **tn_opts):
+    def __init__(self, arrays, output_inds=[], shape="lrud", site_tag_id="I{}", tags=None, upper_ind_id="k{}", lower_ind_id="b{}", bond_name="bond{}", **tn_opts):
         if isinstance(arrays, SpacedMatrixProductOperator):
             TensorNetwork.__init__(self, arrays)
             return
@@ -86,15 +85,23 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         self.cyclic = qtn.array_ops.ndim(arrays[0]) == 4
         dims = [x.ndim for x in arrays]
-        # enable spacing == (to have one output)
-        if dims.count(4) == 0:
-            self._spacing = self.L
-        elif dims.count(4) == 1:
-            self._spacing = dims.index(4)
-        else:
-            self._spacing = dims.index(4, dims.index(4) + 1) - dims.index(4)
 
-        lower_inds = map(lower_ind_id.format, range(0, self.L, self.spacing))
+        # if spacing is not even
+        if output_inds:
+            lower_inds = map(lower_ind_id.format, output_inds)
+            self._spacing = 0
+            self._spacings = [(o - output_inds[i]) for i, o in enumerate(output_inds[1:])]
+            self._spacings.append(len(arrays) - 1 - output_inds[-1])
+        else:
+            # enable spacing == (to have one output)
+            if dims.count(4) == 0:
+                self._spacing = self.L
+            elif dims.count(4) == 1:
+                self._spacing = dims.index(4)
+            else:
+                self._spacing = dims.index(4, dims.index(4) + 1) - dims.index(4)
+            self._spacings=[]
+            lower_inds = map(lower_ind_id.format, range(0, self.L, self.spacing))
 
         # process orders
         lu_ord = tuple(shape.replace("r", "").replace("d", "").find(x) for x in "lu")
@@ -104,18 +111,30 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         lrud_ord = tuple(map(shape.find, "lrud"))
 
         if self.cyclic:
-            if (self.L - 1) % self.spacing == 0:
-                last_ord = lrud_ord
+            if output_inds:
+                if (self.L - 1) in output_inds:
+                    last_ord = lrud_ord
+                else:
+                    last_ord = lru_ord
             else:
-                last_ord = lru_ord
+                if (self.L - 1) % self.spacing == 0:
+                    last_ord = lrud_ord
+                else:
+                    last_ord = lru_ord
         else:
-            if (self.L - 1) % self.spacing == 0:
-                last_ord = lud_ord
+            if output_inds:
+                if (self.L - 1) in output_inds:
+                    last_ord = lud_ord
+                else:
+                    last_ord = lu_ord
             else:
-                last_ord = lu_ord
+                if (self.L - 1) % self.spacing == 0:
+                    last_ord = lud_ord
+                else:
+                    last_ord = lu_ord
 
         # orders = [rud_ord if not self.cyclic else lrud_ord, *[lrud_ord for i in range(1, self.L - 1)], last_ord]
-        orders = [rud_ord if not self.cyclic else lrud_ord, *[lrud_ord if i % self.spacing == 0 else lru_ord for i in range(1, self.L - 1)], last_ord]
+        orders = [rud_ord if not self.cyclic else lrud_ord, *[lrud_ord if (output_inds and (i in output_inds)) or (self.spacing and i % self.spacing == 0) else lru_ord for i in range(1, self.L - 1)], last_ord]
         self._orders = orders
 
         # process inds
@@ -132,16 +151,21 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         for i in range(1, self.L - 1):
             # nbond = qtn.rand_uuid(base=bond_name)
             nbond = f"bond_{bond_ids[i]}"
-
-            if i % self.spacing == 0:
-                curr_down_id = [lower_ind_id.format(i)]
+            if output_inds:
+                if i in output_inds:
+                    curr_down_id = [lower_ind_id.format(i)]
+                else:
+                    curr_down_id = []
             else:
-                curr_down_id = []
+                if i % self.spacing == 0:
+                    curr_down_id = [lower_ind_id.format(i)]
+                else:
+                    curr_down_id = []
 
             inds += [(pbond, nbond, next(upper_inds), *curr_down_id)]
             pbond = nbond
 
-        last_down_ind = [lower_ind_id.format(self.L - 1)] if (self.L - 1) % self.spacing == 0 else []
+        last_down_ind = [lower_ind_id.format(self.L - 1)] if (output_inds and ((self.L-1) in output_inds)) or (self.spacing and ((self.L - 1) % self.spacing == 0)) else []
         inds += [(pbond, *cyc_bond, next(upper_inds), *last_down_ind)]
         tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
         TensorNetwork.__init__(self, tensors, virtual=True, **tn_opts)
@@ -238,7 +262,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         return mpo
 
-    def rand_orthogonal(n: int, spacing: int, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
+    def rand_orthogonal(n: int, spacing: int = None, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), output_inds: Collection = [], cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
         """Generates :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` with random tensors in a
         orthogonal basis, which fulfill that the `tn4ml.models.smpo.SpacedMatrixProductOperator` is
         normalized. Currently this function is only supported for `cyclic=False`.
@@ -253,6 +277,8 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             Dimension of virtual indices between tensors. *Default = 4*.
         phys_dim :  tuple(int, int)
             Dimension of physical indices for individual tensor - *up* and *down*.
+        output_inds : array of int
+            Indexes of tensors which have output indices. From 0 to n.
         cyclic : bool
             Flag for indicating if SpacedMatrixProductOperator is cyclic. *Default=False*.
         init_func : str
@@ -270,12 +296,31 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         if cyclic:
             raise NotImplementedError()
 
-        arrays = []
-        for i, hasoutput in zip(range(1, n+1), itertools.cycle([True, *[False] * (spacing - 1)])):
+        if 0 not in output_inds:
+            raise ValueError("First tensor needs to have output index.")
+
+        if output_inds:
+            hasoutput = []
+            for i in range(n):
+                if i in output_inds: hasoutput.append(True)
+                else: hasoutput.append(False)
+            spacings = [(o - output_inds[i]) for i, o in enumerate(output_inds[1:])]
+            spacings.append(n - 1 - output_inds[-1])
+        else:
+            hasoutput = itertools.cycle([True, *[False] * (spacing - 1)])
+
+        arrays = []; h = 0
+        for i, has_out in zip(range(1, n+1), hasoutput):
             if i > n // 2:
                 j = (n + 1 - abs(2*i - n - 1)) // 2
             else:
                 j = i
+            
+            if output_inds:
+                if len(spacings)-1 >= h:
+                    spacing = spacings[h]
+                if has_out:
+                    h+=1
 
             chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)//spacing))
             chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** ((j)//spacing))
@@ -283,7 +328,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             if i > n // 2:
                 (chil, chir) = (chir, chil)
 
-            if hasoutput:
+            if has_out:
                 if i == 1:
                     shape = (chir, *phys_dim)
                 elif i == n:
@@ -306,7 +351,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         arrays[0] /= np.sqrt(min(bond_dim, phys_dim[0]))
 
-        mpo = SpacedMatrixProductOperator(arrays, **kwargs)
+        mpo = SpacedMatrixProductOperator(arrays, output_inds, **kwargs)
         return mpo
 
     @property
@@ -314,6 +359,12 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         """Spacing paramater, or space between output indices in number of sites.
         """
         return self._spacing
+    
+    @property
+    def spacings(self) -> list:
+        """Spacings paramater, or space between output indices in number of sites.
+        """
+        return self._spacings
 
     @property
     def lower_inds(self):
@@ -342,7 +393,12 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         """
 
         smpo, mps = tn_op.copy(), tn_vec.copy()
-        S = smpo.spacing
+        if smpo.spacings:
+            spacings = smpo.spacings
+        else:
+            spacings = [smpo.spacing]*len(list(smpo.lower_inds))
+            if list(smpo.lower_inds)[-1] != len(smpo.tensors)-1:
+                spacings.append(len(smpo.tensors)-1-list(smpo.lower_inds)[-1])
 
         # align the indices
         coordinate_formatter = qu.tensor.tensor_arbgeom.get_coordinate_formatter(smpo._NDIMS)
@@ -358,8 +414,9 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         number_of_sites = len(list_tensors)
         tags = list(qtn.tensor_core.get_tags(result))
 
-        if S > 1:
-            for i in range(0, len(tags), S):
+        i = 0
+        for s_i, S in enumerate(spacings):
+            if S > 1:
                 tags_to_drop = []
                 for j in range(i + 1, i + S):
                     if j + 1 == i + S or j >= number_of_sites - 1:
@@ -373,7 +430,9 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 if len(tags_to_drop) == 0:
                     tags_to_drop.append(tags[i + 1])
                 result.drop_tags(tags_to_drop)
-        result.fuse_multibonds_()
+
+                i = i + S
+            result.fuse_multibonds_()
 
         sorted_tensors = sort_tensors(result)
         arrays = [tensor.data for tensor in sorted_tensors]
@@ -393,7 +452,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             arrays[-1] = a.do("reshape", arrays[-1], (*arrays[-1].shape, 1))
 
         # set shape
-        if S==1: shape = 'lrp'
+        if len(spacings) == 1 and spacings[0]==1: shape = 'lrp'
         else: shape = 'lpr'
 
         vec = MatrixProductState(arrays, shape=shape)
