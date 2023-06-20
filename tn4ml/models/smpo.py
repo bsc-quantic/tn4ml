@@ -296,7 +296,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         if cyclic:
             raise NotImplementedError()
 
-        if 0 not in output_inds:
+        if 0 not in output_inds and len(output_inds) != 0:
             raise ValueError("First tensor needs to have output index.")
 
         if output_inds:
@@ -396,10 +396,9 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         if smpo.spacings:
             spacings = smpo.spacings
         else:
-            spacings = [smpo.spacing]*len(list(smpo.lower_inds))
-            if list(smpo.lower_inds)[-1] != len(smpo.tensors)-1:
-                spacings.append(len(smpo.tensors)-1-list(smpo.lower_inds)[-1])
-
+            spacings = [smpo.spacing]*(len(list(smpo.lower_inds))-1)
+            if int(list(smpo.lower_inds)[-1][1:]) != len(smpo.tensors)-1:
+                spacings.append(len(smpo.tensors) - 1 - int(list(smpo.lower_inds)[-1][1:]))
         # align the indices
         coordinate_formatter = qu.tensor.tensor_arbgeom.get_coordinate_formatter(smpo._NDIMS)
         smpo.lower_ind_id = f"__tmp{coordinate_formatter}__"
