@@ -393,7 +393,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         """
 
         smpo, mps = tn_op.copy(), tn_vec.copy()
-        if smpo.spacings:
+        if hasattr(smpo, 'spacings'):
             spacings = smpo.spacings
         else:
             spacings = [smpo.spacing]*(len(list(smpo.lower_inds))-1)
