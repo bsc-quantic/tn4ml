@@ -396,9 +396,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         if hasattr(smpo, 'spacings'):
             spacings = smpo.spacings
         else:
-            spacings = [smpo.spacing]*(len(list(smpo.lower_inds))-1)
-            if int(list(smpo.lower_inds)[-1][1:]) != len(smpo.tensors)-1:
-                spacings.append(len(smpo.tensors) - 1 - int(list(smpo.lower_inds)[-1][1:]))
+            spacings = [smpo.spacing]*(len(list(smpo.lower_inds)))
         # align the indices
         coordinate_formatter = qu.tensor.tensor_arbgeom.get_coordinate_formatter(smpo._NDIMS)
         smpo.lower_ind_id = f"__tmp{coordinate_formatter}__"
@@ -408,7 +406,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         for ind in mps.outer_inds():
             result.contract_ind(ind=ind)
-
+        
         list_tensors = result.tensors
         number_of_sites = len(list_tensors)
         tags = list(qtn.tensor_core.get_tags(result))
@@ -435,8 +433,8 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         sorted_tensors = sort_tensors(result)
         arrays = [tensor.data for tensor in sorted_tensors]
-
-        if len(arrays[0].shape) == 3:
+        
+        if len(arrays[0].shape) == 3 and arrays[0].shape[0]!=1:
             arr = np.squeeze(arrays[0])
             arrays[0] = arr
         arrays[0] = a.do("reshape", arrays[0], (1, *arrays[0].shape))
@@ -453,7 +451,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         # set shape
         if len(spacings) == 1 and spacings[0]==1: shape = 'lrp'
         else: shape = 'lpr'
-
+        
         vec = MatrixProductState(arrays, shape=shape)
         # optionally compress
         if compress:

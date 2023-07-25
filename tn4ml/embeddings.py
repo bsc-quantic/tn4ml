@@ -140,7 +140,9 @@ def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
     """
     if x.ndim > 1:
         jets = True
-    else: jets = False
+    else:
+        print('Jets false')
+        jets = False
 
     if jets:
         return physics_embedding(x, phi, **mps_opts)

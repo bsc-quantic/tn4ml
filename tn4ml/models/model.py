@@ -11,7 +11,7 @@ from quimb import tensor as qtn
 import quimb as qu
 from scipy.optimize import OptimizeResult
 # from .smpo import SpacedMatrixProductOperator
-from ..embeddings import Embedding, trigonometric, embed
+from ..embeddings import Embedding, trigonometric, embed, physics_embedding
 from ..util import EarlyStopping, ExponentialDecay, ExponentialGrowth
 from ..strategy import *
 
@@ -19,6 +19,17 @@ def shuffle_along_axis(a, axis):
     idx = np.random.rand(*a.shape).argsort(axis=axis)
     return np.take_along_axis(a,idx,axis=axis)
 
+def choose_optimizer(optimizer):
+    # adam, nadam, ADABELIEF, RMSPROP, SGD
+    if isinstance(optimizer, qtn.optimize.SGD):
+        return qtn.optimize.SGD()
+    elif isinstance(optimizer, qtn.optimize.RMSPROP):
+        return qtn.optimize.RMSPROP()
+    elif isinstance(optimizer, qtn.optimize.ADAM):
+        return qtn.optimize.ADAM()
+    elif isinstance(optimizer, qtn.optimize.NADAM):
+        return qtn.optimize.NADAM()
+    
 class Model(qtn.TensorNetwork):
     """:class:`tn4ml.models.Model` class models training model of class :class:`quimb.tensor.tensor_core.TensorNetwork`.
 
@@ -51,6 +62,18 @@ class Model(qtn.TensorNetwork):
         """
 
         qu.save_to_disk(self, f'{dir_name}/{model_name}.pkl')
+    
+    def set_model(self, model):
+        self.model = model
+    
+    def set_smpo(self, smpo):
+        self.smpo = smpo
+        
+    def return_mps_sample(self, sample):
+        phi = physics_embedding(sample, trigonometric())
+        mps = self.smpo.apply(phi)
+        return mps
+    
 
     def configure(self, **kwargs):
 
@@ -126,15 +149,25 @@ class Model(qtn.TensorNetwork):
 
         if earlystop:
             earlystop.on_begin_train(history)
+         
+        if self.optimizer is None:
+            self.optimizer = qtn.optimize.SGD()
+            
+        if isinstance(self.strategy, Sweeps):
+            # add if optimizer is none....
+            self.optimizers = []
+            for sites in self.strategy.iterate_sites(self):
+                self.optimizers.append(choose_optimizer(self.optimizer))
 
         with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(inputs)//batch_size)-1, desc="batch") as innerbar:
             for epoch in range(nepochs):
-                # innerbar.reset()
+                    
                 if exp_decay and epoch >= exp_decay.start_decay:
                     self.learning_rate = exp_decay(epoch)
                 if exp_growth and epoch >= exp_growth.start_step:
                     self.learning_rate = exp_growth(epoch)
-
+                
+                # supervised learning
                 if targets is not None:
                     if targets.ndim == 1:
                         targets = np.expand_dims(targets, axis=1)
@@ -143,26 +176,38 @@ class Model(qtn.TensorNetwork):
 
                 loss_batch = 0
                 for batch in funcy.partition(batch_size, data):
-                    data = shuffle_along_axis(data, axis=1)
+                    #data = shuffle_along_axis(data, axis=1)
                     batch = jax.numpy.asarray(batch)
-
-                    loss_cur, res, vectorizer = _fit(self, self.loss_fn, batch, strategy=self.strategy, optimizer=self.optimizer, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
+                    if isinstance(self.strategy, Sweeps):
+                        loss_cur, res, vectorizer, model = _fit_sweeps(self, self.loss_fn, batch, strategy=self.strategy, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
+                        if hasattr(model, 'model'):
+                            self.model = model.copy()
+                    else:
+                        loss_cur, res, vectorizer = _fit(self, self.loss_fn, batch, strategy=self.strategy, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
+                        
                     loss_batch += loss_cur
-
+                    
+                                        
                     if normalize:
-                        self.canonize(0)
-                        self.normalize()
+                        if hasattr(self, 'model'):
+                            self.model.canonize(0)
+                            self.model.normalize()
+                        else:
+                            self.canonize(0)
+                            self.normalize()
 
                     if callbacks:
+                        if hasattr(self, 'model'):
+                            model = self.model
+                        else:
+                            model = self
+                        
                         for name, fn in callbacks:
-                            history[name].append(fn(self, res, vectorizer))
-
-                    #innerbar.update()
-                    #innerbar.set_postfix({'loss': loss_batch/(batch_num+1)})
+                            history[name].append(fn(model, res, vectorizer))
                 
                 history['loss'].append(loss_batch/num_batches)
+                
                 outerbar.update()
-                # innerbar.reset()
                 outerbar.set_postfix({'loss': loss_batch/num_batches})
 
                 if earlystop:
@@ -173,7 +218,6 @@ class Model(qtn.TensorNetwork):
                     return_value = earlystop.on_end_epoch(current, epoch)
                     if return_value==0: continue
                     else: return history
-                #print(f'Current loss: {loss_batch/num_batches}')
 
         return history
 
@@ -223,58 +267,12 @@ def load_model(dir_name, model_name):
 
     return qu.load_from_disk(f'{dir_name}/{model_name}.pkl')
 
-class LossWrapper:
-    """Wrapper of loss function to make it compatible with JAX.
-
-    Attributes
-    ----------
-    tn : :class:`quimb.tensor.tensor_core.TensorNetwork`
-        Tensor network on which training is performed.
-    loss_fn: function
-        Loss function.
-    """
-
-    def __init__(self, loss_fn, tn):
-        """Constructor
-
-        Attributes
-        ----------
-        tn : :class:`quimb.tensor.tensor_core.TensorNetwork``
-            Tensor Network.
-        loss_fn : function
-            Loss function.
-        """
-        self.tn = tn
-        self.loss_fn = loss_fn
-
-    def __call__(self, tensor_arrays, **kwargs):
-        """Wraps and executes loss function.
-
-        Parameters
-        ----------
-        tensor_arrays : sequence of :class:`numpy.ndarray``
-
-        Returns
-        -------
-        :class:`functools.partial`
-        """
-        tn = self.tn.copy()
-
-        loss_fn = functools.partial(self.loss_fn, **kwargs)
-
-        for tensor, array in zip(tn.tensors, tensor_arrays):
-            tensor.modify(data=array)
-
-        with qtn.contract_backend("jax"):
-            return loss_fn(tn)
-
 
 def _fit(
     model: Model,
     loss_fn: Callable,
     data: Collection,
     strategy: Strategy = Global(),
-    optimizer: Optional[Callable] = None,
     epoch: Optional[int] = None,
     embedding: Embedding = trigonometric(),
     **hyperparams,
@@ -291,8 +289,6 @@ def _fit(
         Data for training Model. Can contain targets (if training is supervised).
     strategy : :class:`tn4ml.strategy.Strategy`
         Strategy for computing gradients.
-    optimizer : :class:`quimb.tensor.optimize.TNOptimizer`, or different possibilities of optimizers from :func:`quimb.tensor.optimize`,or `None`
-        Optimizer.
     epoch : int
         Current epoch.
     embedding : :class:`tn4ml.embeddings.Embedding`
@@ -307,17 +303,22 @@ def _fit(
     :class:`quimb.tensor.optimize.Vectorizer`
         Vectorizer data of Tensor Network.
     """
-
+      
     if not isinstance(strategy, Global):
-        raise NotImplementedError("non-`Global` strategies are not implemented yet for function `_fit`")
-
-    if optimizer is None:
-        optimizer = qtn.optimize.SGD()
+        raise NotImplementedError("This is _fit method for Global optimization strategy.")
+    
+    # if model is not SpacedMatrixProductOperator but some other quimb TN models
+    if hasattr(model, 'model'):
+        smpo = model.smpo
+        model = model.model.copy()
+        L = len(model.tensors)
+    else:
+        L = model.L
 
     for sites in strategy.iterate_sites(model):
         # contract sites in groups
         strategy.prehook(model, sites)
-
+        
         vectorizer = qtn.optimize.Vectorizer(model.arrays)
 
         def jac(x):
@@ -327,21 +328,27 @@ def _fit(
             def foo(sample, *model_arrays):
                 #unpack
                 # sample = data input
-                tn = model.copy() # create model mps as reference!
+                tn = model.copy()
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
-                if sample.shape[0] > model.L:
-                    sample, target = sample[:model.L], sample[model.L:]
+                    
+                if isinstance(model, qtn.MatrixProductState):
                     phi = embed(sample, embedding)
-                    return loss_fn(tn, phi, target)
+                    mps_input = smpo.apply(phi)
+                    mps_input.normalize()
+                    return loss_fn(tn, mps_input)
                 else:
-                    phi = embed(sample, embedding)
-                    return loss_fn(tn, phi)
+                    if sample.shape[0] > L:
+                        sample, target = sample[:L], sample[L:]
+                        phi = embed(sample, embedding)
+                        return loss_fn(tn, phi, target) # if training is supervised
+                    else:
+                        phi = embed(sample, embedding)
+                        return loss_fn(tn, phi)
 
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
-                x = jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(model.L)]), in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
+                x = jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(L)]), in_axes=[0] + [None] * L)(jax.numpy.asarray(data), *arrays)
                 x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
-
             return np.concatenate(x, axis=None)
 
         # call quimb's optimizers with vectorizer
@@ -354,121 +361,162 @@ def _fit(
                 tn = model.copy()
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
-                if sample.shape[0] > model.L:
-                    sample, target = sample[:model.L], sample[model.L:]
+                
+                if isinstance(model, qtn.MatrixProductState):
                     phi = embed(sample, embedding)
-                    return loss_fn(tn, phi, target)
+                    mps_input = smpo.apply(phi)
+                    mps_input.normalize()
+                    return loss_fn(tn, mps_input)
                 else:
-                    phi = embed(sample, embedding)
-                    return loss_fn(tn, phi)
+                    if sample.shape[0] > L:
+                        sample, target = sample[:L], sample[L:]
+                        phi = embed(sample, embedding)
+                        return loss_fn(tn, phi, target) # if training is supervised
+                    else:
+                        phi = embed(sample, embedding)
+                        return loss_fn(tn, phi)
 
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
-                x = jax.vmap(foo, in_axes=[0] + [None] * model.L)(jax.numpy.asarray(data), *arrays)
+                x = jax.vmap(foo, in_axes=[0] + [None] * L)(jax.numpy.asarray(data), *arrays)
                 return jax.numpy.sum(x) / data.shape[0]
-
+        
         # prepare hyperparameters
         hyperparams = {key: value(epoch) if callable(value) else value for key, value in hyperparams.items()}
         if "maxiter" not in hyperparams:
             hyperparams["maxiter"] = 1
 
         x = vectorizer.pack(model.arrays)
-        res = optimizer(loss, x, jac, **hyperparams)
+        res = model.optimizer(loss, x, jac, **hyperparams)
 
         opt_arrays = vectorizer.unpack(res.x)
-
+        
         for tensor, array in zip(model.tensors, opt_arrays):
             tensor.modify(data=array)
-
+            
         # split sites
         strategy.posthook(model, sites)
 
-        return res.fun, res, vectorizer
+    return res.fun, res, vectorizer
 
-def _fit_test(
+def _fit_sweeps(
     model: Model,
     loss_fn: Callable,
     data: Collection,
-    strategy: Strategy = Global(),
-    optimizer: Optional[Callable] = None,
-    executor: Optional[Executor] = None,
+    strategy: Strategy = Sweeps(),
     epoch: Optional[int] = None,
-    callbacks: Optional[Sequence[Callable[[Model, OptimizeResult, qtn.optimize.Vectorizer], Any]]] = None,
+    embedding: Embedding = trigonometric(),
     **hyperparams,
 ):
+    """Perfoms training procedure with using JAX to compute gradients of loss function for having input MPS dataset.
 
-    """Performs training procedure. Currently in testing stage. Not used.
+    Parameters
+    ----------
+    model : :class:`tn4ml.models.Model`
+        Model for training.
+    loss_fn : `Callable`
+        Loss function.
+    data : sequence` of :class:`numpy.ndarray`
+        Data for training Model. Can contain targets (if training is supervised).
+    strategy : :class:`tn4ml.strategy.Strategy`
+        Strategy for computing gradients.
+    epoch : int
+        Current epoch.
+    embedding : :class:`tn4ml.embeddings.Embedding`
+        Data embedding function.
+
+    Returns
+    -------
+    float
+        Value of loss function
+    :class:`scipy.optimize.OptimizeResult`
+        See :class:`scipy.optimize.OptimizeResult` for more information.
+    :class:`quimb.tensor.optimize.Vectorizer`
+        Vectorizer data of Tensor Network.
+    :class:`Model`
+        Model which is training
     """
 
-    if not isinstance(strategy, Global):
-        raise NotImplementedError("non-`Global` strategies are not implemented yet for function `_fit`")
-
-    if optimizer is None:
-        optimizer = qtn.optimize.SGD()
-
-    if executor is None:
-        executor = ProcessPoolExecutor()
-
-    metrics = None
-    if callbacks:
-        metrics = []
-
+    if not isinstance(strategy, Sweeps):
+        raise NotImplementedError("Only for `Sweeps` strategy")
+    
+    if strategy.grouping > 2:
+        raise NotImplementedError("Only implemented for grouping <= 2")
+            
+    s = 0
     for sites in strategy.iterate_sites(model):
         # contract sites in groups
         strategy.prehook(model, sites)
-
-        arrays = model.arrays
-        vectorizer = qtn.optimize.Vectorizer(arrays)
-
-        error_wrapper = LossWrapper(loss_fn, model)
+        sitetags = [model.site_tag(site) for site in sites]
+        
+        tensor = model.select_tensors(sitetags)[0]
+        vectorizer = qtn.optimize.Vectorizer(tensor.data)
 
         def jac(x):
-            # compute grad of error term
-            error_grad = jax.grad(error_wrapper)
+            target_array = vectorizer.unpack(x)
+            
+            def foo(sample, x):
+                #unpack
+                # sample = data input
+                tn = model.copy()
+                tn.select_tensors(sitetags)[0].modify(data=x)
+                
+                if isinstance(model, qtn.MatrixProductState):
+                    phi = embed(sample, embedding)
+                    mps_input = model.smpo.apply(phi)
+                    mps_input.normalize()
+                    return loss_fn(tn, mps_input)
+                else:
+                    # TODO IMPLEMENT FOR SUPERVISED
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi)
+            
+            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
+                x = jax.vmap(jax.grad(foo, argnums=[1]), in_axes=[0,None])(jax.numpy.asarray(data), target_array)
+                x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
 
-            arrays = tuple(map(jax.numpy.asarray, vectorizer.unpack(x)))
-            futures = executor.map(lambda sample: error_grad(arrays, data=sample), data)
-
-            # tree fold for parallelization
-            futures = list(futures)
-            while len(futures) > 1:
-                futures = [executor.submit(operator.add, *chunk) if len(chunk) > 1 else chunk[0] for chunk in funcy.chunks(2, futures)]
-
-            # normalize gradients
-            n = len(data)
-            grad_arrays = tuple(array / n for array in futures[0].result())
-
-            return vectorizer.pack(grad_arrays, name="grad")
+            return np.concatenate(x, axis=None)
 
         # call quimb's optimizers with vectorizer
         def loss(x):
-            arrays = vectorizer.unpack(x)
-            futures = executor.map(lambda sample: error_wrapper(arrays, data=sample), data)
+            # x = model
+            target_array = vectorizer.unpack(x)
 
-            # tree fold for parallelization
-            futures = list(futures)
-            while len(futures) > 1:
-                futures = [executor.submit(operator.add, *chunk) if len(chunk) > 1 else chunk[0] for chunk in funcy.chunks(2, futures)]
+            def foo(sample, x):
+                # sample = data input
+                tn = model.copy()
+                tn.select_tensors(sitetags)[0].modify(data=x)
+                
+                if isinstance(model, qtn.MatrixProductState):
+                    phi = embed(sample, embedding)
+                    mps_input = model.smpo.apply(phi)
+                    mps_input.normalize()
+                    return loss_fn(tn, mps_input)
+                else:
+                    # TODO IMPLEMENT FOR SUPERVISED
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi)
 
-            return futures[0].result() / len(data)
+            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
+                x = jax.vmap(foo, in_axes=[0, None])(jax.numpy.asarray(data), target_array)
+                return jax.numpy.sum(x) / data.shape[0]
 
         # prepare hyperparameters
         hyperparams = {key: value(epoch) if callable(value) else value for key, value in hyperparams.items()}
         if "maxiter" not in hyperparams:
             hyperparams["maxiter"] = 1
-
-        x = vectorizer.pack(arrays)
-        res = optimizer(loss, x, jac, **hyperparams)
-
-        opt_arrays = vectorizer.unpack(res.x)
-
-        for tensor, array in zip(model.tensors, opt_arrays):
-            tensor.modify(data=array)
-
+        
+        tensor = model.select_tensors(sitetags)[0]
+        x = vectorizer.pack(tensor.data)
+        res = model.optimizers[s](loss, x, jac, **hyperparams)
+        
+        opt_array = vectorizer.unpack(res.x) #len 1
+        
+        tensor = model.select_tensors(sitetags)[0]
+        tensor.modify(data = opt_array)
+            
         # split sites
         strategy.posthook(model, sites)
+        # counting how many combinations of sites
+        s+=1
 
-    if callbacks:
-        metrics = tuple(fn(model, res, vectorizer) for fn in callbacks)  # type: ignore
-        return (res.fun, *metrics)  # type: ignore
-
-    return res.fun
+    return res.fun, res, vectorizer, model
