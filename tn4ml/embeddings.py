@@ -141,7 +141,6 @@ def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
     if x.ndim > 1:
         jets = True
     else:
-        print('Jets false')
         jets = False
 
     if jets:
