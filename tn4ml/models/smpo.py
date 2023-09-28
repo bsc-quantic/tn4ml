@@ -8,7 +8,7 @@ import quimb as qu
 import quimb.tensor as qtn
 from quimb.tensor.tensor_1d import TensorNetwork, TensorNetwork1DFlat, TensorNetwork1DOperator, MatrixProductState
 from .model import Model
-from ..util import return_digits
+from ..util import return_digits, gramschmidt
 
 def sort_tensors(tn):
     """Helper function for sorting tensors of tensor network in alphabetic order by tags.
@@ -27,35 +27,6 @@ def sort_tensors(tn):
     ts_and_sorted_tags = [(t, sorted(return_digits(t.tags))) for t in tn]
     ts_and_sorted_tags.sort(key=lambda x: x[1])
     return tuple(x[0] for x in ts_and_sorted_tags)
-
-def gramschmidt(A):
-    """Function that creates an orthogonal basis from a matrix `A`.
-
-    Parameters
-    ----------
-    A : Matrix
-
-    Returns
-    -------
-    `np.numpy.ndarray`
-        Matrix in a orthogonal basis
-
-    """
-    m = A.shape[0]
-
-    for i in range(m-1):
-        v = [A[i, :]]
-        v /= np.linalg.norm(v)
-        A[i, :] = v
-
-        sA = A[i+1:, :]
-        u = np.matmul(sA, np.transpose(v))
-        sA -= np.matmul(u, np.conjugate(v))
-        A[i+1:, :] = sA
-        u = np.matmul(sA, np.transpose(v))
-
-    A[-1,:] /= np.linalg.norm(A[-1,:])
-    return A
 
 class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, Model):
     """A MatrixProductOperator with a decimated number of output indices.

@@ -13,6 +13,35 @@ def return_digits(array):
             else: continue
     return digits
 
+def gramschmidt(A):
+    """Function that creates an orthogonal basis from a matrix `A`.
+
+    Parameters
+    ----------
+    A : Matrix
+
+    Returns
+    -------
+    `np.numpy.ndarray`
+        Matrix in a orthogonal basis
+
+    """
+    m = A.shape[0]
+
+    for i in range(m-1):
+        v = [A[i, :]]
+        v /= np.linalg.norm(v)
+        A[i, :] = v
+
+        sA = A[i+1:, :]
+        u = np.matmul(sA, np.transpose(v))
+        sA -= np.matmul(u, np.conjugate(v))
+        A[i+1:, :] = sA
+        u = np.matmul(sA, np.transpose(v))
+
+    A[-1,:] /= np.linalg.norm(A[-1,:])
+    return A
+
 class EarlyStopping:
     """ Variation of `EarlyStopping` class from :class:tensorflow.
 
