@@ -1,7 +1,4 @@
-import functools
-import operator
 from tqdm import tqdm
-from concurrent.futures import Executor, ProcessPoolExecutor
 from typing import Any, Callable, Collection, Optional, Sequence, Tuple
 import autoray
 import funcy
@@ -9,8 +6,7 @@ import jax
 import numpy as np
 from quimb import tensor as qtn
 import quimb as qu
-from scipy.optimize import OptimizeResult
-# from .smpo import SpacedMatrixProductOperator
+
 from ..embeddings import Embedding, trigonometric, embed, physics_embedding
 from ..util import EarlyStopping, ExponentialDecay, ExponentialGrowth
 from ..strategy import *
@@ -20,6 +16,7 @@ def shuffle_along_axis(a, axis):
     return np.take_along_axis(a,idx,axis=axis)
 
 def choose_optimizer(optimizer):
+    # helper function
     # adam, nadam, ADABELIEF, RMSPROP, SGD
     if isinstance(optimizer, qtn.optimize.SGD):
         return qtn.optimize.SGD()
@@ -154,9 +151,9 @@ class Model(qtn.TensorNetwork):
             self.optimizer = qtn.optimize.SGD()
             
         if isinstance(self.strategy, Sweeps):
-            # add if optimizer is none....
+            iterate = self
             self.optimizers = []
-            for sites in self.strategy.iterate_sites(self):
+            for sites in self.strategy.iterate_sites(iterate):
                 self.optimizers.append(choose_optimizer(self.optimizer))
 
         with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(inputs)//batch_size)-1, desc="batch") as innerbar:
@@ -179,31 +176,19 @@ class Model(qtn.TensorNetwork):
                     #data = shuffle_along_axis(data, axis=1)
                     batch = jax.numpy.asarray(batch)
                     if isinstance(self.strategy, Sweeps):
-                        loss_cur, res, vectorizer, model = _fit_sweeps(self, self.loss_fn, batch, strategy=self.strategy, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
-                        if hasattr(model, 'model'):
-                            self.model = model.copy()
+                        loss_cur, res, vectorizer = _fit_sweeps(self, self.loss_fn, batch, strategy=self.strategy, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
                     else:
                         loss_cur, res, vectorizer = _fit(self, self.loss_fn, batch, strategy=self.strategy, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
                         
                     loss_batch += loss_cur
-                    
                                         
                     if normalize:
-                        if hasattr(self, 'model'):
-                            self.model.canonize(0)
-                            self.model.normalize()
-                        else:
-                            self.canonize(0)
-                            self.normalize()
+                        self.canonize(0)
+                        self.normalize()
 
                     if callbacks:
-                        if hasattr(self, 'model'):
-                            model = self.model
-                        else:
-                            model = self
-                        
                         for name, fn in callbacks:
-                            history[name].append(fn(model, res, vectorizer))
+                            history[name].append(fn(self, res, vectorizer))
                 
                 history['loss'].append(loss_batch/num_batches)
                 
@@ -307,13 +292,7 @@ def _fit(
     if not isinstance(strategy, Global):
         raise NotImplementedError("This is _fit method for Global optimization strategy.")
     
-    # if model is not SpacedMatrixProductOperator but some other quimb TN models
-    if hasattr(model, 'model'):
-        smpo = model.smpo
-        model = model.model.copy()
-        L = len(model.tensors)
-    else:
-        L = model.L
+    L = model.L
 
     for sites in strategy.iterate_sites(model):
         # contract sites in groups
@@ -332,19 +311,13 @@ def _fit(
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
                     
-                if isinstance(model, qtn.MatrixProductState):
+                if sample.shape[0] > L:
+                    sample, target = sample[:L], sample[L:]
                     phi = embed(sample, embedding)
-                    mps_input = smpo.apply(phi)
-                    mps_input.normalize()
-                    return loss_fn(tn, mps_input)
+                    return loss_fn(tn, phi, target) # if training is supervised
                 else:
-                    if sample.shape[0] > L:
-                        sample, target = sample[:L], sample[L:]
-                        phi = embed(sample, embedding)
-                        return loss_fn(tn, phi, target) # if training is supervised
-                    else:
-                        phi = embed(sample, embedding)
-                        return loss_fn(tn, phi)
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi)
 
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(L)]), in_axes=[0] + [None] * L)(jax.numpy.asarray(data), *arrays)
@@ -362,19 +335,13 @@ def _fit(
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
                 
-                if isinstance(model, qtn.MatrixProductState):
+                if sample.shape[0] > L:
+                    sample, target = sample[:L], sample[L:]
                     phi = embed(sample, embedding)
-                    mps_input = smpo.apply(phi)
-                    mps_input.normalize()
-                    return loss_fn(tn, mps_input)
+                    return loss_fn(tn, phi, target) # if training is supervised
                 else:
-                    if sample.shape[0] > L:
-                        sample, target = sample[:L], sample[L:]
-                        phi = embed(sample, embedding)
-                        return loss_fn(tn, phi, target) # if training is supervised
-                    else:
-                        phi = embed(sample, embedding)
-                        return loss_fn(tn, phi)
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi)
 
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(foo, in_axes=[0] + [None] * L)(jax.numpy.asarray(data), *arrays)
@@ -395,7 +362,7 @@ def _fit(
             
         # split sites
         strategy.posthook(model, sites)
-
+        
     return res.fun, res, vectorizer
 
 def _fit_sweeps(
@@ -441,11 +408,16 @@ def _fit_sweeps(
     
     if strategy.grouping > 2:
         raise NotImplementedError("Only implemented for grouping <= 2")
-            
+    
+    L = model.L
+
     s = 0
     for sites in strategy.iterate_sites(model):
         # contract sites in groups
         strategy.prehook(model, sites)
+
+        if strategy.grouping == 1:
+            sites = [sites]
         sitetags = [model.site_tag(site) for site in sites]
         
         tensor = model.select_tensors(sitetags)[0]
@@ -460,15 +432,9 @@ def _fit_sweeps(
                 tn = model.copy()
                 tn.select_tensors(sitetags)[0].modify(data=x)
                 
-                if isinstance(model, qtn.MatrixProductState):
-                    phi = embed(sample, embedding)
-                    mps_input = model.smpo.apply(phi)
-                    mps_input.normalize()
-                    return loss_fn(tn, mps_input)
-                else:
-                    # TODO IMPLEMENT FOR SUPERVISED
-                    phi = embed(sample, embedding)
-                    return loss_fn(tn, phi)
+                # TODO IMPLEMENT FOR SUPERVISED
+                phi = embed(sample, embedding)
+                return loss_fn(tn, phi)
             
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(jax.grad(foo, argnums=[1]), in_axes=[0,None])(jax.numpy.asarray(data), target_array)
@@ -486,15 +452,9 @@ def _fit_sweeps(
                 tn = model.copy()
                 tn.select_tensors(sitetags)[0].modify(data=x)
                 
-                if isinstance(model, qtn.MatrixProductState):
-                    phi = embed(sample, embedding)
-                    mps_input = model.smpo.apply(phi)
-                    mps_input.normalize()
-                    return loss_fn(tn, mps_input)
-                else:
-                    # TODO IMPLEMENT FOR SUPERVISED
-                    phi = embed(sample, embedding)
-                    return loss_fn(tn, phi)
+                # TODO IMPLEMENT FOR SUPERVISED
+                phi = embed(sample, embedding)
+                return loss_fn(tn, phi)
 
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(foo, in_axes=[0, None])(jax.numpy.asarray(data), target_array)
@@ -519,4 +479,4 @@ def _fit_sweeps(
         # counting how many combinations of sites
         s+=1
 
-    return res.fun, res, vectorizer, model
+    return res.fun, res, vectorizer
