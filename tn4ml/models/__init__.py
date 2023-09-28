@@ -11,3 +11,7 @@ from .model import (
 from .smpo import(
     SpacedMatrixProductOperator
 )
+
+from .mps import(
+    TrainableMatrixProductState
+)
