@@ -3,7 +3,6 @@ import pytest
 import tn4ml
 import itertools
 
-
 @pytest.mark.parametrize("x", [0.0, 1.0, -1.0, 0.3, 0.7, 2.0])
 def test_trigonometric(x):
     embedding = tn4ml.embeddings.trigonometric()

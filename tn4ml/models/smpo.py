@@ -1,5 +1,4 @@
 import itertools
-import math
 from typing import Tuple, Collection
 import numpy as np
 
@@ -8,7 +7,7 @@ import quimb as qu
 import quimb.tensor as qtn
 from quimb.tensor.tensor_1d import TensorNetwork, TensorNetwork1DFlat, TensorNetwork1DOperator, MatrixProductState
 from .model import Model
-from ..util import return_digits
+from ..util import return_digits, gramschmidt
 
 def sort_tensors(tn):
     """Helper function for sorting tensors of tensor network in alphabetic order by tags.
@@ -27,35 +26,6 @@ def sort_tensors(tn):
     ts_and_sorted_tags = [(t, sorted(return_digits(t.tags))) for t in tn]
     ts_and_sorted_tags.sort(key=lambda x: x[1])
     return tuple(x[0] for x in ts_and_sorted_tags)
-
-def gramschmidt(A):
-    """Function that creates an orthogonal basis from a matrix `A`.
-
-    Parameters
-    ----------
-    A : Matrix
-
-    Returns
-    -------
-    `np.numpy.ndarray`
-        Matrix in a orthogonal basis
-
-    """
-    m = A.shape[0]
-
-    for i in range(m-1):
-        v = [A[i, :]]
-        v /= np.linalg.norm(v)
-        A[i, :] = v
-
-        sA = A[i+1:, :]
-        u = np.matmul(sA, np.transpose(v))
-        sA -= np.matmul(u, np.conjugate(v))
-        A[i+1:, :] = sA
-        u = np.matmul(sA, np.transpose(v))
-
-    A[-1,:] /= np.linalg.norm(A[-1,:])
-    return A
 
 class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, Model):
     """A MatrixProductOperator with a decimated number of output indices.
@@ -396,9 +366,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         if hasattr(smpo, 'spacings'):
             spacings = smpo.spacings
         else:
-            spacings = [smpo.spacing]*(len(list(smpo.lower_inds))-1)
-            if int(list(smpo.lower_inds)[-1][1:]) != len(smpo.tensors)-1:
-                spacings.append(len(smpo.tensors) - 1 - int(list(smpo.lower_inds)[-1][1:]))
+            spacings = [smpo.spacing]*(len(list(smpo.lower_inds)))
         # align the indices
         coordinate_formatter = qu.tensor.tensor_arbgeom.get_coordinate_formatter(smpo._NDIMS)
         smpo.lower_ind_id = f"__tmp{coordinate_formatter}__"
@@ -408,7 +376,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         for ind in mps.outer_inds():
             result.contract_ind(ind=ind)
-
+        
         list_tensors = result.tensors
         number_of_sites = len(list_tensors)
         tags = list(qtn.tensor_core.get_tags(result))
@@ -435,8 +403,8 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         sorted_tensors = sort_tensors(result)
         arrays = [tensor.data for tensor in sorted_tensors]
-
-        if len(arrays[0].shape) == 3:
+        
+        if len(arrays[0].shape) == 3 and arrays[0].shape[0]!=1:
             arr = np.squeeze(arrays[0])
             arrays[0] = arr
         arrays[0] = a.do("reshape", arrays[0], (1, *arrays[0].shape))
@@ -453,7 +421,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         # set shape
         if len(spacings) == 1 and spacings[0]==1: shape = 'lrp'
         else: shape = 'lpr'
-
+        
         vec = MatrixProductState(arrays, shape=shape)
         # optionally compress
         if compress:

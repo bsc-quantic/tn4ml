@@ -4,10 +4,14 @@
 from .model import (
     Model,
     load_model,
-    LossWrapper,
-    _fit
+    _fit,
+    _fit_sweeps
 )
 
 from .smpo import(
     SpacedMatrixProductOperator
+)
+
+from .mps import(
+    TrainableMatrixProductState
 )

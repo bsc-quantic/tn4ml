@@ -5,10 +5,6 @@ from numbers import Number
 import numpy as onp
 from autoray import numpy as np
 import quimb.tensor as qtn
-import quimb as qu
-import jax
-import math
-
 
 class Embedding:
     """Data embedding (feature map) class.
@@ -140,7 +136,8 @@ def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
     """
     if x.ndim > 1:
         jets = True
-    else: jets = False
+    else:
+        jets = False
 
     if jets:
         return physics_embedding(x, phi, **mps_opts)

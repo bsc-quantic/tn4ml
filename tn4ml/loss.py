@@ -1,15 +1,21 @@
 from numbers import Number
 from typing import Callable, Optional
 
-import quimb.tensor as qtn
 from autoray import do
-import numpy as np
 import jax.numpy as jnp
 import math
 
 from .embeddings import Embedding, embed
 
 """ Examples of Loss functions """
+
+def clustering_l1(model):
+    l1 = do("log", ((model.H & model)^all))
+    return l1
+
+def clustering_l2(model, input_mps):
+    l2 = do("log", do("power", ((model.H & input_mps)^all), 2))
+    return -l2
 
 def no_reg(x):
     return 0
@@ -55,7 +61,29 @@ def error_logquad(P, data):
     -------
     float
     """
-    mps = P.apply(data)
+    # if len(P.tensors) < len(data.tensors):
+    #     sitetag = data.site_tag(len(data.tensors)-1)
+    #     tensor = data.select_tensors(sitetag, which="all")[0]
+    #     old_data = data.copy()
+    #     print(len(old_data.tensors))
+    #     data.delete(sitetag, which='any')
+    #     print(len(data.tensors))
+    #     mps = P.apply(data)
+    #     mps.add_tensor(tensor)
+    #     print(len(mps.tensors))
+    #     print(mps.tensors)
+    # else:
+    #     #P.H&data^['list of inds']
+    if len(P.tensors) < len(data.tensors):
+        inds_contract = []
+        for i in range(len(data.tensors)):
+            inds_contract.append(f'k{i}')
+        mps = (P.H&data)
+        for index in inds_contract:
+            mps.contract_ind(index)
+    else:
+        mps = P.apply(data)
+        
     return do("power", do("add", do("log", mps.H & mps ^ all), -1.0), 2)
 
 def error_quad(P, data):
