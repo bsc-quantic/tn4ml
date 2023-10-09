@@ -1,5 +1,4 @@
 import itertools
-import math
 from typing import Tuple, Collection
 import numpy as np
 

@@ -5,10 +5,6 @@ from numbers import Number
 import numpy as onp
 from autoray import numpy as np
 import quimb.tensor as qtn
-import quimb as qu
-import jax
-import math
-
 
 class Embedding:
     """Data embedding (feature map) class.

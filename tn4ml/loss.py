@@ -1,9 +1,7 @@
 from numbers import Number
 from typing import Callable, Optional
 
-import quimb.tensor as qtn
 from autoray import do
-import numpy as np
 import jax.numpy as jnp
 import math
 
