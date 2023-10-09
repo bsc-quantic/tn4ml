@@ -3,6 +3,7 @@ from numbers import Integral
 import numpy as np
 import autoray as a
 from quimb import *
+import quimb.tensor as qtn
 from quimb.tensor.tensor_1d import MatrixProductState, TensorNetwork, TensorNetwork1DFlat
 from .model import Model
 from ..util import gramschmidt
@@ -13,9 +14,24 @@ class TrainableMatrixProductState(Model, MatrixProductState):
     """
 
     def __init__(self, arrays, **kwargs):
+        # if isinstance(arrays, MatrixProductState):
+        #     Model.__init__(self)
+        #     return
         Model.__init__(self)
         MatrixProductState.__init__(self, arrays, **kwargs)
+    
+    def rand_state(L: int, bond_dim: int, phys_dim: int=2, normalize: bool=True, cyclic: bool=False, dtype: str="float64", trans_invar: bool = False, **kwargs):
+        rmps = qtn.MPS_rand_state(L, bond_dim=bond_dim,\
+                                  phys_dim = phys_dim,\
+                                  normalize = normalize,\
+                                  cyclic = cyclic,\
+                                  dtype = dtype,\
+                                 trans_invar = trans_invar,\
+                                 **kwargs)
+        arrays = rmps.arrays
+        return TrainableMatrixProductState(arrays, **kwargs)
 
+        
     def rand_orthogonal(L: int, bond_dim: int, phys_dim: int=2, normalize: bool=True, cyclic: bool=False, dtype: str="float64", init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
         
         if cyclic:
