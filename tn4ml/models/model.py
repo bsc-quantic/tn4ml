@@ -6,7 +6,6 @@ import jax
 import numpy as np
 from quimb import tensor as qtn
 import quimb as qu
-
 from ..embeddings import Embedding, trigonometric, embed, physics_embedding
 from ..util import EarlyStopping, ExponentialDecay, ExponentialGrowth
 from ..strategy import *
@@ -433,8 +432,14 @@ def _fit_sweeps(
                 tn.select_tensors(sitetags)[0].modify(data=x)
                 
                 # TODO IMPLEMENT FOR SUPERVISED
-                phi = embed(sample, embedding)
-                return loss_fn(tn, phi)
+                if model.smpo:
+                    # if using SMPO for dimensionality reduction
+                    phi = physics_embedding(sample, trigonometric())
+                    mps = model.smpo.apply(phi)
+                    return loss_fn(tn, mps)
+                else:
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi)
             
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(jax.grad(foo, argnums=[1]), in_axes=[0,None])(jax.numpy.asarray(data), target_array)
@@ -453,8 +458,14 @@ def _fit_sweeps(
                 tn.select_tensors(sitetags)[0].modify(data=x)
                 
                 # TODO IMPLEMENT FOR SUPERVISED
-                phi = embed(sample, embedding)
-                return loss_fn(tn, phi)
+                if model.smpo:
+                    # if using SMPO for dimensionality reduction
+                    phi = physics_embedding(sample, trigonometric())
+                    mps = model.smpo.apply(phi)
+                    return loss_fn(tn, mps)
+                else:
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi)
 
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(foo, in_axes=[0, None])(jax.numpy.asarray(data), target_array)
