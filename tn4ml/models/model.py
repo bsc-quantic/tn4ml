@@ -432,10 +432,17 @@ def _fit_sweeps(
                 tn.select_tensors(sitetags)[0].modify(data=x)
                 
                 # TODO IMPLEMENT FOR SUPERVISED
-                if model.smpo:
+                if 'smpo' in vars(model).keys():
                     # if using SMPO for dimensionality reduction
                     phi = physics_embedding(sample, trigonometric())
+                    # print("----- SMPO TENSORS -----")
+                    # for t in model.smpo.tensors[:3]:
+                    #     print(t.data)
                     mps = model.smpo.apply(phi)
+                    mps.normalize()
+                    # print("----- MPS TENSORS -----")
+                    # for t in mps.tensors[:3]:
+                    #     print(t.data)
                     return loss_fn(tn, mps)
                 else:
                     phi = embed(sample, embedding)
@@ -458,10 +465,11 @@ def _fit_sweeps(
                 tn.select_tensors(sitetags)[0].modify(data=x)
                 
                 # TODO IMPLEMENT FOR SUPERVISED
-                if model.smpo:
+                if 'smpo' in vars(model).keys():
                     # if using SMPO for dimensionality reduction
                     phi = physics_embedding(sample, trigonometric())
                     mps = model.smpo.apply(phi)
+                    mps.normalize()
                     return loss_fn(tn, mps)
                 else:
                     phi = embed(sample, embedding)
