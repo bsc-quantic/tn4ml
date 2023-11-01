@@ -3,6 +3,7 @@ from typing import Any, Callable, Collection, Optional, Sequence, Tuple
 import autoray
 import funcy
 import jax
+from time import time
 import numpy as np
 from quimb import tensor as qtn
 import quimb as qu
@@ -68,6 +69,8 @@ class Model(qtn.TensorNetwork):
     def return_mps_sample(self, sample):
         phi = physics_embedding(sample, trigonometric())
         mps = self.smpo.apply(phi)
+        mps.canonize(0)
+        mps.normalize()
         return mps
     
 
@@ -102,6 +105,7 @@ class Model(qtn.TensorNetwork):
             earlystop: Optional[EarlyStopping] = None,
             exp_decay: Optional[ExponentialDecay] = None,
             exp_growth: Optional[ExponentialGrowth] = None,
+            time_limit: Optional[int] = None,
             **kwargs):
 
         """Performs the training procedure of :class:`tn4ml.models.Model`.
@@ -128,7 +132,8 @@ class Model(qtn.TensorNetwork):
             Exponential decay of the learning rate.
         exp_growth : `ExponentialGrowth` instance
             Exponential growth of the learning rate.
-
+        time_limit: `int`
+            Time limit on model's training in seconds.
         Returns
         -------
         history: dict
@@ -139,6 +144,8 @@ class Model(qtn.TensorNetwork):
 
         history = dict()
         history['loss'] = []
+        history['epoch_time'] = []
+        history['unfinished'] = False # default
         if callbacks:
             for name, _ in callbacks:
                 history[name] = []
@@ -154,10 +161,11 @@ class Model(qtn.TensorNetwork):
             self.optimizers = []
             for sites in self.strategy.iterate_sites(iterate):
                 self.optimizers.append(choose_optimizer(self.optimizer))
-
+        
+        start_train = time()
         with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(inputs)//batch_size)-1, desc="batch") as innerbar:
             for epoch in range(nepochs):
-                    
+                time_epoch = time()  
                 if exp_decay and epoch >= exp_decay.start_decay:
                     self.learning_rate = exp_decay(epoch)
                 if exp_growth and epoch >= exp_growth.start_step:
@@ -202,6 +210,16 @@ class Model(qtn.TensorNetwork):
                     return_value = earlystop.on_end_epoch(current, epoch)
                     if return_value==0: continue
                     else: return history
+                history['epoch_time'].append(time() - time_epoch)
+                
+                if time_limit is not None and (time() - start_train + np.mean(history['epoch_time']) >= time_limit):
+                    print("Elapsed time since the beginning of the training: ", time()-start_train)
+                    print("Approximate time left:", time_limit-(start_train-time()))
+                    print("Average epoch duration:", np.mean(history["epoch_time"]))
+                    print()
+                    print("Unable to finish the training in time, saving the unfinished models instead...")
+                    history["unfinished"] = True
+                    return history
 
         return history
 
@@ -434,15 +452,7 @@ def _fit_sweeps(
                 # TODO IMPLEMENT FOR SUPERVISED
                 if 'smpo' in vars(model).keys():
                     # if using SMPO for dimensionality reduction
-                    phi = physics_embedding(sample, trigonometric())
-                    # print("----- SMPO TENSORS -----")
-                    # for t in model.smpo.tensors[:3]:
-                    #     print(t.data)
-                    mps = model.smpo.apply(phi)
-                    mps.normalize()
-                    # print("----- MPS TENSORS -----")
-                    # for t in mps.tensors[:3]:
-                    #     print(t.data)
+                    mps = model.return_mps_sample(sample)
                     return loss_fn(tn, mps)
                 else:
                     phi = embed(sample, embedding)
@@ -467,9 +477,7 @@ def _fit_sweeps(
                 # TODO IMPLEMENT FOR SUPERVISED
                 if 'smpo' in vars(model).keys():
                     # if using SMPO for dimensionality reduction
-                    phi = physics_embedding(sample, trigonometric())
-                    mps = model.smpo.apply(phi)
-                    mps.normalize()
+                    mps = model.return_mps_sample(sample)
                     return loss_fn(tn, mps)
                 else:
                     phi = embed(sample, embedding)
