@@ -14,8 +14,12 @@ def clustering_l1(model):
     return l1
 
 def clustering_l2(model, input_mps):
-    l2 = do("log", do("power", ((model.H & input_mps)^all), 2))
+    #result = (model.H&input_mps).contract_cumulative(input_mps.tags)
+    l2 = do("log", do("power", (model.H&input_mps)^all, 2))
     return -l2
+
+def clustering_logquad(model, input_mps):
+    return do("power", do("add", do("log", (model.H & input_mps)^all), -1.0), 2)
 
 def no_reg(x):
     return 0
@@ -61,19 +65,6 @@ def error_logquad(P, data):
     -------
     float
     """
-    # if len(P.tensors) < len(data.tensors):
-    #     sitetag = data.site_tag(len(data.tensors)-1)
-    #     tensor = data.select_tensors(sitetag, which="all")[0]
-    #     old_data = data.copy()
-    #     print(len(old_data.tensors))
-    #     data.delete(sitetag, which='any')
-    #     print(len(data.tensors))
-    #     mps = P.apply(data)
-    #     mps.add_tensor(tensor)
-    #     print(len(mps.tensors))
-    #     print(mps.tensors)
-    # else:
-    #     #P.H&data^['list of inds']
     if len(P.tensors) < len(data.tensors):
         inds_contract = []
         for i in range(len(data.tensors)):
@@ -83,7 +74,6 @@ def error_logquad(P, data):
             mps.contract_ind(index)
     else:
         mps = P.apply(data)
-        
     return do("power", do("add", do("log", mps.H & mps ^ all), -1.0), 2)
 
 def error_quad(P, data):
