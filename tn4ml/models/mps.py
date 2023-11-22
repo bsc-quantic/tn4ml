@@ -42,7 +42,6 @@ class TrainableMatrixProductState(Model, MatrixProductState):
             phys_dims = itertools.repeat(phys_dim)
         else:
             phys_dims = itertools.cycle(phys_dim)
-
         # LRP
         arrays=[]
         for i in range(1, L+1):
@@ -70,8 +69,8 @@ class TrainableMatrixProductState(Model, MatrixProductState):
             
             arrays.append(np.reshape(A, shape))
     
-        arrays[0] = np.reshape(arrays[0], (phys_dim, phys_dim))
-        arrays[L-1] = np.reshape(arrays[L-1], (phys_dim, phys_dim))
+        arrays[0] = np.reshape(arrays[0], (1, min(bond_dim, phys_dim), phys_dim))
+        #arrays[L-1] = np.reshape(arrays[L-1], (min(bond_dim, phys_dim), 1, phys_dim))
         
         arrays[0] /= np.sqrt(phys_dim)
             
