@@ -14,7 +14,6 @@ def clustering_l1(model):
     return l1
 
 def clustering_l2(model, input_mps):
-    #result = (model.H&input_mps).contract_cumulative(input_mps.tags)
     l2 = do("log", do("power", (model.H&input_mps)^all, 2))
     return -l2
 

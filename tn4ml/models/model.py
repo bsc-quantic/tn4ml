@@ -6,9 +6,9 @@ import jax
 from time import time
 import numpy as np
 from quimb import tensor as qtn
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import quimb as qu
-from ..embeddings import Embedding, trigonometric, embed, physics_embedding, physics_embedding_2
+from ..embeddings import Embedding, trigonometric, embed
 from ..util import EarlyStopping, ExponentialDecay, ExponentialGrowth
 from ..strategy import *
 
@@ -67,8 +67,8 @@ class Model(qtn.TensorNetwork):
     def set_smpo(self, smpo):
         self.smpo = smpo
         
-    def return_mps_sample(self, sample):
-        phi = physics_embedding_2(sample, trigonometric())
+    def return_mps_sample(self, sample, embedding, embedding_func):
+        phi = embedding(sample, embedding_func)
         mps = self.smpo.apply(phi)
         return mps
     
@@ -339,7 +339,7 @@ def _fit(
                 #     return loss_fn(tn, phi, target) # if training is supervised
                 if 'smpo' in vars(model).keys():
                     # if using SMPO for dimensionality reduction
-                    mps = model.return_mps_sample(sample)
+                    mps = model.return_mps_sample(sample, embedding)
                     return loss_fn(tn, mps)
                 else:
                     phi = embed(sample, embedding)
@@ -367,7 +367,7 @@ def _fit(
                 #     return loss_fn(tn, phi, target) # if training is supervised
                 if 'smpo' in vars(model).keys():
                     # if using SMPO for dimensionality reduction
-                    mps = model.return_mps_sample(sample)
+                    mps = model.return_mps_sample(sample, embedding)
                     return loss_fn(tn, mps)
                 else:
                     phi = embed(sample, embedding)
@@ -465,7 +465,7 @@ def _fit_sweeps(
                 # TODO IMPLEMENT FOR SUPERVISED
                 if 'smpo' in vars(model).keys():
                     # if using SMPO for dimensionality reduction
-                    mps = model.return_mps_sample(sample)
+                    mps = model.return_mps_sample(sample, embedding)
                     return loss_fn(tn, mps)
                 else:
                     phi = embed(sample, embedding)
@@ -490,7 +490,7 @@ def _fit_sweeps(
                 # TODO IMPLEMENT FOR SUPERVISED
                 if 'smpo' in vars(model).keys():
                     # if using SMPO for dimensionality reduction
-                    mps = model.return_mps_sample(sample)
+                    mps = model.return_mps_sample(sample, embedding)
                     return loss_fn(tn, mps)
                 else:
                     phi = embed(sample, embedding)
