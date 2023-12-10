@@ -160,6 +160,7 @@ class ExponentialDecay:
         self.start_decay = start_decay
 
     def __call__(self, step):
+        print(self.initial_learning_rate * (self.decay_rate ** (step / self.decay_steps)))
         return self.initial_learning_rate * (self.decay_rate ** (step / self.decay_steps))
     
 

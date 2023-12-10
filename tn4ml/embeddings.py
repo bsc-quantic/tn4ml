@@ -1,7 +1,8 @@
 import abc
 import itertools
 from numbers import Number
-
+import math
+import pandas as pd
 import numpy as onp
 from autoray import numpy as np
 import quimb.tensor as qtn
@@ -28,7 +29,6 @@ class Embedding:
     def __call__(self, x: Number) -> onp.ndarray:
         pass
 
-
 class trigonometric(Embedding):
     """Trigonometric feature map.
     """
@@ -50,7 +50,7 @@ class trigonometric(Embedding):
         return self.k * 2
 
     def __call__(self, x: Number) -> onp.ndarray:
-        return 1 / np.sqrt(self.k) * np.asarray([f(onp.pi * x / 2**i) for f, i in itertools.product([np.cos, np.sin], range(1, self.k + 1))])
+        return 1 / np.sqrt(self.k) * np.asarray([f((onp.pi * x / 2**i)) for f, i in itertools.product([np.cos, np.sin], range(1, self.k + 1))])
 
 
 class fourier(Embedding):
@@ -95,34 +95,85 @@ class linear(Embedding):
     def __call__(self, x: Number) -> onp.ndarray:
         return np.asarray([x, 1-x])
 
-def physics_embedding(data: onp.ndarray, pT_embed_func: Embedding, **mps_opts):
-    theta = data[:, 0]
+def physics_embedding(data: onp.ndarray, embed_func: Embedding, **mps_opts):
+    eta = data[:, 0]
     phi = data[:, 1]
     pT = data[:, 2]
 
     # encode pT
-    pT_embed = [pT_embed_func(pt) for pt in pT]
+    pT_embed = np.asarray([embed_func(pt) for pt in pT])
 
     # add phi and theta
     data_embed = []
-    for i, j, k in zip(phi, theta, pT_embed):
+    for i, j, k in zip(phi, eta, pT_embed):
         pt_norm = np.linalg.norm(k)
         pt_phi_norm = np.linalg.norm(np.asarray([k[0]*np.cos(i), k[1]*np.cos(i), pt_norm*np.sin(i)]))
         data_vector = np.asarray([k[0]*np.cos(i)*np.cos(j), k[1]*np.cos(i)*np.cos(j), pt_norm*np.sin(i)*np.cos(j), pt_phi_norm*np.sin(j)])
         data_embed.append(data_vector)
 
-    # for i, j, k in zip(phi, theta, pT_embed):
-    #     pt_norm = np.linalg.norm(k)
-    #     pt_phi_norm = np.linalg.norm([k[0]*np.cos(i), k[1]*np.cos(i), k[2]*np.cos(i), pt_norm*np.sin(i)])
-    #     data_vector = np.asarray([k[0]*np.cos(i)*np.cos(j), k[1]*np.cos(i)*np.cos(j), k[2]*np.cos(i)*np.cos(j), pt_norm*np.sin(i)*np.cos(j), pt_phi_norm*np.sin(j)])
-    #     data_embed.append(data_vector)
-
     # reshape for mps
-    data_embed_reshaped = [x.reshape((1,1,4)) for x in data_embed]
+    data_embed_reshaped = [(x/np.linalg.norm(x)).reshape((1,1,4)) for x in data_embed]
 
     return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
 
-def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
+def physics_embedding_5vector(data: onp.ndarray, embed_func: Embedding, **mps_opts):
+    eta = data[:, 0]
+    phi = data[:, 1]
+    pT = data[:, 2]
+
+    data_embed = []
+    for e, p, pt in zip(eta, phi, pT):
+        data_embed.append([pt, np.cos((onp.pi/2)*e), np.sin((onp.pi/2)*e), np.cos((onp.pi/2)*p), np.sin((onp.pi/2)*p)])
+    
+    data_embed = np.array(data_embed)
+    # reshape for mps
+    data_embed_reshaped = [(x/np.linalg.norm(x)).reshape((1,1,5)) for x in data_embed]
+
+    return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
+
+def physics_embedding_trig_pT(data: onp.ndarray, embed_func: Embedding, **mps_opts):
+    deltaR = data[:, 0]
+    pT = data[:, 1]
+
+    # encode pT
+    pT_embed = np.asarray([embed_func(pt) for pt in pT])
+
+    # add phi and theta
+    data_embed = []
+    for i, k in zip(deltaR, pT_embed):
+        pt_norm = np.linalg.norm(k)
+        data_vector = np.asarray([k[0]*np.cos(i), k[1]*np.cos(i), pt_norm*np.sin(i)])
+        data_embed.append(data_vector)
+    
+    data_embed_reshaped = [(x/np.linalg.norm(x)).reshape((1,1,3)) for x in data_embed]
+    return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
+
+def physics_embedding_pT_trig_deltaR(data: onp.ndarray, embed_func: Embedding, **mps_opts):
+    deltaR = data[:, 0]
+    pT = data[:, 1]
+
+    data_embed = []
+    for i, j in zip(deltaR, pT):
+        data_vector = np.asarray([j, np.cos((onp.pi/2)*i), np.sin((onp.pi/2)*i)])
+        data_embed.append(data_vector)
+    
+    data_embed_reshaped = [(x/np.linalg.norm(x)).reshape((1,1,3)) for x in data_embed]
+    return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
+
+def physics_embedding_cos_sin(data: onp.ndarray, embed_func: Embedding, **mps_opts):
+    deltaR = data[:, 0]
+    pT = data[:, 1]
+
+    data_embed = []
+    for i, j in zip(deltaR, pT):
+        data_vector = np.asarray([np.cos(i), np.sin(j)])
+        data_embed.append(data_vector)
+    
+    data_embed_reshaped = [(x/np.linalg.norm(x)).reshape((1,1,2)) for x in data_embed]
+    return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
+
+
+def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, **mps_opts):
     """Creates a product state from a vector of features `x`.
 
     Parameters
@@ -135,12 +186,15 @@ def embed(x: onp.ndarray, phi: Embedding, **mps_opts):
         Additional arguments passed to MatrixProductState class.
     """
     if x.ndim > 1:
-        jets = True
-    else:
-        jets = False
+        multi_dim = True
 
-    if jets:
-        return physics_embedding(x, phi, **mps_opts)
+        if not multi_dim:
+            raise ValueError('Provide embedding function for multi-dimensional data.')
+    else:
+        multi_dim = False
+
+    if multi_dim:
+        return phi_multidim(x, phi, **mps_opts)
     else:
         arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
         for i in [0, -1]:

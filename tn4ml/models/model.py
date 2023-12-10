@@ -3,11 +3,12 @@ from typing import Any, Callable, Collection, Optional, Sequence, Tuple
 import autoray
 import funcy
 import jax
+from time import time
 import numpy as np
 from quimb import tensor as qtn
+#import matplotlib.pyplot as plt
 import quimb as qu
-
-from ..embeddings import Embedding, trigonometric, embed, physics_embedding
+from ..embeddings import Embedding, trigonometric, embed
 from ..util import EarlyStopping, ExponentialDecay, ExponentialGrowth
 from ..strategy import *
 
@@ -66,8 +67,8 @@ class Model(qtn.TensorNetwork):
     def set_smpo(self, smpo):
         self.smpo = smpo
         
-    def return_mps_sample(self, sample):
-        phi = physics_embedding(sample, trigonometric())
+    def return_mps_sample(self, sample, embedding, embedding_func):
+        phi = embedding(sample, embedding_func)
         mps = self.smpo.apply(phi)
         return mps
     
@@ -103,6 +104,7 @@ class Model(qtn.TensorNetwork):
             earlystop: Optional[EarlyStopping] = None,
             exp_decay: Optional[ExponentialDecay] = None,
             exp_growth: Optional[ExponentialGrowth] = None,
+            time_limit: Optional[int] = None,
             **kwargs):
 
         """Performs the training procedure of :class:`tn4ml.models.Model`.
@@ -129,7 +131,8 @@ class Model(qtn.TensorNetwork):
             Exponential decay of the learning rate.
         exp_growth : `ExponentialGrowth` instance
             Exponential growth of the learning rate.
-
+        time_limit: `int`
+            Time limit on model's training in seconds.
         Returns
         -------
         history: dict
@@ -138,14 +141,16 @@ class Model(qtn.TensorNetwork):
 
         num_batches = (len(inputs)//batch_size)
 
-        history = dict()
-        history['loss'] = []
+        self.history = dict()
+        self.history['loss'] = []
+        self.history['epoch_time'] = []
+        self.history['unfinished'] = False # default
         if callbacks:
             for name, _ in callbacks:
-                history[name] = []
+                self.history[name] = []
 
         if earlystop:
-            earlystop.on_begin_train(history)
+            earlystop.on_begin_train(self.history)
          
         if self.optimizer is None:
             self.optimizer = qtn.optimize.SGD()
@@ -155,10 +160,12 @@ class Model(qtn.TensorNetwork):
             self.optimizers = []
             for sites in self.strategy.iterate_sites(iterate):
                 self.optimizers.append(choose_optimizer(self.optimizer))
-
+        
+        start_train = time()
+        self.norm_before_normalize=[]
         with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(inputs)//batch_size)-1, desc="batch") as innerbar:
             for epoch in range(nepochs):
-                    
+                time_epoch = time()  
                 if exp_decay and epoch >= exp_decay.start_decay:
                     self.learning_rate = exp_decay(epoch)
                 if exp_growth and epoch >= exp_growth.start_step:
@@ -172,6 +179,7 @@ class Model(qtn.TensorNetwork):
                 else: data = inputs
 
                 loss_batch = 0
+                batch_num=0
                 for batch in funcy.partition(batch_size, data):
                     #data = shuffle_along_axis(data, axis=1)
                     batch = jax.numpy.asarray(batch)
@@ -182,15 +190,19 @@ class Model(qtn.TensorNetwork):
                         
                     loss_batch += loss_cur
                                         
+                    self.norm_before_normalize.append(self.norm())
                     if normalize:
-                        self.canonize(0)
                         self.normalize()
+                        #if epoch%10==0 and batch_num==(inputs.shape[0]/batch_size)-1:
+                        #    smpo_eigval(self, batch_num, epoch)
 
                     if callbacks:
                         for name, fn in callbacks:
-                            history[name].append(fn(self, res, vectorizer))
+                            self.history[name].append(fn(self, res, vectorizer))
+                    
+                    batch_num+=1
                 
-                history['loss'].append(loss_batch/num_batches)
+                self.history['loss'].append(loss_batch/num_batches)
                 
                 outerbar.update()
                 outerbar.set_postfix({'loss': loss_batch/num_batches})
@@ -199,12 +211,22 @@ class Model(qtn.TensorNetwork):
                     if earlystop.monitor == 'loss':
                         current = loss_batch/num_batches
                     else:
-                        current = sum(history[earlystop.monitor][-num_batches:])/num_batches
+                        current = sum(self.history[earlystop.monitor][-num_batches:])/num_batches
                     return_value = earlystop.on_end_epoch(current, epoch)
                     if return_value==0: continue
-                    else: return history
+                    else: return self.history, self.norm_before_normalize
+                self.history['epoch_time'].append(time() - time_epoch)
+                
+                if time_limit is not None and (time() - start_train + np.mean(self.history['epoch_time']) >= time_limit):
+                    print("Elapsed time since the beginning of the training: ", time()-start_train)
+                    print("Approximate time left:", time_limit-(start_train-time()))
+                    print("Average epoch duration:", np.mean(self.history["epoch_time"]))
+                    print()
+                    print("Unable to finish the training in time, saving the unfinished models instead...")
+                    self.history["unfinished"] = True
+                    return self.history, self.norm_before_normalize
 
-        return history
+        return self.history, self.norm_before_normalize
 
     def predict(self, x):
         """Performs transformation on input data.
@@ -311,10 +333,14 @@ def _fit(
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
                     
-                if sample.shape[0] > L:
-                    sample, target = sample[:L], sample[L:]
-                    phi = embed(sample, embedding)
-                    return loss_fn(tn, phi, target) # if training is supervised
+                # if sample.shape[0] > L:
+                #     sample, target = sample[:L], sample[L:]
+                #     phi = embed(sample, embedding)
+                #     return loss_fn(tn, phi, target) # if training is supervised
+                if 'smpo' in vars(model).keys():
+                    # if using SMPO for dimensionality reduction
+                    mps = model.return_mps_sample(sample, embedding)
+                    return loss_fn(tn, mps)
                 else:
                     phi = embed(sample, embedding)
                     return loss_fn(tn, phi)
@@ -335,10 +361,14 @@ def _fit(
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
                 
-                if sample.shape[0] > L:
-                    sample, target = sample[:L], sample[L:]
-                    phi = embed(sample, embedding)
-                    return loss_fn(tn, phi, target) # if training is supervised
+                # if sample.shape[0] > L:
+                #     sample, target = sample[:L], sample[L:]
+                #     phi = embed(sample, embedding)
+                #     return loss_fn(tn, phi, target) # if training is supervised
+                if 'smpo' in vars(model).keys():
+                    # if using SMPO for dimensionality reduction
+                    mps = model.return_mps_sample(sample, embedding)
+                    return loss_fn(tn, mps)
                 else:
                     phi = embed(sample, embedding)
                     return loss_fn(tn, phi)
@@ -433,8 +463,13 @@ def _fit_sweeps(
                 tn.select_tensors(sitetags)[0].modify(data=x)
                 
                 # TODO IMPLEMENT FOR SUPERVISED
-                phi = embed(sample, embedding)
-                return loss_fn(tn, phi)
+                if 'smpo' in vars(model).keys():
+                    # if using SMPO for dimensionality reduction
+                    mps = model.return_mps_sample(sample, embedding)
+                    return loss_fn(tn, mps)
+                else:
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi)
             
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(jax.grad(foo, argnums=[1]), in_axes=[0,None])(jax.numpy.asarray(data), target_array)
@@ -453,8 +488,13 @@ def _fit_sweeps(
                 tn.select_tensors(sitetags)[0].modify(data=x)
                 
                 # TODO IMPLEMENT FOR SUPERVISED
-                phi = embed(sample, embedding)
-                return loss_fn(tn, phi)
+                if 'smpo' in vars(model).keys():
+                    # if using SMPO for dimensionality reduction
+                    mps = model.return_mps_sample(sample, embedding)
+                    return loss_fn(tn, mps)
+                else:
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi)
 
             with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                 x = jax.vmap(foo, in_axes=[0, None])(jax.numpy.asarray(data), target_array)
