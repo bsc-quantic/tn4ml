@@ -390,7 +390,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                         break
                     result.contract_ind(list_tensors[j].bonds(list_tensors[j + 1]))
                     tags_to_drop.extend([tags[j], tags[j + 1]])
-                if i + 1 == len(tags) and list_tensors[i].ndim != 2:
+                if i + 1 == len(tags):
                     # if last site of smpo has output_ind
                     break
                 result.contract_ind(list_tensors[i].bonds(list_tensors[i + 1]))
