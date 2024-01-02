@@ -333,10 +333,11 @@ def _fit(
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
                     
-                # if sample.shape[0] > L:
-                #     sample, target = sample[:L], sample[L:]
-                #     phi = embed(sample, embedding)
-                #     return loss_fn(tn, phi, target) # if training is supervised
+                if sample.shape[0] > L:
+                    sample, target = sample[:L], sample[L:]
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi, target) # if training is supervised
+                
                 if 'smpo' in vars(model).keys():
                     # if using SMPO for dimensionality reduction
                     mps = model.return_mps_sample(sample, embedding)
@@ -361,10 +362,11 @@ def _fit(
                 for tensor, array in zip(tn.tensors, model_arrays):
                     tensor.modify(data=array)
                 
-                # if sample.shape[0] > L:
-                #     sample, target = sample[:L], sample[L:]
-                #     phi = embed(sample, embedding)
-                #     return loss_fn(tn, phi, target) # if training is supervised
+                if sample.shape[0] > L:
+                    sample, target = sample[:L], sample[L:]
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi, target) # if training is supervised
+                
                 if 'smpo' in vars(model).keys():
                     # if using SMPO for dimensionality reduction
                     mps = model.return_mps_sample(sample, embedding)
