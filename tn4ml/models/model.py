@@ -435,11 +435,11 @@ def _fit_sweeps(
 
     if not 'hash' in cache or cache["hash"] != hash((embedding, strategy, loss_fn, model.shape)):
         def generate_foo(sites):
+            if strategy.grouping == 1:
+                sites = [sites]
+            sitetags = [model.site_tag(site) for site in sites]
             def foo(sample, x):
                 with autoray.backend_like("jax"), qtn.contract_backend("jax"):
-                    if strategy.grouping == 1:
-                        sites = [sites]
-                    sitetags = [model.site_tag(site) for site in sites]
                     #unpack
                     # sample = data input
                     tn = model.copy()
