@@ -32,7 +32,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
     See :class:`quimb.tensor.tensor_1d.MatrixProductOperator` for explanation of other attributes and methods.
     """
 
-    _EXTRA_PROPS = ("_site_tag_id", "_upper_ind_id", "_lower_ind_id", "_L", "_spacing", "_orders")
+    _EXTRA_PROPS = ("_site_tag_id", "_upper_ind_id", "_lower_ind_id", "_L", "_spacing", "_orders", "_spacings")
 
     def __init__(self, arrays, output_inds=[], shape="lrud", site_tag_id="I{}", tags=None, upper_ind_id="k{}", lower_ind_id="b{}", bond_name="bond{}", **tn_opts):
         if isinstance(arrays, SpacedMatrixProductOperator):
@@ -61,11 +61,15 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             lower_inds = map(lower_ind_id.format, output_inds)
             self._spacing = 0
             self._spacings = [(o - output_inds[i]) for i, o in enumerate(output_inds[1:])]
-            self._spacings.append(len(arrays) - 1 - output_inds[-1])
+            if (len(arrays) - 1 - output_inds[-1]) != 0:
+                self._spacings.append(len(arrays) - 1 - output_inds[-1])
         else:
             # enable spacing == (to have one output)
             if dims.count(4) == 0:
-                self._spacing = self.L
+                if dims[-1] != 3:
+                    self._spacing = self.L
+                else:
+                    self._spacing = self.L - 1
             elif dims.count(4) == 1:
                 self._spacing = dims.index(4)
             else:
@@ -269,13 +273,17 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         if 0 not in output_inds and len(output_inds) != 0:
             raise ValueError("First tensor needs to have output index.")
 
+        if spacing == 1:
+            raise ValueError("Spacing must be > 1, otherwise is MPO.")
+
         if output_inds:
             hasoutput = []
             for i in range(n):
                 if i in output_inds: hasoutput.append(True)
                 else: hasoutput.append(False)
             spacings = [(o - output_inds[i]) for i, o in enumerate(output_inds[1:])]
-            spacings.append(n - 1 - output_inds[-1])
+            if (n - 1 - output_inds[-1]) != 0:
+                spacings.append(n - 1 - output_inds[-1])
         else:
             hasoutput = itertools.cycle([True, *[False] * (spacing - 1)])
 
@@ -320,7 +328,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             arrays.append(np.reshape(A, shape))
 
         arrays[0] /= np.sqrt(min(bond_dim, phys_dim[0]))
-
+        
         mpo = SpacedMatrixProductOperator(arrays, output_inds, **kwargs)
         return mpo
 
@@ -361,9 +369,9 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         -------
         :class:`quimb.tensor.tensor_1d.MatrixProductState`
         """
-
         smpo, mps = tn_op.copy(), tn_vec.copy()
         if hasattr(smpo, 'spacings'):
+            # TODO - fix!
             spacings = smpo.spacings
         else:
             spacings = [smpo.spacing]*(len(list(smpo.lower_inds)))
@@ -382,45 +390,44 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         tags = list(qtn.tensor_core.get_tags(result))
 
         i = 0
-        for s_i, S in enumerate(spacings):
+        for S in spacings:
             if S > 1:
                 tags_to_drop = []
                 for j in range(i + 1, i + S):
-                    if j + 1 == i + S or j >= number_of_sites - 1:
+                    if j >= number_of_sites - 1:
                         break
                     result.contract_ind(list_tensors[j].bonds(list_tensors[j + 1]))
-                    tags_to_drop.extend([tags[j], tags[j + 1]])
+
+                    tags_to_drop.extend([tags[j]])
                 if i + 1 == len(tags):
                     # if last site of smpo has output_ind
                     break
-                result.contract_ind(list_tensors[i].bonds(list_tensors[i + 1]))
-                if len(tags_to_drop) == 0:
-                    tags_to_drop.append(tags[i + 1])
                 result.drop_tags(tags_to_drop)
-
                 i = i + S
+            
             result.fuse_multibonds_()
-
         sorted_tensors = sort_tensors(result)
-        arrays = [tensor.data for tensor in sorted_tensors]
-        
-        if len(arrays[0].shape) == 3 and arrays[0].shape[0]!=1:
-            arr = np.squeeze(arrays[0])
-            arrays[0] = arr
-        arrays[0] = a.do("reshape", arrays[0], (1, *arrays[0].shape))
 
-        if len(arrays[-1].shape) == 3:
-            arr = np.squeeze(arrays[-1])
-            arrays[-1] = arr
+        arrays=[]
+        for i, tensor in enumerate(sorted_tensors):
+            if len(tensor.shape) > 3 and i not in [0, (len(sorted_tensors) - 1)]:
+                arr = np.squeeze(tensor.data)
+                if len(arr.shape) == 2:
+                    arr = a.do("reshape", arr, (*arr.shape, 1))
+                arrays.append(arr)
+            if i == 0:
+                if len(tensor.shape) == 3:
+                    arr = np.squeeze(tensor.data)
+                    arrays.append(a.do("reshape", arr, (1, *arr.shape)))
+                else:
+                    # if has 2 dimensions
+                    arrays.append(a.do("reshape", tensor.data, (1, *tensor.shape)))
+            elif i == (len(sorted_tensors) - 1):
+                if len(tensor.shape) == 3:
+                    arr = np.squeeze(tensor.data)
+                    arrays.append(a.do("reshape", arr, (arr.shape[0], 1, arr.shape[1])))
 
-        if spacings[-1] == 1:
-            arrays[-1] = a.do("reshape", arrays[-1], (arrays[-1].shape[0], 1, arrays[-1].shape[1]))
-        else:
-            arrays[-1] = a.do("reshape", arrays[-1], (*arrays[-1].shape, 1))
-
-        # set shape
-        if len(spacings) == 1 and spacings[0]==1: shape = 'lrp'
-        else: shape = 'lpr'
+        shape = 'lrp'
         
         vec = MatrixProductState(arrays, shape=shape)
         # optionally compress
