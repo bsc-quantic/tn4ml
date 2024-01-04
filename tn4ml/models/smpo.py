@@ -381,7 +381,6 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         smpo.upper_ind_id = mps.site_ind_id
 
         result = smpo & mps
-
         for ind in mps.outer_inds():
             result.contract_ind(ind=ind)
         
@@ -406,6 +405,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 i = i + S
             
             result.fuse_multibonds_()
+
         sorted_tensors = sort_tensors(result)
 
         arrays=[]

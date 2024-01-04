@@ -435,12 +435,12 @@ def _fit_sweeps(
 
     if not 'hash' in cache or cache["hash"] != hash((embedding, strategy, loss_fn, model.shape)):
         def generate_foo(sites):
-            if strategy.grouping == 1:
-                sites = [sites]
-            sitetags = [model.site_tag(site) for site in sites]
             def foo(sample, x):
                 with autoray.backend_like("jax"), qtn.contract_backend("jax"):
-                    #unpack
+                    if strategy.grouping == 1:
+                        sitetags = [model.site_tag(sites)]
+                    else:
+                        sitetags = [model.site_tag(site) for site in sites]
                     # sample = data input
                     tn = model.copy()
                     tn.select_tensors(sitetags)[0].modify(data=x)
@@ -455,7 +455,6 @@ def _fit_sweeps(
                         return loss_fn(tn, phi)
             foo.__name__ += "_" + "_".join(map(str,sites))
             return foo
-        
         foo_instances = {sites: generate_foo(sites) for sites in strategy.iterate_sites(model)}
 
         foo_ir = {}
@@ -464,14 +463,19 @@ def _fit_sweeps(
         for sites in strategy.iterate_sites(model):
             strategy.prehook(model, sites)
 
-            sitetags = [model.site_tag(site) for site in sites]
+            if strategy.grouping == 1:
+                sitetags = [model.site_tag(sites)]
+            else:
+                sitetags = [model.site_tag(site) for site in sites]
+
             tensor = model.select_tensors(sitetags)[0]
-            
+            #print(tensor)
+            print(tensor.data.shape)
             foo_ir[sites] = jax.jit(jax.vmap(foo_instances[sites], in_axes=[0, None])).lower(jax.numpy.asarray(data), tensor.data)
             gradfoo_ir[sites] = jax.jit(jax.vmap(jax.grad(foo_instances[sites], argnums=[1]), in_axes=[0,None])).lower(jax.numpy.asarray(data), tensor.data)
 
             strategy.posthook(model, sites)
-    
+
         cache["foo_compiled"] = {sites: ir.compile() for (sites, ir) in foo_ir.items()}
         cache["gradfoo_compiled"] = {sites: ir.compile() for (sites, ir) in gradfoo_ir.items()}
         cache["hash"] = hash((embedding, strategy, loss_fn, model.shape))
@@ -485,10 +489,12 @@ def _fit_sweeps(
         strategy.prehook(model, sites)
 
         if strategy.grouping == 1:
-            sites = [sites]
-        sitetags = [model.site_tag(site) for site in sites]
+            sitetags = [model.site_tag(sites)]
+        else:
+            sitetags = [model.site_tag(site) for site in sites]
         
         tensor = model.select_tensors(sitetags)[0]
+
         vectorizer = qtn.optimize.Vectorizer(tensor.data)
 
         def jac(x):
