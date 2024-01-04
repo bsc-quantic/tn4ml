@@ -32,7 +32,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
     See :class:`quimb.tensor.tensor_1d.MatrixProductOperator` for explanation of other attributes and methods.
     """
 
-    _EXTRA_PROPS = ("_site_tag_id", "_upper_ind_id", "_lower_ind_id", "_L", "_spacing", "_orders", "_spacings")
+    _EXTRA_PROPS = ("_site_tag_id", "_upper_ind_id", "_lower_ind_id", "_L", "_spacing", "_orders", "_spacings", "cyclic")
 
     def __init__(self, arrays, output_inds=[], shape="lrud", site_tag_id="I{}", tags=None, upper_ind_id="k{}", lower_ind_id="b{}", bond_name="bond{}", **tn_opts):
         if isinstance(arrays, SpacedMatrixProductOperator):
@@ -221,6 +221,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale, seed=seed))
             else:
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale))
+        
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
         mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
@@ -299,9 +300,17 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                     spacing = spacings[h]
                 if has_out:
                     h+=1
-
-            chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)//spacing))
-            chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** ((j)//spacing))
+            
+            if j == 1 and i == 1:
+                chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** (j))
+                chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)))
+            else:
+                if i > n // 2:
+                    chir = chil
+                    chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)//spacing))
+                else:
+                    chil = chir
+                    chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** ((j)//spacing))
 
             if i > n // 2:
                 (chil, chir) = (chir, chil)
@@ -330,6 +339,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         arrays[0] /= np.sqrt(min(bond_dim, phys_dim[0]))
         
         mpo = SpacedMatrixProductOperator(arrays, output_inds, **kwargs)
+
         return mpo
 
     @property
