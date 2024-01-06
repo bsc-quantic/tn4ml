@@ -455,7 +455,10 @@ def _fit_sweeps(
                     else:
                         phi = embed(sample, embedding)
                         return loss_fn(tn, phi)
-            foo.__name__ += "_" + "_".join(map(str,sites))
+            if type(sites) is int:
+                foo.__name__ += "_" + "_" + str(sites)
+            else:
+                foo.__name__ += "_" + "_".join(map(str,sites))
             return foo
         foo_instances = {sites: generate_foo(sites) for sites in strategy.iterate_sites(model_copy)}
 
