@@ -203,16 +203,16 @@ class Model(qtn.TensorNetwork):
                     
                     batch_num+=1
                 
-                self.history['loss'].append(loss_batch/num_batches)
+                self.history['loss'].append(loss_batch/batch_num)
                 
                 outerbar.update()
-                outerbar.set_postfix({'loss': loss_batch/num_batches})
+                outerbar.set_postfix({'loss': loss_batch/batch_num})
 
                 if earlystop:
                     if earlystop.monitor == 'loss':
-                        current = loss_batch/num_batches
+                        current = loss_batch/batch_num
                     else:
-                        current = sum(self.history[earlystop.monitor][-num_batches:])/num_batches
+                        current = sum(self.history[earlystop.monitor][-num_batches:])/batch_num
                     return_value = earlystop.on_end_epoch(current, epoch)
                     if return_value==0: continue
                     else: return self.history, self.norm_before_normalize
