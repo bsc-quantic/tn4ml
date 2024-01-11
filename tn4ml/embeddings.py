@@ -5,6 +5,7 @@ import math
 import pandas as pd
 import numpy as onp
 from autoray import numpy as np
+import jax.numpy as jnp
 import quimb.tensor as qtn
 
 class Embedding:
@@ -49,8 +50,8 @@ class trigonometric(Embedding):
     def dim(self) -> int:
         return self.k * 2
 
-    def __call__(self, x: Number) -> onp.ndarray:
-        return 1 / np.sqrt(self.k) * np.asarray([f((onp.pi * x / 2**i)) for f, i in itertools.product([np.cos, np.sin], range(1, self.k + 1))])
+    def __call__(self, x: Number) -> jnp.ndarray:
+        return 1 / jnp.sqrt(self.k) * jnp.asarray([f((onp.pi * x / 2**i)) for f, i in itertools.product([jnp.cos, jnp.sin], range(1, self.k + 1))])
 
 
 class fourier(Embedding):
