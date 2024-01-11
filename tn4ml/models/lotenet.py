@@ -6,6 +6,8 @@ import math
 import numpy as np
 import jax.numpy as jnp
 import flax.linen as nn
+import jax
+import optax
 
 def squeeze_3Dimage(image, k=3):
     """
@@ -219,6 +221,31 @@ class loTeNet_3D(nn.Module):
             
             # reshape to image-like for next layer
             input_image = unsqueeze_3Dimage(jnp.array(vector_outputs))
+
+# function to create train step
+def create_train_step(key, model, optimiser):
+  dummy_input = jnp.ones(shape=(32, 32, 32, 1)) # Dummy Input for initialization of MODEL
+  params = model.init(key, dummy_input)
+  opt_state = optimiser.init(params)
+
+  def loss_fn(params, data, y_true):
+    # vmap for batching
+    y_pred = jax.vmap(model.apply, in_axes=(None, 0))(params, data)
+    loss = optax.softmax_cross_entropy_with_integer_labels(y_pred, y_true).sum(axis=0).mean()
+    return loss
+
+  @jax.jit
+  def train_step(params, opt_state, data, y_true):
+    loss, grads = jax.value_and_grad(loss_fn)(params, data, y_true)
+
+    updates, opt_state = optimiser.update(grads, opt_state, params)
+    params = optax.apply_updates(params, updates)
+
+    return params, opt_state, loss
+
+  return train_step, params, opt_state
+
+
 
         
 
