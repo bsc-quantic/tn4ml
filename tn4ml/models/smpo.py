@@ -417,26 +417,29 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             result.fuse_multibonds_()
 
         sorted_tensors = sort_tensors(result)
+        arrays = [tensor.data for tensor in sorted_tensors]
 
-        arrays=[]
-        for i, tensor in enumerate(sorted_tensors):
-            if len(tensor.shape) > 3 and i not in [0, (len(sorted_tensors) - 1)]:
-                arr = np.squeeze(tensor.data)
+        if len(arrays[0].shape) == 3:
+            if arrays[0].shape[0] != 1:
+                arr = np.squeeze(arrays[0])
                 if len(arr.shape) == 2:
-                    arr = a.do("reshape", arr, (*arr.shape, 1))
-                arrays.append(arr)
-            if i == 0:
-                if len(tensor.shape) == 3:
-                    arr = np.squeeze(tensor.data)
-                    arrays.append(a.do("reshape", arr, (1, *arr.shape)))
-                else:
-                    # if has 2 dimensions
-                    arrays.append(a.do("reshape", tensor.data, (1, *tensor.shape)))
-            elif i == (len(sorted_tensors) - 1):
-                if len(tensor.shape) == 3:
-                    arr = np.squeeze(tensor.data)
-                    arrays.append(a.do("reshape", arr, (arr.shape[0], 1, arr.shape[1])))
+                    #arrays[0] = a.do("reshape", arr, (1, *arr.shape))
+                    arrays[0] = arr
+            
+        #arrays[0] = a.do("reshape", arrays[0], (1, *arrays[0].shape))
 
+        if len(arrays[-1].shape) == 3:
+            arr = np.squeeze(arrays[-1])
+            arrays[-1] = a.do("reshape", arr, (*arr.shape, 1))
+
+        for i, arr in enumerate(arrays):
+            if len(arr.shape) == 4:
+                arr = np.squeeze(arr)
+                if len(arr.shape) == 2:
+                    arrays[i] = a.do("reshape", arr, (*arr.shape, 1))
+                else:
+                    arrays[i] = arr
+       
         shape = 'lrp'
         
         vec = MatrixProductState(arrays, shape=shape)
