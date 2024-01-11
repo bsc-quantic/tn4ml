@@ -245,6 +245,19 @@ def create_train_step(key, model, optimiser):
 
   return train_step, params, opt_state
 
+def model_train(n_epochs, train_dataset, targets):
+    for epoch in range(n_epochs):
+        loss_batch = 0
+        batch_num = 0
+        
+        for batch_x, batch_y in zip(list(train_dataset.as_numpy_iterator()), list(targets.as_numpy_iterator())):
+            params, opt_state, loss_curr = train_step(params, opt_state, jnp.asarray(batch_x), jnp.asarray(batch_y))
+            print(loss_curr)
+            loss_batch += loss_curr
+            batch_num+=1
+        
+        print(f'LOSS = {loss_batch}')
+
 
 
         
