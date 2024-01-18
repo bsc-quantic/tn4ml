@@ -122,13 +122,14 @@ def unsqueezed_dimensions(input_dims, S=3):
 
     return tuple(new_dims)
 
+
 # TODO - maybe use nn.compact instead of setup and call to avoid code duplicates
 class loTeNet(nn.Module):
 
-    input_dim: tuple[int, ...] # dimensionality of input image
+    input_dim: tuple[int, ...] # dimensionality of input image - each dimension is power of self.kernel
     output_dim: int # number of classes
     bond_dim: int
-    kernel: int = 3
+    kernel: int = 3 # for now only one value for all layers
     virtual_dim: int = 1 # output dimension of MPS_i
     phys_dim_input: int = 2 # physical dimension --> needs to be same as embedding dim
     embedding_input: embeddings.Embedding = embeddings.trigonometric()
@@ -137,8 +138,7 @@ class loTeNet(nn.Module):
     def setup(self):
 
         self.S = len(self.input_dim) - 1 # dimensionality of inputs
-        #self.N_init = math.prod(self.input_dim) # number of pixels in inputs
-        
+
         new_dim, feature_dim = squeeze_dimensions(self.input_dim, self.kernel)
         N_i = math.prod(new_dim) # number of pixels after squeeze = number of MPSs in 1st layer
         
@@ -146,9 +146,6 @@ class loTeNet(nn.Module):
         params = []
         self.n_layers = 0
         while True:
-            print(f'------ Layer {self.n_layers} ------')
-            print(f'N_i = {N_i}, feature_dim = {feature_dim}')
-            
             # MPS with output index
             layer_i = [SpacedMatrixProductOperator.rand_distribution(n=feature_dim,\
                                                                 spacing=feature_dim,\
@@ -174,10 +171,10 @@ class loTeNet(nn.Module):
             # find shape of output image
             output_shape = (N_i, self.output_dim)
             unsqueezed_dim = unsqueezed_dimensions(output_shape, self.S)
-
             # find new N_i -> number of MPSs in next layer
             new_dim, feature_dim = squeeze_dimensions(unsqueezed_dim, self.kernel)
             N_i = math.prod(new_dim)
+            
             self.n_layers += 1
             
             # if we came to last layer where number of MPS = 1 --> finish 
@@ -194,13 +191,15 @@ class loTeNet(nn.Module):
             for i, data in param.items()}
                 params.append(param_dict)
                 skeletons.append(skeleton)
-                print(f'------ Last {self.n_layers} layer ------')
-                print('End initialization')
+                #print(f'------ Last {self.n_layers} layer ------')
+                #print('End initialization')
                 
                 # save params and skeletons in Module
                 self.params = params
                 self.skeletons = skeletons
                 break
+            elif N_i < 1:
+                ValueError("Last layer needs to have N_i = 1.")
     
     def __call__(self, input_image):
         """
@@ -221,7 +220,7 @@ class loTeNet(nn.Module):
         # FORWARD PASS
 
         for n_layer, (params_i, skeleton_i) in enumerate(zip(self.params, self.skeletons)):
-            print(f'------ Layer {n_layer} ------')
+            #print(f'------ Layer {n_layer} ------')
 
             # if we came to last layer where number of MPS = 1 --> finish     
             if n_layer == self.n_layers:
