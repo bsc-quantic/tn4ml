@@ -423,11 +423,10 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             if arrays[0].shape[0] != 1:
                 arr = np.squeeze(arrays[0])
                 if len(arr.shape) == 2:
-                    #arrays[0] = a.do("reshape", arr, (1, *arr.shape))
                     arrays[0] = arr
+                elif len(arr.shape) == 1: # weird
+                    arrays[0] = a.do("reshape", arr, (*arr.shape, 1))
             
-        #arrays[0] = a.do("reshape", arrays[0], (1, *arrays[0].shape))
-
         if len(arrays[-1].shape) == 3:
             arr = np.squeeze(arrays[-1])
             arrays[-1] = a.do("reshape", arr, (*arr.shape, 1))
