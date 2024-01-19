@@ -42,7 +42,7 @@ def squeeze_image(image, k=3):
                 # 3D image
                 for z in range(k):
                     kernel = jnp.zeros((k,k,k))
-                    kernel.at[x,y,z].set(1)
+                    kernel = kernel.at[x,y,z].set(1)
                     kernel = jnp.expand_dims(kernel, axis=-1)
                     
                     tensor = jnp.zeros(tuple(new_dims[:-1]))
@@ -51,13 +51,13 @@ def squeeze_image(image, k=3):
                             for l in range(0, image.shape[2], k):
                                 patch = jnp.sum(image[i:i+k, j:j+k, l:l+k, :] * kernel)
                                 
-                                tensor.at[i//k, j//k, l//k].set(patch)
-                    reshaped_image.at[:,:,:,feature].set(tensor)
+                                tensor = tensor.at[i//k, j//k, l//k].set(patch)
+                    reshaped_image = reshaped_image.at[:,:,:,feature].set(tensor)
                     feature += 1
             else:
                 # 2D image
                 kernel = jnp.zeros((k,k))
-                kernel.at[x,y].set(1)
+                kernel = kernel.at[x,y].set(1.0)
                 kernel = jnp.expand_dims(kernel, axis=-1)
                 
                 tensor = jnp.zeros(tuple(new_dims[:2]))
@@ -65,8 +65,8 @@ def squeeze_image(image, k=3):
                     for j in range(0, image.shape[1], k):
                             patch = jnp.sum(image[i:i+k, j:j+k, :] * kernel)
                             
-                            tensor.at[i//k, j//k].set(patch)
-                reshaped_image.at[:,:,feature].set(tensor)
+                            tensor = tensor.at[i//k, j//k].set(patch)
+                reshaped_image = reshaped_image.at[:,:,feature].set(tensor)
                 feature += 1
     return reshaped_image
 
@@ -257,7 +257,6 @@ class loTeNet(nn.Module):
             
             # reshape to image-like for next layer
             input_image = unsqueeze_image(jnp.array(vector_outputs), self.S)
-
 
         
 
