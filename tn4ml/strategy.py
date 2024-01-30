@@ -135,6 +135,14 @@ class Sweeps(Strategy):
             model.pop_tensor(tid)
         #model.delete(sitetags)
         for t in splited_tensors:
+            inds = t.inds
+            if len(inds) == 4:
+                t.transpose(inds[1], inds[3], inds[0], inds[2], inplace=True)
+            elif len(inds) == 3 and (0 in sites or (model.L - 1) in sites):
+                t.transpose(inds[2], inds[1], inds[0], inplace=True)
+            elif len(inds) == 3:
+                t.transpose(inds[2], inds[1], inds[0], inplace=True)
+            # maybe add for len == 2
             model.add_tensor(t)
 
         # fix tags
@@ -143,7 +151,7 @@ class Sweeps(Strategy):
                 tensor.drop_tags()
                 site_ind = next(filter(lambda ind: ind.removeprefix(site_ind_prefix).isdecimal(), tensor.inds))
                 site = site_ind.removeprefix(site_ind_prefix)
-                tensor.add_tag(model.site_tag(site))
+                tensor.add_tag(model.site_tag(site))     
 
 
 class Global(Strategy):

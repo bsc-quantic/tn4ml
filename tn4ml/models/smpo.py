@@ -32,7 +32,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
     See :class:`quimb.tensor.tensor_1d.MatrixProductOperator` for explanation of other attributes and methods.
     """
 
-    _EXTRA_PROPS = ("_site_tag_id", "_upper_ind_id", "_lower_ind_id", "_L", "_spacing", "_orders", "_spacings")
+    _EXTRA_PROPS = ("_site_tag_id", "_upper_ind_id", "_lower_ind_id", "_L", "_spacing", "_orders", "_spacings", "cyclic")
 
     def __init__(self, arrays, output_inds=[], shape="lrud", site_tag_id="I{}", tags=None, upper_ind_id="k{}", lower_ind_id="b{}", bond_name="bond{}", **tn_opts):
         if isinstance(arrays, SpacedMatrixProductOperator):
@@ -221,6 +221,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale, seed=seed))
             else:
                 arrays.append(qu.gen.rand.randn(shape, dist=init_func, scale=scale))
+        
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
         mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
@@ -299,9 +300,17 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                     spacing = spacings[h]
                 if has_out:
                     h+=1
-
-            chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)//spacing))
-            chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** ((j)//spacing))
+            
+            if j == 1 and i == 1:
+                chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** (j))
+                chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)))
+            else:
+                if i > n // 2:
+                    chir = chil
+                    chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)//spacing))
+                else:
+                    chil = chir
+                    chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** ((j)//spacing))
 
             if i > n // 2:
                 (chil, chir) = (chir, chil)
@@ -330,6 +339,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         arrays[0] /= np.sqrt(min(bond_dim, phys_dim[0]))
         
         mpo = SpacedMatrixProductOperator(arrays, output_inds, **kwargs)
+
         return mpo
 
     @property
@@ -381,7 +391,6 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         smpo.upper_ind_id = mps.site_ind_id
 
         result = smpo & mps
-
         for ind in mps.outer_inds():
             result.contract_ind(ind=ind)
         
@@ -397,6 +406,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                     if j >= number_of_sites - 1:
                         break
                     result.contract_ind(list_tensors[j].bonds(list_tensors[j + 1]))
+
                     tags_to_drop.extend([tags[j]])
                 if i + 1 == len(tags):
                     # if last site of smpo has output_ind
@@ -405,27 +415,30 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 i = i + S
             
             result.fuse_multibonds_()
+
         sorted_tensors = sort_tensors(result)
+        arrays = [tensor.data for tensor in sorted_tensors]
 
-        arrays=[]
-        for i, tensor in enumerate(sorted_tensors):
-            if len(tensor.shape) > 3 and i not in [0, (len(sorted_tensors) - 1)]:
-                arr = np.squeeze(tensor.data)
+        if len(arrays[0].shape) == 3:
+            if arrays[0].shape[0] != 1:
+                arr = np.squeeze(arrays[0])
                 if len(arr.shape) == 2:
-                    arr = a.do("reshape", arr, (*arr.shape, 1))
-                arrays.append(arr)
-            if i == 0:
-                if len(tensor.shape) == 3:
-                    arr = np.squeeze(tensor.data)
-                    arrays.append(a.do("reshape", arr, (1, *arr.shape)))
-                else:
-                    # if has 2 dimensions
-                    arrays.append(a.do("reshape", tensor.data, (1, *tensor.shape)))
-            elif i == (len(sorted_tensors) - 1):
-                if len(tensor.shape) == 3:
-                    arr = np.squeeze(tensor.data)
-                    arrays.append(a.do("reshape", arr, (arr.shape[0], 1, arr.shape[1])))
+                    arrays[0] = arr
+                elif len(arr.shape) == 1: # weird
+                    arrays[0] = a.do("reshape", arr, (*arr.shape, 1))
+            
+        if len(arrays[-1].shape) == 3:
+            arr = np.squeeze(arrays[-1])
+            arrays[-1] = a.do("reshape", arr, (*arr.shape, 1))
 
+        for i, arr in enumerate(arrays):
+            if len(arr.shape) == 4:
+                arr = np.squeeze(arr)
+                if len(arr.shape) == 2:
+                    arrays[i] = a.do("reshape", arr, (*arr.shape, 1))
+                else:
+                    arrays[i] = arr
+       
         shape = 'lrp'
         
         vec = MatrixProductState(arrays, shape=shape)

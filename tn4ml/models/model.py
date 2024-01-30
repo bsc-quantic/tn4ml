@@ -163,6 +163,7 @@ class Model(qtn.TensorNetwork):
         
         start_train = time()
         self.norm_before_normalize=[]
+        self.cache = dict()
         with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(inputs)//batch_size)-1, desc="batch") as innerbar:
             for epoch in range(nepochs):
                 time_epoch = time()  
@@ -184,9 +185,9 @@ class Model(qtn.TensorNetwork):
                     #data = shuffle_along_axis(data, axis=1)
                     batch = jax.numpy.asarray(batch)
                     if isinstance(self.strategy, Sweeps):
-                        loss_cur, res, vectorizer = _fit_sweeps(self, self.loss_fn, batch, strategy=self.strategy, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
+                        loss_cur, res, vectorizer = _fit_sweeps(self, self.loss_fn, batch, strategy=self.strategy, epoch=epoch, embedding=embedding, cache=self.cache, learning_rate=self.learning_rate)
                     else:
-                        loss_cur, res, vectorizer = _fit(self, self.loss_fn, batch, strategy=self.strategy, epoch=epoch, embedding=embedding, learning_rate=self.learning_rate)
+                        loss_cur, res, vectorizer = _fit(self, self.loss_fn, batch, strategy=self.strategy, epoch=epoch, embedding=embedding, cache=self.cache, learning_rate=self.learning_rate)
                         
                     loss_batch += loss_cur
                                         
@@ -202,16 +203,16 @@ class Model(qtn.TensorNetwork):
                     
                     batch_num+=1
                 
-                self.history['loss'].append(loss_batch/num_batches)
+                self.history['loss'].append(loss_batch/batch_num)
                 
                 outerbar.update()
-                outerbar.set_postfix({'loss': loss_batch/num_batches})
+                outerbar.set_postfix({'loss': loss_batch/batch_num})
 
                 if earlystop:
                     if earlystop.monitor == 'loss':
-                        current = loss_batch/num_batches
+                        current = loss_batch/batch_num
                     else:
-                        current = sum(self.history[earlystop.monitor][-num_batches:])/num_batches
+                        current = sum(self.history[earlystop.monitor][-num_batches:])/batch_num
                     return_value = earlystop.on_end_epoch(current, epoch)
                     if return_value==0: continue
                     else: return self.history, self.norm_before_normalize
@@ -282,6 +283,7 @@ def _fit(
     strategy: Strategy = Global(),
     epoch: Optional[int] = None,
     embedding: Embedding = trigonometric(),
+    cache: dict = {},
     **hyperparams,
 ):
     """Perfoms training procedure with using JAX to compute gradients of loss function.
@@ -300,6 +302,8 @@ def _fit(
         Current epoch.
     embedding : :class:`tn4ml.embeddings.Embedding`
         Data embedding function.
+    cache: dict
+        Cache of compiled functions.
 
     Returns
     -------
@@ -316,6 +320,37 @@ def _fit(
     
     L = model.L
 
+    if not 'hash' in cache or cache["hash"] != hash((embedding, strategy, loss_fn, model.shape)):
+        def foo(sample, *model_arrays):
+            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
+                # sample = data input
+                tn = model.copy()
+                for tensor, array in zip(tn.tensors, model_arrays):
+                    tensor.modify(data=array)
+                
+                if sample.shape[0] > L:
+                    sample, target = sample[:L], sample[L:]
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi, target) # if training is supervised
+                    
+                if 'smpo' in vars(model).keys():
+                    # if using SMPO for dimensionality reduction
+                    mps = model.return_mps_sample(sample, embedding)
+                    return loss_fn(tn, mps)
+                else:
+                    phi = embed(sample, embedding)
+                    return loss_fn(tn, phi)
+            
+        foo_ir = jax.jit(jax.vmap(foo, in_axes=[0] + [None] * L)).lower(jax.numpy.asarray(data), *model.arrays)
+        gradfoo_ir = jax.jit(jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(L)]), in_axes=[0] + [None] * L)).lower(jax.numpy.asarray(data), *model.arrays)
+
+        cache["foo_compiled"] = foo_ir.compile()
+        cache["gradfoo_compiled"] = gradfoo_ir.compile()
+        cache["hash"] = hash((embedding, strategy, loss_fn, model.shape))
+
+    foo_compiled = cache["foo_compiled"]
+    gradfoo_compiled = cache['gradfoo_compiled']
+    
     for sites in strategy.iterate_sites(model):
         # contract sites in groups
         strategy.prehook(model, sites)
@@ -325,57 +360,16 @@ def _fit(
         def jac(x):
             # x = model
             arrays = vectorizer.unpack(x)
-
-            def foo(sample, *model_arrays):
-                #unpack
-                # sample = data input
-                tn = model.copy()
-                for tensor, array in zip(tn.tensors, model_arrays):
-                    tensor.modify(data=array)
-                    
-                # if sample.shape[0] > L:
-                #     sample, target = sample[:L], sample[L:]
-                #     phi = embed(sample, embedding)
-                #     return loss_fn(tn, phi, target) # if training is supervised
-                if 'smpo' in vars(model).keys():
-                    # if using SMPO for dimensionality reduction
-                    mps = model.return_mps_sample(sample, embedding)
-                    return loss_fn(tn, mps)
-                else:
-                    phi = embed(sample, embedding)
-                    return loss_fn(tn, phi)
-
-            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
-                x = jax.vmap(jax.grad(foo, argnums=[i + 1 for i in range(L)]), in_axes=[0] + [None] * L)(jax.numpy.asarray(data), *arrays)
-                x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
+            x = gradfoo_compiled(jax.numpy.asarray(data), *arrays)
+            x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
             return np.concatenate(x, axis=None)
 
         # call quimb's optimizers with vectorizer
         def loss(x):
             # x = model
             arrays = vectorizer.unpack(x)
-
-            def foo(sample, *model_arrays):
-                # sample = data input
-                tn = model.copy()
-                for tensor, array in zip(tn.tensors, model_arrays):
-                    tensor.modify(data=array)
-                
-                # if sample.shape[0] > L:
-                #     sample, target = sample[:L], sample[L:]
-                #     phi = embed(sample, embedding)
-                #     return loss_fn(tn, phi, target) # if training is supervised
-                if 'smpo' in vars(model).keys():
-                    # if using SMPO for dimensionality reduction
-                    mps = model.return_mps_sample(sample, embedding)
-                    return loss_fn(tn, mps)
-                else:
-                    phi = embed(sample, embedding)
-                    return loss_fn(tn, phi)
-
-            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
-                x = jax.vmap(foo, in_axes=[0] + [None] * L)(jax.numpy.asarray(data), *arrays)
-                return jax.numpy.sum(x) / data.shape[0]
+            x = foo_compiled(jax.numpy.asarray(data), *arrays)
+            return jax.numpy.sum(x) / data.shape[0]
         
         # prepare hyperparameters
         hyperparams = {key: value(epoch) if callable(value) else value for key, value in hyperparams.items()}
@@ -392,7 +386,6 @@ def _fit(
             
         # split sites
         strategy.posthook(model, sites)
-        
     return res.fun, res, vectorizer
 
 def _fit_sweeps(
@@ -402,6 +395,7 @@ def _fit_sweeps(
     strategy: Strategy = Sweeps(),
     epoch: Optional[int] = None,
     embedding: Embedding = trigonometric(),
+    cache: dict = {},
     **hyperparams,
 ):
     """Perfoms training procedure with using JAX to compute gradients of loss function for having input MPS dataset.
@@ -420,6 +414,8 @@ def _fit_sweeps(
         Current epoch.
     embedding : :class:`tn4ml.embeddings.Embedding`
         Data embedding function.
+    cache: dict
+        Cache of compiled functions.
 
     Returns
     -------
@@ -441,64 +437,90 @@ def _fit_sweeps(
     
     L = model.L
 
+    if not 'hash' in cache or cache["hash"] != hash((embedding, strategy, loss_fn, model.shape)):
+        model_copy = model.copy()
+
+        def generate_foo(sites):
+            if strategy.grouping == 1:
+                sitetags = [model_copy.site_tag(sites)]
+                sites = (sites)
+            else:
+                sitetags = [model_copy.site_tag(site) for site in sites]
+            def foo(sample, x):
+                with autoray.backend_like("jax"), qtn.contract_backend("jax"):
+                    # sample = data input
+                    tn = model_copy.copy()
+                    tn.select_tensors(sitetags)[0].modify(data=x)
+                    
+                    if sample.shape[0] > L:
+                        sample, target = sample[:L], sample[L:]
+                        phi = embed(sample, embedding)
+                        return loss_fn(tn, phi, target) # if training is supervised
+
+                    # TODO IMPLEMENT FOR SUPERVISED
+                    if 'smpo' in vars(model).keys():
+                        # if using SMPO for dimensionality reduction
+                        mps = model.return_mps_sample(sample, embedding)
+                        return loss_fn(tn, mps)
+                    else:
+                        phi = embed(sample, embedding)
+                        return loss_fn(tn, phi)
+            if type(sites) is int:
+                foo.__name__ += "_" + "_" + str(sites)
+            else:
+                foo.__name__ += "_" + "_".join(map(str,sites))
+            return foo
+        foo_instances = {sites: generate_foo(sites) for sites in strategy.iterate_sites(model_copy)}
+
+        foo_ir = {}
+        gradfoo_ir = {}
+        for sites in strategy.iterate_sites(model_copy):
+            strategy.prehook(model_copy, sites)
+
+            if strategy.grouping == 1:
+                sitetags = [model_copy.site_tag(sites)]
+            else:
+                sitetags = [model_copy.site_tag(site) for site in sites]
+
+            tensor = model_copy.select_tensors(sitetags)[0]
+            foo_ir[sites] = jax.jit(jax.vmap(foo_instances[sites], in_axes=[0, None])).lower(jax.numpy.asarray(data), tensor.data)
+            gradfoo_ir[sites] = jax.jit(jax.vmap(jax.grad(foo_instances[sites], argnums=[1]), in_axes=[0,None])).lower(jax.numpy.asarray(data), tensor.data)
+
+            strategy.posthook(model_copy, sites)
+
+        cache["foo_compiled"] = {sites: ir.compile() for (sites, ir) in foo_ir.items()}
+        cache["gradfoo_compiled"] = {sites: ir.compile() for (sites, ir) in gradfoo_ir.items()}
+        cache["hash"] = hash((embedding, strategy, loss_fn, model_copy.shape))
+    
+    foo_compiled = cache["foo_compiled"]
+    gradfoo_compiled = cache["gradfoo_compiled"]
+
     s = 0
     for sites in strategy.iterate_sites(model):
         # contract sites in groups
         strategy.prehook(model, sites)
 
         if strategy.grouping == 1:
-            sites = [sites]
-        sitetags = [model.site_tag(site) for site in sites]
+            sitetags = [model.site_tag(sites)]
+            sites = (sites)
+        else:
+            sitetags = [model.site_tag(site) for site in sites]
         
         tensor = model.select_tensors(sitetags)[0]
         vectorizer = qtn.optimize.Vectorizer(tensor.data)
 
         def jac(x):
             target_array = vectorizer.unpack(x)
-            
-            def foo(sample, x):
-                #unpack
-                # sample = data input
-                tn = model.copy()
-                tn.select_tensors(sitetags)[0].modify(data=x)
-                
-                # TODO IMPLEMENT FOR SUPERVISED
-                if 'smpo' in vars(model).keys():
-                    # if using SMPO for dimensionality reduction
-                    mps = model.return_mps_sample(sample, embedding)
-                    return loss_fn(tn, mps)
-                else:
-                    phi = embed(sample, embedding)
-                    return loss_fn(tn, phi)
-            
-            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
-                x = jax.vmap(jax.grad(foo, argnums=[1]), in_axes=[0,None])(jax.numpy.asarray(data), target_array)
-                x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
-
+            x = gradfoo_compiled[sites](jax.numpy.asarray(data), target_array)
+            x = [jax.numpy.sum(xi, axis=0) / data.shape[0] for xi in x]
             return np.concatenate(x, axis=None)
 
         # call quimb's optimizers with vectorizer
         def loss(x):
             # x = model
             target_array = vectorizer.unpack(x)
-
-            def foo(sample, x):
-                # sample = data input
-                tn = model.copy()
-                tn.select_tensors(sitetags)[0].modify(data=x)
-                
-                # TODO IMPLEMENT FOR SUPERVISED
-                if 'smpo' in vars(model).keys():
-                    # if using SMPO for dimensionality reduction
-                    mps = model.return_mps_sample(sample, embedding)
-                    return loss_fn(tn, mps)
-                else:
-                    phi = embed(sample, embedding)
-                    return loss_fn(tn, phi)
-
-            with autoray.backend_like("jax"), qtn.contract_backend("jax"):
-                x = jax.vmap(foo, in_axes=[0, None])(jax.numpy.asarray(data), target_array)
-                return jax.numpy.sum(x) / data.shape[0]
+            x = foo_compiled[sites](jax.numpy.asarray(data), target_array)
+            return jax.numpy.sum(x) / data.shape[0]
 
         # prepare hyperparameters
         hyperparams = {key: value(epoch) if callable(value) else value for key, value in hyperparams.items()}
@@ -518,5 +540,4 @@ def _fit_sweeps(
         strategy.posthook(model, sites)
         # counting how many combinations of sites
         s+=1
-
     return res.fun, res, vectorizer
