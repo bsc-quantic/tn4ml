@@ -1,4 +1,4 @@
-from typing import Any, Collection
+from typing import Any
 import tn4ml.embeddings as embeddings
 from tn4ml.models import SpacedMatrixProductOperator
 import quimb.tensor as qtn
@@ -6,8 +6,6 @@ import math
 import numpy as np
 import jax.numpy as jnp
 import flax.linen as nn
-import jax
-import optax
 
 def squeeze_image(image, k=3):
     """
