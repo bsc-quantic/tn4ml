@@ -194,14 +194,14 @@ class Model(qtn.TensorNetwork):
                     self.norm_before_normalize.append(self.norm())
                     if normalize:
                         self.normalize()
-                        #if epoch%10==0 and batch_num==(inputs.shape[0]/batch_size)-1:
-                        #    smpo_eigval(self, batch_num, epoch)
 
                     if callbacks:
                         for name, fn in callbacks:
                             self.history[name].append(fn(self, res, vectorizer))
                     
                     batch_num+=1
+                    innerbar.update()
+                    innerbar.set_postfix({'loss': loss_batch/batch_num})
                 
                 self.history['loss'].append(loss_batch/batch_num)
                 
@@ -438,18 +438,18 @@ def _fit_sweeps(
     L = model.L
 
     if not 'hash' in cache or cache["hash"] != hash((embedding, strategy, loss_fn, model.shape)):
-        model_copy = model.copy()
 
         def generate_foo(sites):
             if strategy.grouping == 1:
-                sitetags = [model_copy.site_tag(sites)]
-                sites = (sites)
+                sitetags = [model.site_tag(sites)]
+                sites = (sites,)
             else:
-                sitetags = [model_copy.site_tag(site) for site in sites]
+                sitetags = [model.site_tag(site) for site in sites]
+            
             def foo(sample, x):
                 with autoray.backend_like("jax"), qtn.contract_backend("jax"):
                     # sample = data input
-                    tn = model_copy.copy()
+                    tn = model.copy()
                     tn.select_tensors(sitetags)[0].modify(data=x)
                     
                     if sample.shape[0] > L:
@@ -465,32 +465,32 @@ def _fit_sweeps(
                     else:
                         phi = embed(sample, embedding)
                         return loss_fn(tn, phi)
-            if type(sites) is int:
-                foo.__name__ += "_" + "_" + str(sites)
-            else:
-                foo.__name__ += "_" + "_".join(map(str,sites))
+            
+            foo.__name__ += "_" + "_".join(map(str,sites))
             return foo
-        foo_instances = {sites: generate_foo(sites) for sites in strategy.iterate_sites(model_copy)}
+        
+        foo_instances = {sites if strategy.grouping > 1 else (sites,): generate_foo(sites) for sites in strategy.iterate_sites(model)}
 
-        foo_ir = {}
+        foo_ir = {} # ir = intermediate representation
         gradfoo_ir = {}
-        for sites in strategy.iterate_sites(model_copy):
-            strategy.prehook(model_copy, sites)
+        for sites in strategy.iterate_sites(model):
+            strategy.prehook(model, sites)
 
             if strategy.grouping == 1:
-                sitetags = [model_copy.site_tag(sites)]
+                sitetags = [model.site_tag(sites)]
+                sites = (sites,)
             else:
-                sitetags = [model_copy.site_tag(site) for site in sites]
+                sitetags = [model.site_tag(site) for site in sites]
 
-            tensor = model_copy.select_tensors(sitetags)[0]
+            tensor = model.select_tensors(sitetags)[0]
             foo_ir[sites] = jax.jit(jax.vmap(foo_instances[sites], in_axes=[0, None])).lower(jax.numpy.asarray(data), tensor.data)
-            gradfoo_ir[sites] = jax.jit(jax.vmap(jax.grad(foo_instances[sites], argnums=[1]), in_axes=[0,None])).lower(jax.numpy.asarray(data), tensor.data)
+            gradfoo_ir[sites] = jax.jit(jax.vmap(jax.grad(foo_instances[sites], argnums=[1]), in_axes=[0, None])).lower(jax.numpy.asarray(data), tensor.data)
 
-            strategy.posthook(model_copy, sites)
+            strategy.posthook(model, sites)
 
         cache["foo_compiled"] = {sites: ir.compile() for (sites, ir) in foo_ir.items()}
         cache["gradfoo_compiled"] = {sites: ir.compile() for (sites, ir) in gradfoo_ir.items()}
-        cache["hash"] = hash((embedding, strategy, loss_fn, model_copy.shape))
+        cache["hash"] = hash((embedding, strategy, loss_fn, model.shape))
     
     foo_compiled = cache["foo_compiled"]
     gradfoo_compiled = cache["gradfoo_compiled"]
@@ -502,7 +502,7 @@ def _fit_sweeps(
 
         if strategy.grouping == 1:
             sitetags = [model.site_tag(sites)]
-            sites = (sites)
+            sites = (sites,)
         else:
             sitetags = [model.site_tag(site) for site in sites]
         
@@ -527,15 +527,15 @@ def _fit_sweeps(
         if "maxiter" not in hyperparams:
             hyperparams["maxiter"] = 1
         
-        tensor = model.select_tensors(sitetags)[0]
+        #tensor = model.select_tensors(sitetags)[0]
         x = vectorizer.pack(tensor.data)
         res = model.optimizers[s](loss, x, jac, **hyperparams)
         
         opt_array = vectorizer.unpack(res.x) #len 1
         
-        tensor = model.select_tensors(sitetags)[0]
+        #tensor = model.select_tensors(sitetags)[0]
         tensor.modify(data = opt_array)
-            
+        
         # split sites
         strategy.posthook(model, sites)
         # counting how many combinations of sites
