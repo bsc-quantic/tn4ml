@@ -218,7 +218,6 @@ class loTeNet(nn.Module):
         # FORWARD PASS
 
         for n_layer, (params_i, skeleton_i) in enumerate(zip(self.params, self.skeletons)):
-            #print(f'------ Layer {n_layer} ------')
 
             # if we came to last layer where number of MPS = 1 --> finish     
             if n_layer == self.n_layers:
