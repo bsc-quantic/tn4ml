@@ -380,6 +380,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         :class:`quimb.tensor.tensor_1d.MatrixProductState`
         """
         smpo, mps = tn_op.copy(), tn_vec.copy()
+
         if hasattr(smpo, 'spacings'):
             # TODO - fix!
             spacings = smpo.spacings
@@ -429,10 +430,10 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             
         if len(arrays[-1].shape) == 3:
             arr = np.squeeze(arrays[-1])
-            arrays[-1] = a.do("reshape", arr, (*arr.shape, 1))
+            arrays[-1] = arr
 
         for i, arr in enumerate(arrays):
-            if len(arr.shape) == 4:
+            if len(arr.shape) >= 4:
                 arr = np.squeeze(arr)
                 if len(arr.shape) == 2:
                     arrays[i] = a.do("reshape", arr, (*arr.shape, 1))
@@ -440,7 +441,6 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                     arrays[i] = arr
        
         shape = 'lrp'
-        
         vec = MatrixProductState(arrays, shape=shape)
         # optionally compress
         if compress:
