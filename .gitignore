@@ -286,7 +286,6 @@ $RECYCLE.BIN/
 .venv
 .python-version
 *.whl
-*.ipynb
 *.pkl
 *.svg
 *.png
