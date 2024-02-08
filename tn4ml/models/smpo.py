@@ -225,9 +225,9 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
         mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
-        for i, tensor in enumerate(mpo.tensors):
-            tensor_norm = tensor.norm()
-            tensor.modify(data=tensor.data / np.sqrt(tensor_norm))
+        # for i, tensor in enumerate(mpo.tensors):
+        #     tensor_norm = tensor.norm()
+        #     tensor.modify(data=tensor.data / np.sqrt(tensor_norm))
 
         if insert == None:
             mpo.normalize(insert)
@@ -305,12 +305,8 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** (j))
                 chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)))
             else:
-                if i > n // 2:
-                    chir = chil
-                    chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)//spacing))
-                else:
-                    chil = chir
-                    chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** ((j)//spacing))
+                chil = chir
+                chir = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)//spacing))
 
             if i > n // 2:
                 (chil, chir) = (chir, chil)
@@ -337,10 +333,91 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             arrays.append(np.reshape(A, shape))
 
         arrays[0] /= np.sqrt(min(bond_dim, phys_dim[0]))
-        
         mpo = SpacedMatrixProductOperator(arrays, output_inds, **kwargs)
+        return mpo
+    
+    # parts of code from https://github.com/raghavian
+    def rand_init(n: int, init_method: str = 'random_eye', spacing: int = None, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), output_inds: Collection = [], cyclic: bool = False, **kwargs):
+        # Unpack init_method if it is a tuple
+        if not isinstance(init_method, str):
+            init_str = init_method[0]
+            std = init_method[1]
+            # if init_str == 'min_random_eye':
+            #     init_dim = init_method[2]
+
+            init_method = init_str
+        else:
+            std = 1e-9
+
+        if init_method not in ['random_eye', 'min_random_eye', 'random_zero']:
+            raise ValueError(f"Unknown initialization method: {init_method}")
+        
+        if cyclic:
+            raise NotImplementedError()
+
+        if 0 not in output_inds and len(output_inds) != 0:
+            raise ValueError("First tensor needs to have output index.")
+
+        if spacing == 1:
+            raise ValueError("Spacing must be > 1, otherwise is MPO.")
+
+        if output_inds:
+            hasoutput = []
+            for i in range(n):
+                if i in output_inds: hasoutput.append(True)
+                else: hasoutput.append(False)
+            spacings = [(o - output_inds[i]) for i, o in enumerate(output_inds[1:])]
+            if (n - 1 - output_inds[-1]) != 0:
+                spacings.append(n - 1 - output_inds[-1])
+        else:
+            hasoutput = itertools.cycle([True, *[False] * (spacing - 1)])
+
+        arrays = []
+        for i, has_out in zip(range(1, n+1), hasoutput):
+            if has_out:
+                shape = (bond_dim, bond_dim, *phys_dim)
+                if not cyclic:
+                    if i == 1:
+                        shape = (1, bond_dim, *phys_dim)
+                    if i == n:
+                        shape = (bond_dim, 1, *phys_dim)
+            else:
+                shape = (bond_dim, bond_dim, phys_dim[0])
+                if i == n and not cyclic:
+                    shape = (bond_dim, 1, phys_dim[0])
+            
+            if init_method == 'random_eye':
+                #eye_shape = (shape[0], shape[1])
+                eye_tensor = np.eye(shape[0], shape[1]) # lrp, so lr
+                #eye_tensor = np.tile(eye_tensor, shape)
+            
+                tensor = np.zeros(shape)
+                
+                if len(shape) == 4:
+                    for i in range(shape[2]):
+                        for j in range(shape[3]):
+                            tensor[:, :, i, j] = eye_tensor
+                else:
+                    for i in range(shape[-1]):
+                        tensor[:, :, i] = eye_tensor
+                # Add on a bit of random noise
+                tensor += std * np.random.randn(*shape)
+            
+            elif init_method == 'random_zero':
+                tensor = std * np.random.randn(*shape)
+
+            arrays.append(np.squeeze(tensor))
+
+        mpo = SpacedMatrixProductOperator(arrays, **kwargs)
+        #mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
+
+        # for i, tensor in enumerate(mpo.tensors):
+        #     tensor_norm = tensor.norm()
+        #     tensor.modify(data=tensor.data / np.sqrt(tensor_norm))
 
         return mpo
+        
+
 
     @property
     def spacing(self) -> int:
@@ -392,6 +469,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         smpo.upper_ind_id = mps.site_ind_id
 
         result = smpo & mps
+
         for ind in mps.outer_inds():
             result.contract_ind(ind=ind)
         

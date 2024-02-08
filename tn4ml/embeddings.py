@@ -1,12 +1,11 @@
 import abc
 import itertools
 from numbers import Number
-import math
-import pandas as pd
+from typing import Union
 import numpy as onp
 from autoray import numpy as np
-import jax.numpy as jnp
 import quimb.tensor as qtn
+import torch
 
 class Embedding:
     """Data embedding (feature map) class.
@@ -43,15 +42,31 @@ class trigonometric(Embedding):
         """
         assert k >= 1
 
-        self.k = 1
+        self.k = k
         super().__init__(**kwargs)
 
     @property
     def dim(self) -> int:
         return self.k * 2
 
-    def __call__(self, x: Number) -> jnp.ndarray:
-        return 1 / jnp.sqrt(self.k) * jnp.asarray([f((onp.pi * x / 2**i)) for f, i in itertools.product([jnp.cos, jnp.sin], range(1, self.k + 1))])
+    def __call__(self, x: Union[torch.Tensor, Number]) -> torch.Tensor:
+        """Compute trigonometric feature map for input x.
+
+        Parameters
+        ----------
+        x : Union[torch.Tensor, Number]
+            Input value(s) for computing the feature map.
+
+        Returns
+        -------
+        torch.Tensor
+            Trigonometric feature map.
+        """
+        if isinstance(x, Number):
+            x = torch.tensor(x)
+        return 1 / torch.sqrt(torch.tensor(self.k)) * torch.stack([
+            f((onp.pi * x / 2**i)) for f, i in itertools.product([torch.cos, torch.sin], range(1, self.k + 1))
+        ]).view(-1)
 
 
 class fourier(Embedding):
@@ -174,7 +189,7 @@ def physics_embedding_cos_sin(data: onp.ndarray, embed_func: Embedding, **mps_op
     return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
 
 
-def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, **mps_opts):
+def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, pytorch: bool = False, **mps_opts):
     """Creates a product state from a vector of features `x`.
 
     Parameters
@@ -197,8 +212,14 @@ def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, **mps_
     if multi_dim:
         return phi_multidim(x, phi, **mps_opts)
     else:
+        # if pytorch:
+        #     phi = substitute_np_to_torch(phi)
         arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
         for i in [0, -1]:
             arrays[i] = arrays[i].reshape((1, phi.dim))
 
+        # if pytorch:
+        #     torch_arrays = [torch.tensor(np.float64(data)) for data in arrays]
+        #     return qtn.MatrixProductState(torch_arrays, **mps_opts)
+        # else:
         return qtn.MatrixProductState(arrays, **mps_opts)

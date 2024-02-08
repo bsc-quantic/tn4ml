@@ -109,7 +109,6 @@ class Sweeps(Strategy):
             vindl = [f'{site_ind_prefix}{sitel}'] + ([model.bond(sitel - 1, sitel)] if sitel > 0 else [])
             vindr = [f'{site_ind_prefix}{siter}']
             qtn.tensor_core.tensor_split(model, left_inds=[*vindl], right_inds=[*vindr], max_bond=model.max_bond(), **self.split_opts)
-            #model.split_tensor(sitetags, left_inds=[*vindl], max_bond=model.max_bond(), **self.split_opts)
         else:
             site_ind_prefix = model.upper_ind_id.rstrip("{}")
             vindr = [model.upper_ind(siter)] + ([model.bond(siter, siter + 1)] if siter < model.nsites - 1 else [])

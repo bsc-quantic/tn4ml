@@ -1,4 +1,5 @@
 import re
+import inspect
 import numpy as np
 
 def return_digits(array):

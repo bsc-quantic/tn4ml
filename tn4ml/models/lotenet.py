@@ -4,8 +4,8 @@ from tn4ml.models import SpacedMatrixProductOperator
 import quimb.tensor as qtn
 import math
 import numpy as np
-import jax.numpy as jnp
-import flax.linen as nn
+import torch
+from torch.func import vmap
 
 def squeeze_image(image, k=3):
     """
@@ -30,41 +30,52 @@ def squeeze_image(image, k=3):
     for dim in list(image.shape)[:-1]:
         new_dims.append(dim // k)
     new_dims.append(list(image.shape)[-1] * k**S)
-        
-    reshaped_image = jnp.zeros(tuple(new_dims))
-    
+    reshaped_image = torch.zeros(tuple(new_dims), dtype=torch.float32)
+
     feature = 0
     for x in range(k):
         for y in range(k):
             if S == 3:
                 # 3D image
                 for z in range(k):
-                    kernel = jnp.zeros((k,k,k))
-                    kernel = kernel.at[x,y,z].set(1)
-                    kernel = jnp.expand_dims(kernel, axis=-1)
+                    kernel = np.zeros((k,k,k))
+                    kernel[x,y,z] = 1.0
+                    kernel = np.expand_dims(kernel, axis=-1)
+                    kernel = torch.tensor(kernel)
                     
-                    tensor = jnp.zeros(tuple(new_dims[:-1]))
+                    tensor = torch.zeros(tuple(new_dims[:-1]))
                     for i in range(0, image.shape[0], k):
                         for j in range(0, image.shape[1], k):
                             for l in range(0, image.shape[2], k):
-                                patch = jnp.sum(image[i:i+k, j:j+k, l:l+k, :] * kernel)
+                                patch = torch.sum(image[i:i+k, j:j+k, l:l+k, :] * kernel)
                                 
-                                tensor = tensor.at[i//k, j//k, l//k].set(patch)
-                    reshaped_image = reshaped_image.at[:,:,:,feature].set(tensor)
+                                tensor[i//k, j//k, l//k] = patch
+                    reshaped_image[:,:,:,feature] = tensor
                     feature += 1
             else:
                 # 2D image
-                kernel = jnp.zeros((k,k))
-                kernel = kernel.at[x,y].set(1.0)
-                kernel = jnp.expand_dims(kernel, axis=-1)
+                kernel = np.zeros((k,k))
+                kernel[x,y] = 1.0
+                #kernel = np.expand_dims(kernel, axis=-1)
+                kernel = torch.tensor(kernel, dtype=torch.float32)
                 
-                tensor = jnp.zeros(tuple(new_dims[:2]))
+                tensor = torch.zeros(tuple(new_dims[:2]),dtype=torch.float32)
                 for i in range(0, image.shape[0], k):
                     for j in range(0, image.shape[1], k):
-                            patch = jnp.sum(image[i:i+k, j:j+k, :] * kernel)
-                            
-                            tensor = tensor.at[i//k, j//k].set(patch)
-                reshaped_image = reshaped_image.at[:,:,feature].set(tensor)
+                            patch = torch.sum(torch.tensordot(image[i:i+k, j:j+k, :], kernel))
+                            new_row = i//k
+                            new_col = j//k
+
+                            # Create a mask tensor indicating the position to assign the patch - VMAP
+                            mask = torch.zeros_like(tensor, dtype=torch.bool)
+                            mask[new_row, new_col] = True
+                            tensor = tensor + patch * mask
+
+                #reshaped_image[:,:,feature] = tensor
+                # Create a mask tensor indicating the position to assign the patch - VMAP
+                mask = torch.zeros_like(reshaped_image, dtype=torch.bool)
+                mask[:,:,feature] = True
+                reshaped_image = reshaped_image + tensor.unsqueeze(-1) * mask
                 feature += 1
     return reshaped_image
 
@@ -85,14 +96,13 @@ def unsqueeze_image(image, S=3):
     """
     n_mps, n_features = image.shape
     new_dims = []
-    for dim in range(S):
+    for _ in range(S):
         new_dims.append(round(n_mps**(1/S)))
     new_dims.append(n_features)
 
-    reshaped_image = jnp.reshape(image, tuple(new_dims))
-    averaged_image = jnp.average(reshaped_image, axis=-1)
-    averaged_image = jnp.expand_dims(averaged_image, axis=-1)
-
+    reshaped_image = image.reshape(tuple(new_dims))
+    averaged_image = torch.sum(reshaped_image, -1)
+    averaged_image = torch.unsqueeze(averaged_image, -1)
     return averaged_image
 
 def squeeze_dimensions(input_dims, k=3):
@@ -106,7 +116,6 @@ def squeeze_dimensions(input_dims, k=3):
         new_dims.append(dim // k)
     
     feature_dim = input_dims[-1] * k**S # C = input_dims[-1]
-
     return tuple(new_dims), feature_dim
 
 def unsqueezed_dimensions(input_dims, S=3):
@@ -114,57 +123,74 @@ def unsqueezed_dimensions(input_dims, S=3):
     n_mps, _ = input_dims
 
     new_dims = []
-    for i in range(S):
+    for _ in range(S):
         new_dims.append(round(n_mps**(1/S)))
     new_dims.append(1) # averaged by feature dimension
 
     return tuple(new_dims)
 
 
-# TODO - maybe use nn.compact instead of setup and call to avoid code duplicates
-class loTeNet(nn.Module):
+class loTeNet(torch.nn.Module):
 
-    input_dim: tuple[int, ...] # dimensionality of input image - each dimension is power of self.kernel
-    output_dim: int # number of classes
-    bond_dim: int
-    kernel: int = 3 # for now only one value for all layers
-    virtual_dim: int = 1 # output dimension of MPS_i
-    phys_dim_input: int = 2 # physical dimension --> needs to be same as embedding dim
-    embedding_input: embeddings.Embedding = embeddings.trigonometric()
+    #input_dim: dimensionality of input image - each dimension is power of self.kernel
+    # output_dim: number of classes
+    # bond_dim: bond dimension
+    # kernel: kernel value - both padding and stride, for now only one value for all layers
+    # virtual_dim: output dimension of MPS_i
+    # phys_dim_input: physical dimension --> needs to be same as embedding dim
+    # embedding_input: embedding of input images to MPS
     
     # initialization
-    def setup(self):
+    def __init__(self,
+                 input_dim: tuple[int, ...],
+                 output_dim: int,
+                 bond_dim: int,
+                 kernel: int = 3,
+                 virtual_dim: int = 1,
+                 phys_dim_input: int = 2,
+                 embedding_input: embeddings.Embedding = embeddings.trigonometric()):
+        
+        super().__init__()
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.bond_dim = bond_dim
+        self.kernel = kernel
+        self.virtual_dim = virtual_dim
+        self.phys_dim_input = phys_dim_input
+        self.embedding_input = embedding_input
 
         self.S = len(self.input_dim) - 1 # dimensionality of inputs
 
         new_dim, feature_dim = squeeze_dimensions(self.input_dim, self.kernel)
         N_i = math.prod(new_dim) # number of pixels after squeeze = number of MPSs in 1st layer
-        
+
         skeletons = []
         params = []
+        #BNs = [] # Batch Normalization layers
         self.n_layers = 0
         while True:
             # MPS with output index
-            layer_i = [SpacedMatrixProductOperator.rand_distribution(n=feature_dim,\
+            layer_i = [SpacedMatrixProductOperator.rand_init(n=feature_dim,\
                                                                 spacing=feature_dim,\
                                                                 bond_dim = self.bond_dim,\
                                                                 phys_dim=(self.phys_dim_input, self.virtual_dim),\
-                                                                init_func='normal') for i in range(N_i)]
-            
+                                                                init_method='random_eye') for _ in range(N_i)]
             # gather params and skeleton of each MPS
             param_i = []; skeleton_i = []
             for n_pixel, layer in enumerate(layer_i):
+                for t in layer.tensors:
+                    print(t.data)
                 param, skeleton = qtn.pack(layer)
 
                 param_dict = {}
                 for i, data in param.items():
-                    param_dict[i] = self.param(f'param_{i}_{n_pixel}_{self.n_layers}', lambda _: data)
-                
-                param_i.append(param_dict)
+                    param_dict[f'param_{i}_mps_{n_pixel}_nL{self.n_layers}'] = torch.nn.Parameter(torch.tensor(data, dtype=torch.float32), requires_grad=True)
+                param_i.append(torch.nn.ParameterDict(param_dict))
                 skeleton_i.append(skeleton)
-            
             skeletons.append(skeleton_i)
-            params.append(param_i)
+            params.append(torch.nn.ParameterList(param_i))
+            #BNs.append(torch.nn.BatchNorm1d(self.virtual_dim, affine=True, dtype = torch.float32, track_running_stats=True))
 
             # find shape of output image
             output_shape = (N_i, self.output_dim)
@@ -177,86 +203,165 @@ class loTeNet(nn.Module):
             
             # if we came to last layer where number of MPS = 1 --> finish 
             if N_i == 1:
-
+                
+                #self.BNs = BNs
                 # last MPS with output_dim = number of classes
-                layer = SpacedMatrixProductOperator.rand_distribution(n=feature_dim,\
+                layer = SpacedMatrixProductOperator.rand_init(n=feature_dim,\
                                                                 spacing=feature_dim,\
                                                                 bond_dim = self.bond_dim,\
                                                                 phys_dim=(self.phys_dim_input, self.output_dim),\
-                                                                init_func='normal')
+                                                                init_method='random_eye')
                 param, skeleton = qtn.pack(layer)
-                param_dict = {i: self.param(f'param_{i}_{1}_{self.n_layers}', lambda _: data)
-            for i, data in param.items()}
-                params.append(param_dict)
-                skeletons.append(skeleton)
-                #print(f'------ Last {self.n_layers} layer ------')
-                #print('End initialization')
+                param_dict = {f'param_{i}_mps{1}_nL{self.n_layers}': torch.nn.Parameter(torch.tensor(data, dtype=torch.float32), requires_grad=True) for i, data in param.items()}
+                params.append(torch.nn.ParameterList([torch.nn.ParameterDict(param_dict)]))
+                skeletons.append([skeleton])
                 
                 # save params and skeletons in Module
-                self.params = params
+                self.params = torch.nn.ParameterList(params)
                 self.skeletons = skeletons
+
                 break
             elif N_i < 1:
                 ValueError("Last layer needs to have N_i = 1.")
+
+    def pass_per_layer(self, input_image, params_i, skeleton_i):
+
+        squeezed_image = squeeze_image(input_image, k=self.kernel)
+        squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
+
+        vector_outputs = []
+        for n_pixel, (params, skeleton) in enumerate(zip(params_i, skeleton_i)):
+            # embedded input image
+            mps_input = embeddings.embed(squeezed_image[n_pixel], self.embedding_input, pytorch=True)
+
+            # return params to quimb
+            params = {int(key.split('_')[1]): value for key, value in params.items()}
+            
+            # unpack model from params and skeleton
+            mps_model = qtn.unpack(params, skeleton)
+            
+            # MPS + MPS_with_output = vector
+            output = mps_model.apply(mps_input)^all
+            vector_outputs.append(output.data.reshape((self.virtual_dim, )))
+        vector_outputs = torch.stack(vector_outputs, dim=0)
+        
+        return vector_outputs
+
+    def pass_final_layer(self, input_image, params, skeleton):
+        squeezed_image = squeeze_image(input_image, k=self.kernel)
+        squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
+        
+        # embed input image
+        mps_input = embeddings.embed(squeezed_image[0], self.embedding_input, pytorch=True) # 0 because its the only pixel
+        # return params to quimb
+        params = {int(key.split('_')[1]): value for key, value in params.items()}
     
-    def __call__(self, input_image):
+        # unpack model from params and skeleton
+        mps_model = qtn.unpack(params, skeleton)
+
+        # MPS + MPS_with_output = vector
+        output = mps_model.apply(mps_input)^all
+        output = output.data.reshape((self.output_dim, ))
+        #output = torch.nn.Softmax()(output)
+        return output
+    
+    # def forward_per_sample(self, input_image):
+    #     """
+    #     Forward pass - per sample
+
+    #     Parameters
+    #     ----------
+    #     image : torch.tensor
+    #         2D or 3D image with additional Channel dimension (H,W,C) or (H,W,D,C)
+
+    #     Returns
+    #     -------
+    #     torch.tensor
+        
+    #     """
+    #     # FORWARD PASS
+
+    #     for n_layer, (params_i, skeleton_i) in enumerate(zip(self.params, self.skeletons)):
+
+    #         # if we came to last layer where number of MPS = 1 --> finish     
+    #         if n_layer == self.n_layers:
+    #             squeezed_image = squeeze_image(input_image, k=self.kernel)
+    #             squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
+                
+    #             # embed input image
+    #             mps_input = embeddings.embed(squeezed_image[0], self.embedding_input, pytorch=True) # 0 because its the only pixel
+                
+    #             # return params to quimb
+    #             params = {int(key.split('_')[1]): value for key, value in params_i[0].items()}
+            
+    #             # unpack model from params and skeleton
+    #             mps_model = qtn.unpack(params, skeleton_i[0])
+
+    #             # MPS + MPS_with_output = vector
+    #             output = mps_model.apply(mps_input)^all
+    #             output = output.data.reshape((self.output_dim, ))
+    #             output = torch.nn.Softmax()(output)
+    #             return output
+            
+    #         squeezed_image = squeeze_image(input_image, k=self.kernel)
+    #         squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
+
+    #         vector_outputs = []
+    #         for n_pixel, (params, skeleton) in enumerate(zip(params_i, skeleton_i)):
+    #             # embedded input image
+    #             mps_input = embeddings.embed(squeezed_image[n_pixel], self.embedding_input, pytorch=True)
+                
+    #             # return params to quimb
+    #             params = {int(key.split('_')[1]): value for key, value in params.items()}
+                
+    #             # unpack model from params and skeleton
+    #             mps_model = qtn.unpack(params, skeleton)
+                
+    #             # MPS + MPS_with_output = vector
+    #             output = mps_model.apply(mps_input)^all
+    #             vector_outputs.append(output.data.reshape((self.virtual_dim, )))
+
+    #         # reshape to image-like for next layer
+    #         input_image = unsqueeze_image(torch.stack(vector_outputs, dim=0), self.S)
+
+    def forward(self, x):
         """
-        Forward pass.
+        Forward pass - per batch
 
         Parameters
         ----------
-        image : np.array
-            2D or 3D image with additional Channel dimension (H,W,C) or (H,W,D,C)
-        S : int = 3
-            Dimensionality of input image. S = 3 --> 3D image
+        image : torch.tensor
+            2D or 3D image with additional Channel dimension (B,H,W,C) or (B,H,W,D,C)
+            where B = batch_size
 
         Returns
         -------
-        np.array
+        torch.tensor
         
         """
-        # FORWARD PASS
 
+        # for i, (name, param) in enumerate(self.named_parameters()):
+        #     if i < 2:
+        #         print(param)
+
+        batch_size = x.shape[0]
         for n_layer, (params_i, skeleton_i) in enumerate(zip(self.params, self.skeletons)):
-
-            # if we came to last layer where number of MPS = 1 --> finish     
             if n_layer == self.n_layers:
-                squeezed_image = squeeze_image(input_image, k=self.kernel)
-                squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
-                
-                # embed input image
-                embedded_vector = embeddings.embed(squeezed_image[0], self.embedding_input) # 0 because its the only pixel
-                mps_input = qtn.MatrixProductState(embedded_vector)
-                
-                # unpack model from params and skeleton
-                mps_model = qtn.unpack(params_i, skeleton_i)
+                x = vmap(self.pass_final_layer, in_dims=(0, None, None))(x, params_i[0], skeleton_i[0])
+                return x
 
-                # MPS + MPS_with_output = vector
-                output = mps_model.apply(mps_input)^all
-                output = output.data.reshape((self.output_dim, ))
-                return output
-            
-            squeezed_image = squeeze_image(input_image, k=self.kernel)
-            squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
-            
-            vector_outputs = []
-            for n_pixel, (params, skeleton) in enumerate(zip(params_i, skeleton_i)):
-                # embedded input image
-                embedded_vector = embeddings.embed(squeezed_image[n_pixel], self.embedding_input)
-                mps_input = qtn.MatrixProductState(embedded_vector)
-                
-                # unpack model from params and skeleton
-                mps_model = qtn.unpack(params, skeleton)
-                
-                # MPS + MPS_with_output = vector
-                output = mps_model.apply(mps_input)^all
-                vector_outputs.append(output.data.reshape((self.virtual_dim, )))
-            
+            x = vmap(self.pass_per_layer, in_dims=(0, None, None))(x, params_i, skeleton_i)
+
+            x_dims = x.shape[1:]
+
+            # reshape
+            #x = x.reshape(batch_size, x_dims[-1], x_dims[0])
+
+            # batch norm
+            #x = self.BNs[n_layer](x) # size = (B, n_features, n_mps)
+
+            # reshape back
+            #x = x.reshape(batch_size, x_dims[0], x_dims[-1])
+
             # reshape to image-like for next layer
-            input_image = unsqueeze_image(jnp.array(vector_outputs), self.S)
-
-        
-
-
-
-        
+            x = vmap(unsqueeze_image, in_dims=(0, None))(x, self.S)
