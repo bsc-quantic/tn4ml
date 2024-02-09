@@ -387,9 +387,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                     shape = (bond_dim, 1, phys_dim[0])
             
             if init_method == 'random_eye':
-                #eye_shape = (shape[0], shape[1])
                 eye_tensor = np.eye(shape[0], shape[1]) # lrp, so lr
-                #eye_tensor = np.tile(eye_tensor, shape)
             
                 tensor = np.zeros(shape)
                 
@@ -400,6 +398,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 else:
                     for i in range(shape[-1]):
                         tensor[:, :, i] = eye_tensor
+                
                 # Add on a bit of random noise
                 tensor += std * np.random.randn(*shape)
             
@@ -411,9 +410,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
         #mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
-        # for i, tensor in enumerate(mpo.tensors):
-        #     tensor_norm = tensor.norm()
-        #     tensor.modify(data=tensor.data / np.sqrt(tensor_norm))
+        mpo.normalize()
 
         return mpo
         
