@@ -30,7 +30,7 @@ def squeeze_image(image, k=3, device=torch.device('cpu')):
     for dim in list(image.shape)[:-1]:
         new_dims.append(dim // k)
     new_dims.append(list(image.shape)[-1] * k**S)
-    reshaped_image = torch.zeros(tuple(new_dims), dtype=torch.float32)
+    reshaped_image = torch.zeros(tuple(new_dims), dtype=torch.float32, device=device)
 
     feature = 0
     for x in range(k):
@@ -41,9 +41,9 @@ def squeeze_image(image, k=3, device=torch.device('cpu')):
                     kernel = np.zeros((k,k,k))
                     kernel[x,y,z] = 1.0
                     kernel = np.expand_dims(kernel, axis=-1)
-                    kernel = torch.tensor(kernel)
+                    kernel = torch.tensor(kernel, dtype=torch.float32, device=device)
                     
-                    tensor = torch.zeros(tuple(new_dims[:-1]))
+                    tensor = torch.zeros(tuple(new_dims[:-1]), dtype=torch.float32, device=device)
                     for i in range(0, image.shape[0], k):
                         for j in range(0, image.shape[1], k):
                             for l in range(0, image.shape[2], k):
@@ -59,7 +59,7 @@ def squeeze_image(image, k=3, device=torch.device('cpu')):
                 #kernel = np.expand_dims(kernel, axis=-1)
                 kernel = torch.tensor(kernel, dtype=torch.float32, device=device)
                 
-                tensor = torch.zeros(tuple(new_dims[:2]),dtype=torch.float32, device=device)
+                tensor = torch.zeros(tuple(new_dims[:2]), dtype=torch.float32, device=device)
                 for i in range(0, image.shape[0], k):
                     for j in range(0, image.shape[1], k):
                             patch = torch.sum(torch.tensordot(image[i:i+k, j:j+k, :], kernel))
