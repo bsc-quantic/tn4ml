@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from torch.func import vmap
 
-def squeeze_image(image, k=3):
+def squeeze_image(image, k=3, device=torch.device('cpu')):
     """
     Squeeze over H,W,D dimensions, but enlarge feature dimension to k**(S), where S=dimensionality of image.
 
@@ -57,9 +57,9 @@ def squeeze_image(image, k=3):
                 kernel = np.zeros((k,k))
                 kernel[x,y] = 1.0
                 #kernel = np.expand_dims(kernel, axis=-1)
-                kernel = torch.tensor(kernel, dtype=torch.float32)
+                kernel = torch.tensor(kernel, dtype=torch.float32, device=device)
                 
-                tensor = torch.zeros(tuple(new_dims[:2]),dtype=torch.float32)
+                tensor = torch.zeros(tuple(new_dims[:2]),dtype=torch.float32, device=device)
                 for i in range(0, image.shape[0], k):
                     for j in range(0, image.shape[1], k):
                             patch = torch.sum(torch.tensordot(image[i:i+k, j:j+k, :], kernel))
@@ -67,13 +67,13 @@ def squeeze_image(image, k=3):
                             new_col = j//k
 
                             # Create a mask tensor indicating the position to assign the patch - VMAP
-                            mask = torch.zeros_like(tensor, dtype=torch.bool)
+                            mask = torch.zeros_like(tensor, dtype=torch.bool, device=device)
                             mask[new_row, new_col] = True
                             tensor = tensor + patch * mask
 
                 #reshaped_image[:,:,feature] = tensor
                 # Create a mask tensor indicating the position to assign the patch - VMAP
-                mask = torch.zeros_like(reshaped_image, dtype=torch.bool)
+                mask = torch.zeros_like(reshaped_image, dtype=torch.bool, device=device)
                 mask[:,:,feature] = True
                 reshaped_image = reshaped_image + tensor.unsqueeze(-1) * mask
                 feature += 1
@@ -149,7 +149,8 @@ class loTeNet(torch.nn.Module):
                  kernel: int = 3,
                  virtual_dim: int = 1,
                  phys_dim_input: int = 2,
-                 embedding_input: embeddings.Embedding = embeddings.trigonometric()):
+                 embedding_input: embeddings.Embedding = embeddings.trigonometric(),
+                 device: torch.device = torch.device('cpu')):
         
         super().__init__()
 
@@ -160,6 +161,7 @@ class loTeNet(torch.nn.Module):
         self.virtual_dim = virtual_dim
         self.phys_dim_input = phys_dim_input
         self.embedding_input = embedding_input
+        self.device = device
 
         self.S = len(self.input_dim) - 1 # dimensionality of inputs
 
@@ -225,7 +227,7 @@ class loTeNet(torch.nn.Module):
 
     def pass_per_layer(self, input_image, params_i, skeleton_i):
 
-        squeezed_image = squeeze_image(input_image, k=self.kernel)
+        squeezed_image = squeeze_image(input_image, k=self.kernel, device=self.device)
         squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
 
         vector_outputs = []
@@ -248,7 +250,7 @@ class loTeNet(torch.nn.Module):
         return vector_outputs
 
     def pass_final_layer(self, input_image, params, skeleton):
-        squeezed_image = squeeze_image(input_image, k=self.kernel)
+        squeezed_image = squeeze_image(input_image, k=self.kernel, device=self.device)
         squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
 
         # embed input image
