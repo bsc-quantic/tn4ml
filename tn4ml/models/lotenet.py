@@ -30,7 +30,7 @@ def squeeze_image(image, k=3, device=torch.device('cpu')):
     for dim in list(image.shape)[:-1]:
         new_dims.append(dim // k)
     new_dims.append(list(image.shape)[-1] * k**S)
-    reshaped_image = torch.zeros(tuple(new_dims), dtype=torch.float32, device=device)
+    reshaped_image = torch.zeros(tuple(new_dims), dtype=torch.float32).to(device=device)
 
     feature = 0
     for x in range(k):
@@ -41,13 +41,13 @@ def squeeze_image(image, k=3, device=torch.device('cpu')):
                     kernel = np.zeros((k,k,k))
                     kernel[x,y,z] = 1.0
                     kernel = np.expand_dims(kernel, axis=-1)
-                    kernel = torch.tensor(kernel, dtype=torch.float32, device=device)
+                    kernel = torch.tensor(kernel, dtype=torch.float32).to(device=device)
                     
-                    tensor = torch.zeros(tuple(new_dims[:-1]), dtype=torch.float32, device=device)
+                    tensor = torch.zeros(tuple(new_dims[:-1]), dtype=torch.float32).to(device=device)
                     for i in range(0, image.shape[0], k):
                         for j in range(0, image.shape[1], k):
                             for l in range(0, image.shape[2], k):
-                                patch = torch.sum(image[i:i+k, j:j+k, l:l+k, :] * kernel)
+                                patch = torch.sum(image[i:i+k, j:j+k, l:l+k, :] * kernel).to(device=device)
                                 
                                 tensor[i//k, j//k, l//k] = patch
                     reshaped_image[:,:,:,feature] = tensor
@@ -57,29 +57,29 @@ def squeeze_image(image, k=3, device=torch.device('cpu')):
                 kernel = np.zeros((k,k))
                 kernel[x,y] = 1.0
                 #kernel = np.expand_dims(kernel, axis=-1)
-                kernel = torch.tensor(kernel, dtype=torch.float32, device=device)
+                kernel = torch.tensor(kernel, dtype=torch.float32).to(device=device)
                 
-                tensor = torch.zeros(tuple(new_dims[:2]), dtype=torch.float32, device=device)
+                tensor = torch.zeros(tuple(new_dims[:2]), dtype=torch.float32).to(device=device)
                 for i in range(0, image.shape[0], k):
                     for j in range(0, image.shape[1], k):
-                            patch = torch.sum(torch.tensordot(image[i:i+k, j:j+k, :], kernel))
+                            patch = torch.sum(torch.tensordot(image[i:i+k, j:j+k, :], kernel)).to(device=device)
                             new_row = i//k
                             new_col = j//k
 
                             # Create a mask tensor indicating the position to assign the patch - VMAP
-                            mask = torch.zeros_like(tensor, dtype=torch.bool, device=device)
+                            mask = torch.zeros_like(tensor, dtype=torch.bool).to(device=device)
                             mask[new_row, new_col] = True
                             tensor = tensor + patch * mask
 
                 #reshaped_image[:,:,feature] = tensor
                 # Create a mask tensor indicating the position to assign the patch - VMAP
-                mask = torch.zeros_like(reshaped_image, dtype=torch.bool, device=device)
+                mask = torch.zeros_like(reshaped_image, dtype=torch.bool).to(device=device)
                 mask[:,:,feature] = True
                 reshaped_image = reshaped_image + tensor.unsqueeze(-1) * mask
                 feature += 1
     return reshaped_image
 
-def unsqueeze_image(image, S=3):
+def unsqueeze_image(image, S=3, device=torch.device('cpu')):
     """
     Unsqueeze over H,W,(D) dimensions, but average over feature dimension.
 
@@ -101,9 +101,9 @@ def unsqueeze_image(image, S=3):
     new_dims.append(n_features)
 
     reshaped_image = image.reshape(tuple(new_dims))
-    averaged_image = torch.mean(reshaped_image, -1)
-    averaged_image = (averaged_image - torch.min(averaged_image))/(torch.max(averaged_image) - torch.min(averaged_image))
-    averaged_image = torch.unsqueeze(averaged_image, -1)
+    averaged_image = torch.mean(reshaped_image, -1).to(device=device)
+    averaged_image = (averaged_image - torch.min(averaged_image))/(torch.max(averaged_image) - torch.min(averaged_image)).to(device=device)
+    averaged_image = torch.unsqueeze(averaged_image, -1).to(device=device)
     return averaged_image
 
 def squeeze_dimensions(input_dims, k=3):
@@ -304,4 +304,4 @@ class loTeNet(torch.nn.Module):
             x = x.reshape(batch_size, x_dims[0], x_dims[-1])
 
             # reshape to image-like for next layer
-            x = vmap(unsqueeze_image, in_dims=(0, None))(x, self.S)
+            x = vmap(unsqueeze_image, in_dims=(0, None, None))(x, self.S, self.device)
