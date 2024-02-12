@@ -247,7 +247,7 @@ class loTeNet(torch.nn.Module):
             vector_outputs.append(output.data.reshape((self.virtual_dim, )))
         vector_outputs = torch.stack(vector_outputs, dim=0)
         
-        return vector_outputs
+        return vector_outputs.to(self.device)
 
     def pass_final_layer(self, input_image, params, skeleton):
         squeezed_image = squeeze_image(input_image, k=self.kernel, device=self.device)
@@ -265,7 +265,7 @@ class loTeNet(torch.nn.Module):
         output = mps_model.apply(mps_input)^all
         output = output.data.reshape((self.output_dim, ))
         
-        return output
+        return output.to(self.device)
 
     def forward(self, x):
         """
