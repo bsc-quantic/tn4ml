@@ -15,7 +15,7 @@ class Embedding:
         dype: :class:`numpy.dype`
             Data Type
     """
-    def __init__(self, dtype=onp.float32):
+    def __init__(self, dtype=onp.float64):
         self.dtype = dtype
 
     @property
@@ -188,8 +188,36 @@ def physics_embedding_cos_sin(data: onp.ndarray, embed_func: Embedding, **mps_op
     data_embed_reshaped = [(x/np.linalg.norm(x)).reshape((1,1,2)) for x in data_embed]
     return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
 
+class amplitude_encoding_quatro(Embedding):
+    def __init__(self, **kwargs):
+        """Constructor
 
-def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, pytorch: bool = False, **mps_opts):
+        """        
+        super().__init__(**kwargs)
+
+    @property
+    def dim(self) -> int:
+        return 4
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        return x/torch.norm(x)
+    
+class whatever_encoding(Embedding):
+    def __init__(self, **kwargs):
+        """Constructor
+
+        """        
+        super().__init__(**kwargs)
+
+    @property
+    def dim(self) -> int:
+        return 4
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        x = (x+1)/2
+        return x
+
+def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, **mps_opts):
     """Creates a product state from a vector of features `x`.
 
     Parameters
@@ -201,25 +229,26 @@ def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, pytorc
     mps_opts: optional
         Additional arguments passed to MatrixProductState class.
     """
-    if x.ndim > 1:
-        multi_dim = True
+    # if x.ndim > 1:
+    #     multi_dim = False # TODO fix this!
 
-        if not multi_dim:
-            raise ValueError('Provide embedding function for multi-dimensional data.')
-    else:
-        multi_dim = False
+    #     if not multi_dim:
+    #         raise ValueError('Provide embedding function for multi-dimensional data.')
+    # else:
+    #     multi_dim = False
 
-    if multi_dim:
-        return phi_multidim(x, phi, **mps_opts)
-    else:
-        # if pytorch:
-        #     phi = substitute_np_to_torch(phi)
-        arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
-        for i in [0, -1]:
-            arrays[i] = arrays[i].reshape((1, phi.dim))
-
-        # if pytorch:
-        #     torch_arrays = [torch.tensor(np.float64(data)) for data in arrays]
-        #     return qtn.MatrixProductState(torch_arrays, **mps_opts)
-        # else:
-        return qtn.MatrixProductState(arrays, **mps_opts)
+    # if multi_dim:
+    #     return phi_multidim(x, phi, **mps_opts)
+    # else:
+    # if pytorch:
+    #     phi = substitute_np_to_torch(phi)
+    arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
+    for i in [0, -1]:
+        arrays[i] = arrays[i].reshape((1, phi.dim))
+    # if pytorch:
+    #     torch_arrays = [torch.tensor(np.float64(data)) for data in arrays]
+    #     return qtn.MatrixProductState(torch_arrays, **mps_opts)
+    # else:
+    mps = qtn.MatrixProductState(arrays, **mps_opts)
+    #mps.normalize()
+    return mps

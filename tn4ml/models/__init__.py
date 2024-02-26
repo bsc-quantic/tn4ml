@@ -15,3 +15,11 @@ from .smpo import(
 from .mps import(
     TrainableMatrixProductState
 )
+
+from .lotenet import(
+    loTeNet
+)
+
+from .mlmps import(
+    MLMPS
+)

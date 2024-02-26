@@ -1,6 +1,6 @@
 import re
-import inspect
 import numpy as np
+import torch
 
 def return_digits(array):
     """Helper function to convert array of string numbers to integers.
@@ -12,6 +12,177 @@ def return_digits(array):
             if t.isdigit(): digits.append(int(t))
             else: continue
     return digits
+
+def squeeze_image(image, k=3, device=torch.device('cpu')):
+    """
+    Squeeze over H,W,D dimensions, but enlarge feature dimension to k**(S), where S=dimensionality of image.
+
+    Parameters
+    ----------
+    image : torch.tensor
+        3D image
+    k : int = 3
+        Kernel stride and size (if k=3 then kernel has shape (3,3,3) and its moving by stride 3)
+
+    Returns
+    -------
+    torch.tensor
+    """
+    S = len(image.shape) - 1 # dimensionality of image
+    if S < 2:
+        ValueError('Image should be 2D or 3D!')
+
+    new_dims = []
+    for dim in list(image.shape)[:-1]:
+        new_dims.append(dim // k)
+    new_dims.append(list(image.shape)[-1] * k**S)
+    reshaped_image = torch.zeros(tuple(new_dims), dtype=torch.float64).to(device=device)
+
+    feature = 0
+    for x in range(k):
+        for y in range(k):
+            if S == 3:
+                # 3D image
+                for z in range(k):
+                    kernel = np.zeros((k,k,k))
+                    kernel[x,y,z] = 1.0
+                    kernel = np.expand_dims(kernel, axis=-1)
+                    kernel = torch.tensor(kernel, dtype=torch.float64).to(device=device)
+                    
+                    tensor = torch.zeros(tuple(new_dims[:-1]), dtype=torch.float64).to(device=device)
+                    for i in range(0, image.shape[0], k):
+                        for j in range(0, image.shape[1], k):
+                            for l in range(0, image.shape[2], k):
+                                patch = torch.sum(image[i:i+k, j:j+k, l:l+k, :] * kernel).to(device=device)
+                                
+                                tensor[i//k, j//k, l//k] = patch
+                    reshaped_image[:,:,:,feature] = tensor
+                    feature += 1
+            else:
+                # 2D image
+                kernel = np.zeros((k,k))
+                kernel[x,y] = 1.0
+                #kernel = np.expand_dims(kernel, axis=-1)
+                kernel = torch.tensor(kernel, dtype=torch.float64).to(device=device)
+                
+                tensor = torch.zeros(tuple(new_dims[:2]), dtype=torch.float64).to(device=device)
+                for i in range(0, image.shape[0], k):
+                    for j in range(0, image.shape[1], k):
+                            patch = torch.sum(torch.tensordot(image[i:i+k, j:j+k, :], kernel)).to(device=device)
+                            new_row = i//k
+                            new_col = j//k
+
+                            # Create a mask tensor indicating the position to assign the patch - VMAP
+                            mask = torch.zeros_like(tensor, dtype=torch.bool).to(device=device)
+                            mask[new_row, new_col] = True
+                            tensor = tensor + patch * mask
+
+                #reshaped_image[:,:,feature] = tensor
+                # Create a mask tensor indicating the position to assign the patch - VMAP
+                mask = torch.zeros_like(reshaped_image, dtype=torch.bool).to(device=device)
+                mask[:,:,feature] = True
+                reshaped_image = reshaped_image + tensor.unsqueeze(-1) * mask
+                feature += 1
+    return reshaped_image
+    
+    # S = len(image.shape) - 1
+
+    # iDim = torch.ShortTensor(list(image.shape[1:])) // k
+    # #print(iDim)
+    # if S == 2:
+    #     image = image.unfold(2,iDim[0],iDim[1]).unfold(3,iDim[0],iDim[1])
+    # else:
+    #     image = image.unfold(2,iDim[0],iDim[0]).unfold(3,iDim[1],iDim[1]).unfold(4,iDim[2],iDim[2])
+    # # print(f'shape of image after squeeze: {x.shape}')
+    # image = image.reshape(-1, k**S)
+    # return image
+
+
+def unsqueeze_image_pooling(image, S=3, device=torch.device('cpu')):
+    """
+    Unsqueeze over H,W,(D) dimensions, but average over feature dimension.
+
+    Parameters
+    ----------
+    image : np.array
+        2D or 3D image
+    S : int = 3
+        Dimensionality of input image. S = 3 --> 3D image
+
+    Returns
+    -------
+    np.array
+    """
+    n_mps, n_features = image.shape
+    new_dims = []
+    for _ in range(S):
+        new_dims.append(round(n_mps**(1/S)))
+    new_dims.append(n_features)
+
+    reshaped_image = image.reshape(tuple(new_dims))
+    averaged_image = torch.mean(reshaped_image, -1).to(device=device)
+    averaged_image = (averaged_image - torch.min(averaged_image))/(torch.max(averaged_image) - torch.min(averaged_image)).to(device=device)
+    averaged_image = torch.unsqueeze(averaged_image, -1).to(device=device)
+    return averaged_image
+
+def rearange_image(image, S=3, device=torch.device('cpu')):
+    """
+    Reshape image back to H, W, (D)
+    TODO - implement for image with channels
+    Parameters
+    ----------
+    image : np.array
+        2D or 3D image
+    S : int = 3
+        Dimensionality of input image. S = 3 --> 3D image
+
+    Returns
+    -------
+    np.array
+    """
+    (N_i,) = image.shape
+
+    new_dims = []
+    for _ in range(S):
+        new_dims.append(round(N_i**(1/S)))
+    new_dims.append(1)
+
+    reshaped_image = image.reshape(tuple(new_dims)).to(device)
+    return reshaped_image
+
+def squeeze_dimensions(input_dims, k=3):
+    """ helper function for initialization """
+    if len(input_dims) < 3:
+        ValueError('Input data must have at least 2 dimensions and one channel')
+    S = len(input_dims) - 1
+
+    new_dims = []
+    for dim in input_dims[:-1]:
+        new_dims.append(dim // k)
+    
+    feature_dim = input_dims[-1] * k**S # C = input_dims[-1]
+    return tuple(new_dims), feature_dim
+
+def unsqueezed_dimensions(input_dims, S=3):
+    """ helper function for initialization """
+    n_mps, _ = input_dims
+
+    new_dims = []
+    for _ in range(S):
+        new_dims.append(round(n_mps**(1/S)))
+    new_dims.append(1) # averaged by feature dimension
+
+    return tuple(new_dims)
+
+def rearanged_dimensions(input_dims, S=3):
+    (N_i,) = input_dims
+
+    new_dims = []
+    for _ in range(S):
+        new_dims.append(round(N_i**(1/S)))
+    new_dims.append(1)
+
+    return tuple(new_dims)
 
 def gramschmidt(A):
     """Function that creates an orthogonal basis from a matrix `A`.

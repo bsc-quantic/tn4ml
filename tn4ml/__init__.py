@@ -5,6 +5,7 @@ from .embeddings import (
     trigonometric,
     fourier,
     physics_embedding,
+    whatever_encoding,
     embed
 )
 
@@ -27,4 +28,10 @@ from .strategy import (
 from .util import (
     EarlyStopping,
     ExponentialDecay,
-    ExponentialGrowth,)
+    ExponentialGrowth,
+    squeeze_dimensions,
+    squeeze_image,
+    rearange_image,
+    rearanged_dimensions, 
+    unsqueeze_image_pooling,
+    unsqueezed_dimensions)
