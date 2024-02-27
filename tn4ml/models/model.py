@@ -101,6 +101,7 @@ class Model(qtn.TensorNetwork):
             embedding: Embedding = trigonometric(),
             callbacks: Optional[Sequence[Tuple[str, Callable]]] = None,
             normalize: Optional[bool] = False,
+            canonize: Optional[bool] = False,
             earlystop: Optional[EarlyStopping] = None,
             exp_decay: Optional[ExponentialDecay] = None,
             exp_growth: Optional[ExponentialGrowth] = None,
@@ -125,6 +126,8 @@ class Model(qtn.TensorNetwork):
             List of metrics for monitoring training progress. Each metric function receives (:class:`tn4ml.models.Model`, :class:`scipy.optimize.OptimizeResult`, :class:`quimb.tensor.optimize.Vectorizer`).
         normalize : bool
             If True, the model is normalized after each iteration.
+        canonize: bool
+            If True, the model is canonized after each iteration. TODO - add option to change canonization center
         earlystop : :class:`tn4ml.util.EarlyStopping`
             Early stopping training when monitored metric stopped improving.
         exp_decay : `ExponentialDecay` instance
@@ -164,7 +167,7 @@ class Model(qtn.TensorNetwork):
         start_train = time()
         self.norm_before_normalize=[]
         self.cache = dict()
-        with tqdm(total=nepochs, desc="epoch") as outerbar, tqdm(total=(len(inputs)//batch_size)-1, desc="batch") as innerbar:
+        with tqdm(total=nepochs, desc="epoch") as outerbar:
             for epoch in range(nepochs):
                 time_epoch = time()  
                 if exp_decay and epoch >= exp_decay.start_decay:
@@ -195,13 +198,16 @@ class Model(qtn.TensorNetwork):
                     if normalize:
                         self.normalize()
 
+                    if canonize:
+                        self.canonize(0)
+
                     if callbacks:
                         for name, fn in callbacks:
                             self.history[name].append(fn(self, res, vectorizer))
                     
                     batch_num+=1
-                    innerbar.update()
-                    innerbar.set_postfix({'loss': loss_batch/batch_num})
+                    # innerbar.update()
+                    # innerbar.set_postfix({'loss': loss_batch/batch_num})
                 
                 self.history['loss'].append(loss_batch/batch_num)
                 
@@ -350,7 +356,7 @@ def _fit(
 
     foo_compiled = cache["foo_compiled"]
     gradfoo_compiled = cache['gradfoo_compiled']
-    
+
     for sites in strategy.iterate_sites(model):
         # contract sites in groups
         strategy.prehook(model, sites)
@@ -378,9 +384,8 @@ def _fit(
 
         x = vectorizer.pack(model.arrays)
         res = model.optimizer(loss, x, jac, **hyperparams)
-
         opt_arrays = vectorizer.unpack(res.x)
-        
+
         for tensor, array in zip(model.tensors, opt_arrays):
             tensor.modify(data=array)
             
