@@ -1,5 +1,6 @@
 import itertools
 from numbers import Integral
+from typing import Collection, Tuple
 import numpy as np
 import autoray as a
 from quimb import *
@@ -76,4 +77,63 @@ class TrainableMatrixProductState(Model, MatrixProductState):
             
         rmps = TrainableMatrixProductState(arrays, **kwargs)
 
+        return rmps
+    
+    def rand_init(L: int, init_func: str = 'random_eye', bond_dim: int = 4, phys_dim: int = 2, cyclic: bool = False, left_canonize: bool = None, **kwargs):
+        # Unpack init_method if it is a tuple
+        if not isinstance(init_func, str):
+            init_str = init_func[0]
+            std = init_func[1]
+            # if init_str == 'min_random_eye':
+            #     init_dim = init_func[2]
+
+            init_func = init_str
+        else:
+            std = 1e-9
+
+        if init_func not in ['random_eye', 'min_random_eye', 'random_zero']:
+            raise ValueError(f"Unknown initialization method: {init_func}")
+        
+        if cyclic:
+            raise NotImplementedError()
+
+        arrays = []
+        for i in range(1, L+1):
+            shape = (bond_dim, bond_dim, phys_dim)
+            if i == 1:
+                shape = (1, bond_dim, phys_dim)
+            if i == L:
+                shape = (bond_dim, 1, phys_dim)
+            
+            if init_func == 'random_eye':
+                #eye_tensor = np.eye(shape[0], shape[1]) # lrp, so lr
+                tensor = np.zeros(shape)
+                if i == 1:
+                    eye_vector = np.eye(1, shape[1])
+                    for p in range(shape[-1]):
+                        tensor[:, :, p] = eye_vector # 0, :, p
+                elif i == L:
+                    eye_vector = np.eye(shape[0], 1)
+                    for p in range(shape[-1]):
+                        tensor[:, :, p] = eye_vector # :, 0, p
+                else:
+                    eye_tensor = np.eye(shape[0], shape[1])
+                    for p in range(shape[-1]):
+                        tensor[:, :, p] = eye_tensor # :, 0, p
+                
+                # Add on a bit of random noise
+                tensor += std * np.random.randn(*shape)
+
+            elif init_func == 'random_zero':
+                tensor = std * np.random.randn(*shape)
+
+            arrays.append(np.squeeze(tensor))
+            
+        rmps = TrainableMatrixProductState(arrays, **kwargs)
+
+        # if left_canonize == None:
+        #     rmps.normalize()
+        # else:
+        rmps.left_canonize()
+        # rmps.normalize()
         return rmps
