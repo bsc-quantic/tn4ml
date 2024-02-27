@@ -98,18 +98,19 @@ class Sweeps(Strategy):
             return
         sitetags = [model.site_tag(site) for site in sites]
         tensor = model.select_tensors(sitetags, which="all")[0]
+
         # normalize
         if self.renormalize:
             tensor.normalize(inplace=True)
 
         # split tensor
         sitel, siter = sites
-        if isinstance(model, qtn.MatrixProductState):
+        if isinstance(model, qtn.MatrixProductState): # TODO - fix! not working
             site_ind_prefix = model.site_ind_id.rstrip("{}")
             vindl = [f'{site_ind_prefix}{sitel}'] + ([model.bond(sitel - 1, sitel)] if sitel > 0 else [])
             vindr = [f'{site_ind_prefix}{siter}']
-            qtn.tensor_core.tensor_split(model, left_inds=[*vindl], right_inds=[*vindr], max_bond=model.max_bond(), **self.split_opts)
-            #model.split_tensor(sitetags, left_inds=[*vindl], max_bond=model.max_bond(), **self.split_opts)
+            #qtn.tensor_core.tensor_split(model, left_inds=[*vindl], right_inds=[*vindr], max_bond=model.max_bond(), **self.split_opts)
+            model.split_tensor(sitetags, left_inds=[*vindl], max_bond=model.max_bond(), **self.split_opts)
         else:
             site_ind_prefix = model.upper_ind_id.rstrip("{}")
             vindr = [model.upper_ind(siter)] + ([model.bond(siter, siter + 1)] if siter < model.nsites - 1 else [])
@@ -130,28 +131,28 @@ class Sweeps(Strategy):
             splited_tensors = qtn.tensor_core.tensor_split(tensor, get='tensors', left_inds=left_inds, right_inds=right_inds, max_bond=model.max_bond(), **self.split_opts)
             # model.split_tensor(sitetags, left_inds=[*vindl, *lower_ind], max_bond=self.bond_dim_split, **self.split_opts)
         
-        tids = model._get_tids_from_tags(sitetags, which='all')
-        for tid in tuple(tids):
-            model.pop_tensor(tid)
-        #model.delete(sitetags)
-        for t in splited_tensors:
-            inds = t.inds
-            if len(inds) == 4:
-                t.transpose(inds[1], inds[3], inds[0], inds[2], inplace=True)
-            elif len(inds) == 3 and (0 in sites or (model.L - 1) in sites):
-                t.transpose(inds[2], inds[1], inds[0], inplace=True)
-            elif len(inds) == 3:
-                t.transpose(inds[2], inds[1], inds[0], inplace=True)
-            # maybe add for len == 2
-            model.add_tensor(t)
-
+            tids = model._get_tids_from_tags(sitetags, which='all')
+            for tid in tuple(tids):
+                model.pop_tensor(tid)
+            #model.delete(sitetags)
+            for t in splited_tensors:
+                inds = t.inds
+                if len(inds) == 4:
+                    t.transpose(inds[1], inds[3], inds[0], inds[2], inplace=True)
+                elif len(inds) == 3 and (0 in sites or (model.L - 1) in sites):
+                    t.transpose(inds[2], inds[1], inds[0], inplace=True)
+                elif len(inds) == 3:
+                    t.transpose(inds[2], inds[1], inds[0], inplace=True)
+                # maybe add for len == 2
+                model.add_tensor(t)
         # fix tags
         for tag in sitetags:
             for tensor in model.select_tensors(tag):
                 tensor.drop_tags()
                 site_ind = next(filter(lambda ind: ind.removeprefix(site_ind_prefix).isdecimal(), tensor.inds))
                 site = site_ind.removeprefix(site_ind_prefix)
-                tensor.add_tag(model.site_tag(site))     
+                tensor.add_tag(model.site_tag(site))    
+        print(model.tensors)
 
 
 class Global(Strategy):
