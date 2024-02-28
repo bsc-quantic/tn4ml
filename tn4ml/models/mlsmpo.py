@@ -79,7 +79,7 @@ class MLSMPO(torch.nn.Module):
             layer_i = SpacedMatrixProductOperator.rand_init(n=N_i,\
                                                             spacing=feature_dim,\
                                                             bond_dim = self.bond_dim,\
-                                                            phys_dim=(self.phys_dim_input, feature_dim),\
+                                                            phys_dim=(feature_dim, feature_dim),\
                                                             init_func='random_eye')
             print(f'#outputs = {len(list(layer_i.lower_inds))}')
             n_outputs = len(list(layer_i.lower_inds))
@@ -111,7 +111,7 @@ class MLSMPO(torch.nn.Module):
         layer_i = SpacedMatrixProductOperator.rand_init(n=flatten_dim,\
                                                         spacing=flatten_dim,\
                                                         bond_dim = self.bond_dim,\
-                                                        phys_dim=(2, self.output_dim),\
+                                                        phys_dim=(feature_dim, self.output_dim),\
                                                         init_func='random_eye')
         print(f'#outputs = {len(list(layer_i.lower_inds))}')
         param, skeleton = qtn.pack(layer_i)
