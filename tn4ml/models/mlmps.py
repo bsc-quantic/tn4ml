@@ -127,22 +127,65 @@ class MLMPS(torch.nn.Module):
         self.skeletons = skeletons
         return
     
-    def pass_per_layer(self, input_image, params, skeleton):
-        
+    def pass_first_layer(self, input_image, params, skeleton):
         squeezed_image = squeeze_image(input_image, k=self.kernel, device=self.device)
-        #squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
+        squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
 
         # embedded input image
         N_i, feature_dim = squeezed_image.shape
         #squeezed_image = squeezed_image.reshape(N_i*feature_dim)
         mps_input = embeddings.embed(squeezed_image, self.embedding_input)
-        #mps_input.normalize()
+
         # return params to quimb
         params = {int(key.split('_')[1]): value for key, value in params.items()}
         
         # unpack model from params and skeleton
         mps_model = qtn.unpack(params, skeleton)
-        mps_model.normalize()
+        #mps_model.normalize()
+        #print(mps_model.norm())
+        # MPS + MPS_with_output = vector
+        output = mps_model.apply(mps_input)
+
+        # Iteratively contract the result with each subsequent tensor
+        result = output[0]
+        for i in range(1, len(output.tensors)):
+            result = result @ output[i]
+
+            new_inds = [ind for ind, size in zip(result.inds, result.shape) if size > 1]
+            # Corresponding sizes for the new shape
+            new_shape = [size for size in result.shape if size > 1]
+            #help_t = qtn.Tensor(result.data.reshape(new_shape), inds=new_inds, tags=result.tags)
+            result.modify(data=result.data.reshape(new_shape), inds=new_inds)
+
+        result.drop_tags(result.tags)
+        result.add_tag(['I0'])
+        result = result.data.reshape((N_i, ))
+        return result.to(device=self.device)
+
+    def pass_per_layer(self, input_image, params, skeleton):
+        squeezed_image = squeeze_image(input_image, k=self.kernel, device=self.device)
+        squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
+
+        # embedded input image
+        N_i, feature_dim = squeezed_image.shape
+        #squeezed_image = squeezed_image.reshape(N_i*feature_dim)
+        mps_input = embeddings.embed(squeezed_image, self.embedding_input)
+
+        # arrays = []
+        # for pixel in squeezed_image:
+        #     print(f'min={torch.min(pixel, dim=0)}, max={torch.max(pixel, dim=0)}')
+        #     arrays.append(pixel.reshape((1,1,feature_dim)))
+        
+        # for i in [0, -1]:
+        #     arrays[i] = arrays[i].reshape((1, feature_dim))
+        # mps_input = qtn.MatrixProductState(arrays)
+        # mps_input.normalize()
+        # return params to quimb
+        params = {int(key.split('_')[1]): value for key, value in params.items()}
+        
+        # unpack model from params and skeleton
+        mps_model = qtn.unpack(params, skeleton)
+        #mps_model.normalize()
         #print(mps_model.norm())
         # MPS + MPS_with_output = vector
         output = mps_model.apply(mps_input)
@@ -184,22 +227,30 @@ class MLMPS(torch.nn.Module):
         return result.to(device=self.device)
     
     def pass_final_layer(self, input_image, params, skeleton):
-
         squeezed_image = squeeze_image(input_image, k=self.kernel, device=self.device)
-        #squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
+        squeezed_image = squeezed_image.reshape(math.prod(squeezed_image.shape[:-1]), squeezed_image.shape[-1])
 
         # embedded input image
         # flatten_image = input_image.flatten()
-        #N_i, feature_dim = squeezed_image.shape
+        N_i, feature_dim = squeezed_image.shape
         #squeezed_image = squeezed_image.reshape(N_i*feature_dim)
         mps_input = embeddings.embed(squeezed_image, self.embedding_input)
-        #mps_input.normalize()
+        # arrays = []
+        # for pixel in squeezed_image:
+        #     print(f'min={torch.min(pixel, dim=0)}, max={torch.max(pixel, dim=0)}')
+        #     arrays.append(pixel.reshape((1,1,feature_dim)))
+        
+        # for i in [0, -1]:
+        #     arrays[i] = arrays[i].reshape((1, feature_dim))
+        
+        # mps_input = qtn.MatrixProductState(arrays)
+        # mps_input.normalize()
         # return params to quimb
         params = {int(key.split('_')[1]): value for key, value in params.items()}
         
         # unpack model from params and skeleton
         mps_model = qtn.unpack(params, skeleton)
-        mps_model.normalize()
+        #mps_model.normalize()
         # MPS + MPS_with_output = vector
         output = mps_model.apply(mps_input)
         
@@ -253,12 +304,13 @@ class MLMPS(torch.nn.Module):
         #batch_size = x.shape[0]
 
         for n_layer, (params_i, skeleton_i) in enumerate(zip(self.params, self.skeletons)):
-
-            if n_layer == self.n_layers:
+            if n_layer == 0:
+                x = vmap(self.pass_first_layer, in_dims=(0, None, None))(x, params_i, skeleton_i)
+            elif n_layer == self.n_layers:
                 x = vmap(self.pass_final_layer, in_dims=(0, None, None))(x, params_i, skeleton_i)
                 return x
-            
-            x = vmap(self.pass_per_layer, in_dims=(0, None, None))(x, params_i, skeleton_i)
+            else:
+                x = vmap(self.pass_per_layer, in_dims=(0, None, None))(x, params_i, skeleton_i)
 
             # reshape
             #x = x.reshape(batch_size, x_dims[-1], x_dims[0]).to(self.device)
@@ -273,4 +325,4 @@ class MLMPS(torch.nn.Module):
             # reshape to image-like for next layer
             #x = torch.unsqueeze(x, -1)
             x = vmap(rearange_image, in_dims=(0, None, None))(x, self.S, self.device)
-            x = x.permute(0, 3, 1, 2)
+            #x = x.permute(0, 3, 1, 2)
