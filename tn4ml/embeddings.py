@@ -96,6 +96,23 @@ class linear(Embedding):
     def __call__(self, x: Number) -> onp.ndarray:
         return np.asarray([x, 1-x])
 
+class gaussian_rbf(Embedding):
+    """ Gaussian RBF  """
+
+    def __init__(self, centers, gamma, **kwargs):
+
+        self.centers = centers
+        self.gamma = gamma    
+        super().__init__(**kwargs)
+
+    @property
+    def dim(self) -> int:
+        return len(self.centers)
+    
+    def __call__(self, x: Number) -> onp.ndarray:
+        return jnp.exp(-self.gamma*jnp.subtract(x, jnp.array(self.centers)))
+
+
 def physics_embedding(data: onp.ndarray, embed_func: Embedding, **mps_opts):
     eta = data[:, 0]
     phi = data[:, 1]
@@ -173,8 +190,37 @@ def physics_embedding_cos_sin(data: onp.ndarray, embed_func: Embedding, **mps_op
     data_embed_reshaped = [(x/np.linalg.norm(x)).reshape((1,1,2)) for x in data_embed]
     return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
 
+def ultimate_embedding(data: onp.ndarray, **mps_opts):
+    #import numexpr as ne
 
-def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, **mps_opts):
+    # make sure all data is in range 0-1
+    eta = data[:, 0]
+    phi = data[:, 1]
+    pT = data[:, 2]
+
+    # TODO - add check 0-1 range
+
+    trig = trigonometric() # can change k
+    eta_embed = np.asarray([trig(e) for e in eta])
+    phi_embed = np.asarray([trig(p) for p in phi])
+
+    # find quantiles
+    centers = [np.quantile(pT, 0.25), np.quantile(pT, 0.75)]
+    gamma = np.median(pT)
+    gr = gaussian_rbf(centers=centers, gamma=gamma)
+    pT_embed = np.array([gr(pt) for pt in pT])
+
+    arrays = []
+    for i in range(data.shape[0]):
+        arrays.append((eta_embed[i]/np.linalg.norm(eta_embed[i])).reshape(1,1,2))
+        arrays.append((phi_embed[i]/np.linalg.norm(phi_embed[i])).reshape(1,1,2))
+        arrays.append((pT_embed[i]/np.linalg.norm(pT_embed[i])).reshape(1,1,2))
+    
+    return qtn.MatrixProductState(arrays, **mps_opts)
+
+
+
+def embed(x: onp.ndarray, phi: Embedding = None, phi_multidim: Embedding = None, **mps_opts):
     """Creates a product state from a vector of features `x`.
 
     Parameters
@@ -195,7 +241,7 @@ def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, **mps_
         multi_dim = False
 
     if multi_dim:
-        return phi_multidim(x, phi, **mps_opts)
+        return ultimate_embedding(x, **mps_opts)
     else:
         arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
         for i in [0, -1]:
