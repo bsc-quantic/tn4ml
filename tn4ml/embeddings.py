@@ -203,15 +203,16 @@ class amplitude_encoding_quatro(Embedding):
         return x/torch.norm(x)
     
 class whatever_encoding(Embedding):
-    def __init__(self, **kwargs):
+    def __init__(self, dim, **kwargs):
         """Constructor
 
         """        
         super().__init__(**kwargs)
+        self._dim = dim
 
     @property
     def dim(self) -> int:
-        return 4
+        return self._dim
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         x = (x+1)/2
