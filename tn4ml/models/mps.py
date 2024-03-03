@@ -135,5 +135,5 @@ class TrainableMatrixProductState(Model, MatrixProductState):
         #     rmps.normalize()
         # else:
         rmps.left_canonize()
-        # rmps.normalize()
+        rmps.normalize()
         return rmps

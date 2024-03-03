@@ -195,11 +195,12 @@ class Model(qtn.TensorNetwork):
                     loss_batch += loss_cur
                                         
                     self.norm_before_normalize.append(self.norm())
+                    
                     if normalize:
                         self.normalize()
 
-                    if canonize:
-                        self.canonize(0)
+                    # if canonize:
+                    #     self.canonize(0)
 
                     if callbacks:
                         for name, fn in callbacks:
