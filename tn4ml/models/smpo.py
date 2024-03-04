@@ -351,7 +351,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
             init_func = init_str
         else:
-            std = 1e-9
+            std = 1e-6
 
         if init_func not in ['random_eye', 'min_random_eye', 'random_zero']:
             raise ValueError(f"Unknown initialization method: {init_func}")

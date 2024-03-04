@@ -96,6 +96,36 @@ class linear(Embedding):
     def __call__(self, x: Number) -> onp.ndarray:
         return np.asarray([x, 1-x])
 
+class amplitude_encoding_quatro(Embedding):
+    def __init__(self, **kwargs):
+        """Constructor
+
+        """        
+        super().__init__(**kwargs)
+
+    @property
+    def dim(self) -> int:
+        return 4
+
+    def __call__(self, x: Number) -> onp.ndarray:
+        return x/onp.linalg.norm(x)
+    
+class whatever_encoding(Embedding):
+    def __init__(self, dim, **kwargs):
+        """Constructor
+
+        """        
+        super().__init__(**kwargs)
+        self._dim = dim
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    def __call__(self, x: Number) -> onp.ndarray:
+        x = (x+1)/2
+        return x
+
 def physics_embedding(data: onp.ndarray, embed_func: Embedding, **mps_opts):
     eta = data[:, 0]
     phi = data[:, 1]
@@ -174,7 +204,7 @@ def physics_embedding_cos_sin(data: onp.ndarray, embed_func: Embedding, **mps_op
     return qtn.MatrixProductState(data_embed_reshaped, **mps_opts)
 
 
-def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, **mps_opts):
+def embed(x: onp.ndarray, phi: Embedding = None, phi_multidim: Embedding = None, **mps_opts):
     """Creates a product state from a vector of features `x`.
 
     Parameters
@@ -195,7 +225,11 @@ def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, **mps_
         multi_dim = False
 
     if multi_dim:
-        return phi_multidim(x, phi, **mps_opts)
+        arrays = [phi_multidim(xi).reshape((1, 1, phi_multidim.dim)) for xi in x]
+        for i in [0, -1]:
+            arrays[i] = arrays[i].reshape((1, phi_multidim.dim))
+
+        return qtn.MatrixProductState(arrays, **mps_opts)
     else:
         arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
         for i in [0, -1]:

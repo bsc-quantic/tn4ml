@@ -6,120 +6,7 @@ import math
 import numpy as np
 import jax.numpy as jnp
 import flax.linen as nn
-
-def squeeze_image(image, k=3):
-    """
-    Squeeze over H,W,D dimensions, but enlarge feature dimension to k**(S), where S=dimensionality of image.
-
-    Parameters
-    ----------
-    image : np.array
-        3D image
-    k : int = 3
-        Kernel stride and size (if k=3 then kernel has shape (3,3,3) and its moving by stride 3)
-
-    Returns
-    -------
-    np.array
-    """
-    S = len(image.shape) - 1 # dimensionality of image
-    if S < 2:
-        ValueError('Image should be 2D or 3D!')
-
-    new_dims = []
-    for dim in list(image.shape)[:-1]:
-        new_dims.append(dim // k)
-    new_dims.append(list(image.shape)[-1] * k**S)
-        
-    reshaped_image = jnp.zeros(tuple(new_dims))
-    
-    feature = 0
-    for x in range(k):
-        for y in range(k):
-            if S == 3:
-                # 3D image
-                for z in range(k):
-                    kernel = jnp.zeros((k,k,k))
-                    kernel = kernel.at[x,y,z].set(1)
-                    kernel = jnp.expand_dims(kernel, axis=-1)
-                    
-                    tensor = jnp.zeros(tuple(new_dims[:-1]))
-                    for i in range(0, image.shape[0], k):
-                        for j in range(0, image.shape[1], k):
-                            for l in range(0, image.shape[2], k):
-                                patch = jnp.sum(image[i:i+k, j:j+k, l:l+k, :] * kernel)
-                                
-                                tensor = tensor.at[i//k, j//k, l//k].set(patch)
-                    reshaped_image = reshaped_image.at[:,:,:,feature].set(tensor)
-                    feature += 1
-            else:
-                # 2D image
-                kernel = jnp.zeros((k,k))
-                kernel = kernel.at[x,y].set(1.0)
-                kernel = jnp.expand_dims(kernel, axis=-1)
-                
-                tensor = jnp.zeros(tuple(new_dims[:2]))
-                for i in range(0, image.shape[0], k):
-                    for j in range(0, image.shape[1], k):
-                            patch = jnp.sum(image[i:i+k, j:j+k, :] * kernel)
-                            
-                            tensor = tensor.at[i//k, j//k].set(patch)
-                reshaped_image = reshaped_image.at[:,:,feature].set(tensor)
-                feature += 1
-    return reshaped_image
-
-def unsqueeze_image(image, S=3):
-    """
-    Unsqueeze over H,W,(D) dimensions, but average over feature dimension.
-
-    Parameters
-    ----------
-    image : np.array
-        2D or 3D image
-    S : int = 3
-        Dimensionality of input image. S = 3 --> 3D image
-
-    Returns
-    -------
-    np.array
-    """
-    n_mps, n_features = image.shape
-    new_dims = []
-    for dim in range(S):
-        new_dims.append(round(n_mps**(1/S)))
-    new_dims.append(n_features)
-
-    reshaped_image = jnp.reshape(image, tuple(new_dims))
-    averaged_image = jnp.average(reshaped_image, axis=-1)
-    averaged_image = jnp.expand_dims(averaged_image, axis=-1)
-
-    return averaged_image
-
-def squeeze_dimensions(input_dims, k=3):
-    """ helper function for initialization """
-    if len(input_dims) < 3:
-        ValueError('Input data must have at least 2 dimensions and one channel')
-    S = len(input_dims) - 1
-
-    new_dims = []
-    for dim in input_dims[:-1]:
-        new_dims.append(dim // k)
-    
-    feature_dim = input_dims[-1] * k**S # C = input_dims[-1]
-
-    return tuple(new_dims), feature_dim
-
-def unsqueezed_dimensions(input_dims, S=3):
-    """ helper function for initialization """
-    n_mps, _ = input_dims
-
-    new_dims = []
-    for i in range(S):
-        new_dims.append(round(n_mps**(1/S)))
-    new_dims.append(1) # averaged by feature dimension
-
-    return tuple(new_dims)
-
+from tn4ml.util import *
 
 # TODO - maybe use nn.compact instead of setup and call to avoid code duplicates
 class loTeNet(nn.Module):
@@ -253,7 +140,7 @@ class loTeNet(nn.Module):
                 vector_outputs.append(output.data.reshape((self.virtual_dim, )))
             
             # reshape to image-like for next layer
-            input_image = unsqueeze_image(jnp.array(vector_outputs), self.S)
+            input_image = unsqueeze_image_pooling(jnp.array(vector_outputs), self.S)
 
         
 
