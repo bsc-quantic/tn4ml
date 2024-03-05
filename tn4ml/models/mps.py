@@ -21,6 +21,28 @@ class TrainableMatrixProductState(Model, MatrixProductState):
         MatrixProductState.__init__(self, arrays, **kwargs)
     
     def rand_state(L: int, bond_dim: int, phys_dim: int=2, normalize: bool=True, cyclic: bool=False, dtype: str="float64", trans_invar: bool = False, **kwargs):
+        """Initialize randomly tensors - taken from quimb.tensor.MPS_rand_state().
+
+        Parameters
+        ----------
+        L: int
+            Number of tensors.
+        bond_dim : int
+            Dimension of virtual indices between tensors. *Default = 2*.
+        phys_dim :  int
+            Dimension of physical indices for individual tensor - *up* and *down*.
+        normalize : bool
+            Flag to normlize tensor network.
+        cyclic : bool
+            Flag for indicating if SpacedMatrixProductOperator is cyclic. *Default=False*.
+        trans_invar : bool
+            Type of random number for generating arrays data. *Default='uniform'*.
+
+        Returns
+        -------
+        :class:`tn4ml.models.mps.TrainableMatrixProductState`
+        """
+
         rmps = qtn.MPS_rand_state(L, bond_dim=bond_dim,\
                                   phys_dim = phys_dim,\
                                   normalize = normalize,\
@@ -32,8 +54,36 @@ class TrainableMatrixProductState(Model, MatrixProductState):
         return TrainableMatrixProductState(arrays, **kwargs)
 
         
-    def rand_orthogonal(L: int, bond_dim: int, phys_dim: int=2, normalize: bool=True, cyclic: bool=False, dtype: str="float64", init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
-        
+    def rand_orthogonal(L: int, bond_dim: int = 2, phys_dim: int = 2, normalize: bool=True, cyclic: bool=False, dtype: str="float64", init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
+        """Initialize tensors with Gram-Schmidt ortogonalization procedure ensuring normalized state.
+        Currently this function is only supported for `cyclic=False`.
+
+        Parameters
+        ----------
+        L: int
+            Number of tensors.
+        bond_dim : int
+            Dimension of virtual indices between tensors. *Default = 2*.
+        phys_dim :  int
+            Dimension of physical indices for individual tensor - *up* and *down*.
+        normalize : bool
+            Flag to normlize tensor network.
+        cyclic : bool
+            Flag for indicating if SpacedMatrixProductOperator is cyclic. *Default=False*.
+        init_func : str
+            Type of random number for generating arrays data. *Default='uniform'*.
+        scale : float
+            The width of the distribution (standard deviation if `init_func='normal'`).
+        seed : int, or `None`
+            Seed for generating random number.
+        dtype : str 
+            Type of random number for quimb.randn()
+
+        Returns
+        -------
+        :class:`tn4ml.models.mps.TrainableMatrixProductState`
+        """
+
         if cyclic:
             raise NotImplementedError()
 
@@ -75,5 +125,7 @@ class TrainableMatrixProductState(Model, MatrixProductState):
         arrays[0] /= np.sqrt(phys_dim)
             
         rmps = TrainableMatrixProductState(arrays, **kwargs)
-
+        
+        if normalize:
+            rmps.normalize()
         return rmps
