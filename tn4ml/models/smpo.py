@@ -224,11 +224,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         
         mpo = SpacedMatrixProductOperator(arrays, **kwargs)
         mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
-
-        # for i, tensor in enumerate(mpo.tensors):
-        #     tensor_norm = tensor.norm()
-        #     tensor.modify(data=tensor.data / np.sqrt(tensor_norm))
-
+        
         if insert == None:
             mpo.normalize()
         else:
@@ -238,9 +234,8 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         return mpo
 
     def rand_orthogonal(n: int, spacing: int = None, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), output_inds: Collection = [], cyclic: bool = False, init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
-        """Generates :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` with random tensors in a
-        orthogonal basis, which fulfill that the `tn4ml.models.smpo.SpacedMatrixProductOperator` is
-        normalized. Currently this function is only supported for `cyclic=False`.
+        """Initialize tensors with Gram-Schmidt ortogonalization procedure ensuring normalized state.
+        Currently this function is only supported for `cyclic=False`.
 
         Parameters
         ----------
@@ -300,14 +295,6 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                     spacing = spacings[h]
                 if has_out:
                     h+=1
-            # if j == 1 and i == 1:
-            #     chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** ((j)//spacing))
-            #     chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)))
-            # elif j == 1 and i == n:
-
-            # else:
-            #     chil = chir
-            #     chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** ((j)//spacing))
 
             chir = min(bond_dim, phys_dim[0] ** (j) * phys_dim[1] ** ((j)//spacing))
             chil = min(bond_dim, phys_dim[0] ** (j-1) * phys_dim[1] ** ((j-1)//spacing))
@@ -337,23 +324,54 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             arrays.append(np.reshape(A, shape))
 
         arrays[0] /= np.sqrt(min(bond_dim, phys_dim[0]))
-        mpo = SpacedMatrixProductOperator(arrays, output_inds, **kwargs)
-        return mpo
+
+        smpo = SpacedMatrixProductOperator(arrays, output_inds, **kwargs)
+        smpo.normalize() # just in case normalize
+        return smpo
     
     # parts of code from https://github.com/raghavian
     def rand_init(n: int, init_func: str = 'random_eye', spacing: int = None, bond_dim: int = 4, phys_dim: Tuple[int, int] = (2, 2), output_inds: Collection = [], cyclic: bool = False, **kwargs):
+        """Initializes bond dimensions of tensors with identity matrices to allow more stable training = insert copy tensors.
+        Currently this function is only supported for `cyclic=False`.
+
+        Parameters
+        ----------
+        n: int
+            Number of tensors.
+        spacing : int
+            Spacing paramater, or space between output indices in number of sites.
+        bond_dim : int
+            Dimension of virtual indices between tensors. *Default = 4*.
+        phys_dim :  tuple(int, int)
+            Dimension of physical indices for individual tensor - *up* and *down*.
+        output_inds : array of int
+            Indexes of tensors which have output indices. From 0 to n.
+        cyclic : bool
+            Flag for indicating if SpacedMatrixProductOperator is cyclic. *Default=False*.
+        init_func : str
+            Type of random number for generating arrays data. *Default='uniform'*.
+        scale : float
+            The width of the distribution (standard deviation if `init_func='normal'`).
+        seed : int, or `None`
+            Seed for generating random number.
+
+        Returns
+        -------
+        :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
+        """
+        
         # Unpack init_method if it is a tuple
         if not isinstance(init_func, str):
             init_str = init_func[0]
             std = init_func[1]
             # if init_str == 'min_random_eye':
             #     init_dim = init_func[2]
-
             init_func = init_str
         else:
             std = 1e-9
 
         if init_func not in ['random_eye', 'min_random_eye', 'random_zero']:
+            # TODO min_random_eye not implemented
             raise ValueError(f"Unknown initialization method: {init_func}")
         
         if cyclic:
@@ -391,70 +409,53 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                     shape = (1, bond_dim, phys_dim[0])
                 if i == n and not cyclic:
                     shape = (bond_dim, 1, phys_dim[0])
+            
             if init_func == 'random_eye':
-                #eye_tensor = np.eye(shape[0], shape[1]) # lrp, so lr
                 tensor = np.zeros(shape)
                 if len(shape) == 4:
-                    #eye_tensor = np.eye(shape[2], shape[3]) # physical_dim = (x1, x2) - 2 outputs
                     eye_tensor = np.eye(shape[0], shape[1])
                     if i == 1:
-                        # for b in range(shape[1]):
-                        #     tensor[0, b, :, :] = eye_tensor
                         eye_vector = np.eye(1, shape[1])
                         for p1 in range(shape[2]):
                             for p2 in range(shape[3]):
                                 tensor[:, :, p1, p2] = eye_vector # 0, :, p, p
                     elif i == n:
-                        # for b in range(shape[0]):
-                        #     tensor[b, 0, :, :] = eye_tensor
                         eye_vector = np.eye(shape[0], 1)
                         for p1 in range(shape[2]):
                             for p2 in range(shape[3]):
                                 tensor[:, :, p1, p2] = eye_vector # :, 0, p, p
                     else:
-                        # for b1 in range(shape[0]):
-                        #     for b2 in range(shape[1]):
-                        #         tensor[b1, b2, :, :] = eye_tensor
                         for p1 in range(shape[2]):
                             for p2 in range(shape[3]):
                                 tensor[:, :, p1, p2] = eye_tensor
                 else:
                     if i == 1:
-                        # for b in range(shape[1]):
-                        #     tensor[0, b, :] = 1.0
                         eye_vector = np.eye(1, shape[1])
                         for p in range(shape[-1]):
                             tensor[:, :, p] = eye_vector # 0, :, p
                     elif i == n:
-                        # for i in range(shape[0]):
-                        #     tensor[b, 0, :] = 1.0
                         eye_vector = np.eye(shape[0], 1)
                         for p in range(shape[-1]):
                             tensor[:, :, p] = eye_vector # :, 0, p
                     else:
                         eye_tensor = np.eye(shape[0], shape[1])
-                        # for b1 in range(shape[0]):
-                        #     for b2 in range(shape[1]):
-                        #         tensor[b1, b2, :] = 1.0
                         for p in range(shape[-1]):
                             tensor[:, :, p] = eye_tensor
                 
-                # Add on a bit of random noise
+                # Add noise
                 tensor += std * np.random.randn(*shape)
                 #tensor /= np.linalg.norm(tensor)
-                #print(tensor.shape)
-                #print(tensor)
             elif init_func == 'random_zero':
                 tensor = std * np.random.randn(*shape)
 
             arrays.append(np.squeeze(tensor))
         
-        mpo = SpacedMatrixProductOperator(arrays, **kwargs)
+        smpo = SpacedMatrixProductOperator(arrays, **kwargs)
         
         #mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
-        mpo.normalize()
+        smpo.normalize()
 
-        return mpo
+        return smpo
         
 
 
@@ -561,7 +562,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
        
         shape = 'lrp'
         vec = MatrixProductState(arrays, shape=shape)
-        
+        vec.normalize()
         # optionally compress
         if compress:
             vec.compress(**compress_opts)
