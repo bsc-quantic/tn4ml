@@ -1,9 +1,19 @@
+""" Helper functions """
+
 import re
 import numpy as np
 import torch
 
 def return_digits(array):
-    """Helper function to convert array of string numbers to integers.
+    """Convert array of string numbers to integers.
+    
+    Parameters
+    ----------
+    array : np.array
+
+    Returns
+    -------
+    np.array
     """
     digits=[]
     for text in array:
@@ -84,19 +94,6 @@ def squeeze_image(image, k=3, device=torch.device('cpu')):
                 reshaped_image = reshaped_image + tensor.unsqueeze(-1) * mask
                 feature += 1
     return reshaped_image
-    
-    # S = len(image.shape) - 1
-
-    # iDim = torch.ShortTensor(list(image.shape[1:])) // k
-    # #print(iDim)
-    # if S == 2:
-    #     image = image.unfold(2,iDim[0],iDim[1]).unfold(3,iDim[0],iDim[1])
-    # else:
-    #     image = image.unfold(2,iDim[0],iDim[0]).unfold(3,iDim[1],iDim[1]).unfold(4,iDim[2],iDim[2])
-    # # print(f'shape of image after squeeze: {x.shape}')
-    # image = image.reshape(-1, k**S)
-    # return image
-
 
 def unsqueeze_image_pooling(image, S=3, device=torch.device('cpu')):
     """
@@ -129,6 +126,7 @@ def rearange_image(image, S=3, device=torch.device('cpu')):
     """
     Reshape image back to H, W, (D)
     TODO - implement for image with channels
+    
     Parameters
     ----------
     image : np.array
@@ -151,7 +149,19 @@ def rearange_image(image, S=3, device=torch.device('cpu')):
     return reshaped_image
 
 def squeeze_dimensions(input_dims, k=3):
-    """ helper function for initialization """
+    """ Find dimensions after performing squeezing function on image with dimension = input_dims.
+
+     Parameters
+    ----------
+    input_dims : tuple [int, int, ...]
+
+    k : int
+        Kernel size, in all D dimensions of image, and value of stride.
+    
+    Returns
+    -------
+    tuple, int
+    """
     if len(input_dims) < 3:
         ValueError('Input data must have at least 2 dimensions and one channel')
     S = len(input_dims) - 1
@@ -163,24 +173,28 @@ def squeeze_dimensions(input_dims, k=3):
     feature_dim = input_dims[-1] * k**S # C = input_dims[-1]
     return tuple(new_dims), feature_dim
 
-def unsqueezed_dimensions(input_dims, S=3):
-    """ helper function for initialization """
-    n_mps, _ = input_dims
-
-    new_dims = []
-    for _ in range(S):
-        new_dims.append(round(n_mps**(1/S)))
-    new_dims.append(1) # averaged by feature dimension
-
-    return tuple(new_dims)
-
 def rearanged_dimensions(input_dims, S=3):
+    """ Find dimensions after performing after returning image with dimension = input_dims to image format HxWx(D)xC.
+    For now C = 1 (TODO implement for channels C > 1).
+
+     Parameters
+    ----------
+    input_dims : tuple [int, int, ...]
+
+    S : int
+        Dimensionality of input image. S = 3 --> 3D image
+    
+    Returns
+    -------
+    tuple
+    """
+
     (N_i,) = input_dims
 
     new_dims = []
     for _ in range(S):
         new_dims.append(round(N_i**(1/S)))
-    new_dims.append(1)
+    new_dims.append(1) # averaged by feature dimension or just added C as channel value
 
     return tuple(new_dims)
 
