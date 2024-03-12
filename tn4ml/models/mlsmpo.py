@@ -88,6 +88,7 @@ class MLSMPO(torch.nn.Module):
             n_outputs = len(list(layer_i.lower_inds))
             # gather params and skeleton of each MPS
             param, skeleton = qtn.pack(layer_i)
+
             param_dict = {}
             for j, data in param.items():
                 param_dict[f'param_{j}_nL{i}'] = torch.nn.Parameter(torch.tensor(data, dtype=torch.float64), requires_grad=True)
@@ -111,16 +112,16 @@ class MLSMPO(torch.nn.Module):
         print(f'N_i, feature_dim = {N_i}, {feature_dim}')
         # NEW
         print(f'Number of tensors in last layer = {N_i}')
-        layer_i = SpacedMatrixProductOperator.rand_init(n=N_i,\
+        layer_i = SpacedMatrixProductOperator.rand_orthogonal(n=N_i,\
                                                         spacing=N_i,\
                                                         bond_dim = self.bond_dim,\
                                                         phys_dim=(feature_dim, self.output_dim),\
-                                                        init_func='random_eye')
+                                                        init_func='normal')
         print(f'#outputs = {len(list(layer_i.lower_inds))}')
         param, skeleton = qtn.pack(layer_i)
         param_dict = {}
         for j, data in param.items():
-            param_dict[f'param_{j}_nL{self.n_layers+1}'] = torch.nn.Parameter(torch.tensor(data, dtype=torch.float64), requires_grad=True)
+            param_dict[f'param_{j}_nL{self.n_layers}'] = torch.nn.Parameter(torch.tensor(data, dtype=torch.float64), requires_grad=True)
         params.append(torch.nn.ParameterDict(param_dict))
         skeletons.append(skeleton)
         
@@ -139,41 +140,26 @@ class MLSMPO(torch.nn.Module):
         N_i, feature_dim = squeezed_image.shape
         embedding = embeddings.whatever_encoding(dim=feature_dim)
         mps_input = embeddings.embed(squeezed_image, embedding)
-        
+        mps_input.normalize()
+
         # return params to quimb
-        params = {int(key.split('_')[1]): value for key, value in params.items()}
-        
+        params_quimb = {int(key.split('_')[1]): value for key, value in params.items()}
+
         # unpack model from params and skeleton
-        mps_model = qtn.unpack(params, skeleton)
+        mps_model = qtn.unpack(params_quimb, skeleton)
         mps_model.normalize()
+        
         n_outputs = len(list(mps_model.lower_inds))
+
         # MPS + MPS_with_output = vector
         output = mps_model.apply(mps_input)
-
-        # output.compress()
-        # for t in output.tensors:
-        #     print(t)
-        # output_matrix = output.to_dense()
-        # print(output_matrix)
-        # list_tensors = output.tensors
-        # number_of_sites = len(list_tensors)
-
-        # tags = list(qtn.tensor_core.get_tags(output))
-        # tags_to_drop = []
-        # for j in range(0, number_of_sites-1):
-        #     if j >= number_of_sites - 1:
-        #         break
-        #     output.contract_ind(list_tensors[j].bonds(list_tensors[j + 1]))
-        #     print(len(output.tensors))
-
-        #     tags_to_drop.extend([tags[j]])
-        
-        # output.drop_tags(tags_to_drop)
+        output.normalize()
 
         # # Iteratively contract the result with each subsequent tensor
         result = output[0]
+        # Iteratively contract the result with each subsequent tensor
         for i in range(1, len(output.tensors)):
-            result = result @ output[i]
+            result = result.contract(output[i])
             new_inds = [ind for ind, size in zip(result.inds, result.shape) if size > 1]
             # Corresponding sizes for the new shape
             new_shape = [size for size in result.shape if size > 1]
@@ -191,54 +177,21 @@ class MLSMPO(torch.nn.Module):
 
         # embedded input image
         N_i, feature_dim = squeezed_image.shape
-        #embedding = embeddings.whatever_encoding(dim=feature_dim)
-        #mps_input = embeddings.embed(squeezed_image, embedding)
-        arrays = []
-        for pixel in squeezed_image:
-            #print(f'min={torch.min(pixel, dim=0)}, max={torch.max(pixel, dim=0)}')
-            arrays.append(pixel.reshape((1,1,feature_dim)))
-        
-        for i in [0, -1]:
-            arrays[i] = arrays[i].reshape((1, feature_dim))
-        mps_input = qtn.MatrixProductState(arrays)
-        #mps_input.normalize()
+        embedding = embeddings.whatever_encoding(dim=feature_dim)
+        mps_input = embeddings.embed(squeezed_image, embedding)
+        mps_input.normalize()
         
         # return params to quimb
-        params = {int(key.split('_')[1]): value for key, value in params.items()}
-        
+        params_quimb = dict()
+        for key, value in params.items():
+            params_quimb[int(key.split('_')[1])] = value
         # unpack model from params and skeleton
-        mps_model = qtn.unpack(params, skeleton)
+        mps_model = qtn.unpack(params_quimb, skeleton)
+        mps_model.normalize()
         
         # MPS + MPS_with_output = vector
         output = mps_model.apply(mps_input)^all
-
-        # list_tensors = output.tensors
-        # number_of_sites = len(list_tensors)
-        # tags = list(qtn.tensor_core.get_tags(output))
-        # tags_to_drop = []
-        # for j in range(0, number_of_sites-1):
-        #     if j >= number_of_sites - 1:
-        #         break
-        #     output.contract_ind(list_tensors[j].bonds(list_tensors[j + 1]))
-        #     print(output)
-        #     tags_to_drop.extend([tags[j]])
-        
-        # output.drop_tags(tags_to_drop)
-        # print(output)
-        # result = output[0]
-
-        # # Iteratively contract the result with each subsequent tensor
-        # for i in range(1, len(output.tensors)):
-        #     result = result @ output[i]
-
-        #     new_inds = [ind for ind, size in zip(result.inds, result.shape) if size > 1]
-        #     # Corresponding sizes for the new shape
-        #     new_shape = [size for size in result.shape if size > 1]
-        #     result = qtn.Tensor(result.data.reshape(new_shape), inds=new_inds, tags=result.tags)
-
-        # result.drop_tags(result.tags)
-        # result.add_tag(['I0'])
-        # result = result.data.reshape((self.output_dim, ))
+        #output.normalize()
         return output.data.reshape((self.output_dim,)).to(device=self.device)
     
     def forward(self, x):
@@ -264,6 +217,7 @@ class MLSMPO(torch.nn.Module):
                 return x
             
             x = vmap(self.pass_per_layer, in_dims=(0, None, None, None))(x, n_layer, params_i, skeleton_i)
+            
             #x_dims = x.shape[1:]
 
             # reshape

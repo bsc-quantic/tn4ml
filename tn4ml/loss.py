@@ -73,7 +73,7 @@ def error_logquad(P, data):
             mps.contract_ind(index)
     else:
         mps = P.apply(data)
-    return do("power", do("add", do("log", mps.H & mps ^ all), -1.0), 2)
+    return do("power", do("add", do("log", mps.H & mps ^ all), -1.0), 2) # TODO missing power on mps.H&mps^all
 
 def error_quad(P, data):
     """Example of error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
