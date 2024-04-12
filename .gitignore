@@ -289,3 +289,6 @@ $RECYCLE.BIN/
 *.pkl
 *.svg
 *.png
+
+# examples
+examples/*

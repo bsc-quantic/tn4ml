@@ -1,33 +1,42 @@
-from typing import Any
+from typing import Any, Tuple
 import numpy as np
 import autoray as a
 
 from quimb import *
 import quimb.tensor as qtn
-from quimb.tensor.tensor_1d import MatrixProductState
+from quimb.tensor.tensor_1d import MatrixProductOperator
 
 from jax.nn.initializers import Initializer
 import jax.numpy as jnp
 
 from .model import Model
 
-class ParametrizedMatrixProductState(Model, MatrixProductState):
-    """A Trainable MatrixProductState class.
-    See :class:`quimb.tensor.tensor_1d.MatrixProductState` for explanation of other attributes and methods.
+class ParametrizedMatrixProductOperator(Model, MatrixProductOperator):
+    """A Trainable MatrixProductOperator class.
+    See :class:`quimb.tensor.tensor_1d.MatrixProductOperator` for explanation of other attributes and methods.
     """
 
     def __init__(self, arrays, **kwargs):
-        """Initializes :class:`tn4ml.models.mps.ParametrizedMatrixProductState`.
-        
+        # if isinstance(arrays, MatrixProductState):
+        #     Model.__init__(self)
+        #     return
+        Model.__init__(self)
+        MatrixProductOperator.__init__(self, arrays, **kwargs)
+    
+    def normalize(self, insert=None):
+        """Function for normalizing tensors of :class:`tn4ml.models.mpo.ParametrizedMatrixProductOperator`.
+
         Parameters
         ----------
-        arrays : list
-            List of arrays to be used as tensors.
-        kwargs : dict
-            Additional arguments.
+        insert : int
+            Index of tensor divided by norm. *Default = None*. When `None` the norm division is distributed across all tensors.
         """
-        Model.__init__(self)
-        MatrixProductState.__init__(self, arrays, **kwargs)
+        norm = self.norm()
+        if insert == None:
+            for tensor in self.tensors:
+                tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
+        else:
+            self.tensors[insert].modify(data=self.tensors[insert].data / norm)
     
     # def copy(self):
     #     """Copies the model.
@@ -42,29 +51,29 @@ class ParametrizedMatrixProductState(Model, MatrixProductState):
     #         model.__dict__[key] = self.__dict__[key]
     #     return model
     
-def trainable_wrapper(mps: qtn.MatrixProductState, **kwargs) -> ParametrizedMatrixProductState:
-    """ Creates a wrapper around qtn.MatrixProductState so it can be trainable.
+def trainable_wrapper(mps: qtn.MatrixProductOperator, **kwargs) -> ParametrizedMatrixProductOperator:
+    """ Creates a wrapper around qtn.MatrixProductOperator so it can be trainable.
 
     Parameters
     ----------
-    mps : :class:`quimb.tensor.MatrixProductState`
-        Matrix Product State to be trained.
+    mps : :class:`quimb.tensor.MatrixProductOperator`
+        Matrix Product Operator to be trained.
 
     Returns
     -------
-    :class:`tn4ml.models.mps.ParametrizedMatrixProductState`
+    :class:`tn4ml.models.mps.ParametrizedMatrixProductOperator`
     """
     tensors = mps.arrays
-    return ParametrizedMatrixProductState(tensors, **kwargs)
+    return ParametrizedMatrixProductOperator(tensors, **kwargs)
     
 def generate_shape(method: str,
                     L: int,
                     bond_dim: int = 2,
-                    phys_dim: int = 2,
+                    phys_dim: Tuple[int, int] = (2, 2),
                     cyclic: bool = False,
                     position: int = None,
                     ) -> tuple:
-    """Returns a shape of tensor .
+    """Returns a shape of tensor.
 
     Parameters
     ----------
@@ -75,8 +84,8 @@ def generate_shape(method: str,
         Number of tensors.
     bond_dim : int
         Dimension of virtual indices between tensors. *Default = 4*.
-    phys_dim :  int
-        Dimension of physical index for individual tensor.
+    phys_dim :  tuple(int, int)
+        Dimension of physical indices for individual tensor - *up* and *down*.
     cyclic : bool
         Flag for indicating if SpacedMatrixProductOperator this tensor is part of is cyclic. *Default=False*.
     position : int
@@ -87,38 +96,41 @@ def generate_shape(method: str,
     """
     
     if method == 'even':
-        shape = (bond_dim, bond_dim, phys_dim)
+        shape = (bond_dim, bond_dim, *phys_dim)
         if position == 1:
-            shape = (1, bond_dim, phys_dim)
+            shape = (1, bond_dim, *phys_dim)
         if position == L:
-            shape = (bond_dim, 1, phys_dim)
+            shape = (bond_dim, 1, *phys_dim)
     else:
+        # not sure is this needed if I can use compress
         assert not cyclic
         if position > L // 2:
             j = (L + 1 - abs(2*position - L - 1)) // 2
         else:
             j = position
         
-        chir = min(bond_dim, phys_dim**j)
-        chil = min(bond_dim, phys_dim**(j-1))
+        chir = min(bond_dim, phys_dim[0]**j * phys_dim[1]**j)
+        chil = min(bond_dim, phys_dim[0]**(j-1) * phys_dim[1] ** (j-1))
 
         if position > L // 2:
             (chil, chir) = (chir, chil)
 
         if position == 1:
-            (chil, chir) = (chir, 1)
-
-        shape = (chil, chir, phys_dim)
+                shape = (chir, *phys_dim)
+        elif position == L:
+            shape = (chil, *phys_dim)
+        else:
+            shape = (chil, chir, *phys_dim)
     
     return shape
 
-def MPS_initialize(L: int,
+def MPO_initialize(L: int,
             initializer: Initializer,
             key: Any,
             dtype: Any = jnp.float_,
             shape_method: str = 'even',
             bond_dim: int = 4,
-            phys_dim: int = 2,
+            phys_dim: Tuple[int, int] = (2, 2),
             cyclic: bool = False,
             compress: bool = False,
             insert: int = None,
@@ -141,8 +153,8 @@ def MPS_initialize(L: int,
         Method to generate shapes for tensors.
     bond_dim : int
         Dimension of virtual indices between tensors. *Default = 4*.
-    phys_dim :  int
-        Dimension of physical index for individual tensor.
+    phys_dim :  tuple(int, int)
+        Dimension of physical indices for individual tensor - *up* and *down*.
     cyclic : bool
         Flag for indicating if MatrixProductState is cyclic. *Default=False*.
     compress : bool
@@ -169,20 +181,18 @@ def MPS_initialize(L: int,
 
     if insert and insert < L and shape_method == 'even':
         # does insert have to be 0? TODO - check!
-        tensors[insert] /= np.sqrt(phys_dim)
+        # TODO check is it min(bond_dim, np.prod(phys_dim)) maybe better
+        tensors[insert] /= np.sqrt(min(bond_dim, phys_dim[0]))
     
-    mps = ParametrizedMatrixProductState(tensors, **kwargs)
+    mpo = ParametrizedMatrixProductOperator(tensors, **kwargs)
     
-    if compress:
-        if shape_method == 'even':
-            mps.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
-        else:
-            raise ValueError('')
+    if compress and shape_method == 'even':
+        mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
     if canonical_center == None:
-        mps.normalize()
+        mpo.normalize()
     else:
-        mps.canonize(canonical_center)
-        mps.normalize(insert = canonical_center)
+        mpo.canonize(canonical_center)
+        mpo.normalize(insert = canonical_center)
     
-    return mps
+    return mpo

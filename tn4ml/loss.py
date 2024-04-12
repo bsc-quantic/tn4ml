@@ -1,86 +1,171 @@
 from numbers import Number
-from typing import Callable, Optional
+from typing import Callable, Optional, Callable
 
-from autoray import do
+#from autoray import do
 import jax.numpy as jnp
-import math
+import jax
+import numpy as np
+import quimb.tensor as qtn
 
+from .models.model import Model
 from .embeddings import Embedding, embed
+from .models.smpo import SpacedMatrixProductOperator
+from .models.mps import ParametrizedMatrixProductState
+from .models.mpo import ParametrizedMatrixProductOperator
 
-""" Examples of Loss functions """
+def neg_log_likelihood(model: qtn.MatrixProductState, data: qtn.MatrixProductState) -> Number:
+    """Negative Log-Likelihood loss.
 
-def clustering_l1(model):
-    l1 = do("log", ((model.H & model)^all))
-    return l1
+    Parameters
+    ----------
+    model : :class:`quimb.tensor.MatrixProductState`
+        Matrix Product State model
+    data: :class:`quimb.tensor.MatrixProductState`
+        Input MPS
+    Returns
+    -------
+    float
+    """
+    assert len(model.tensors) == len(data.tensors)
+    # check if physical dimensions match 
+    assert model.tensors[0].shape[-1] == data.tensors[0].shape[-1]
+    return - jax.lax.log(jax.lax.pow((model.H & data)^all, 2))
 
-def clustering_l2(model, input_mps):
-    l2 = do("log", do("power", (model.H&input_mps)^all, 2))
-    return -l2
+def transformed_squared_norm(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState) -> Number:
+    """Squared norm of transformed input data.
 
-def clustering_logquad(model, input_mps):
-    return do("power", do("add", do("log", (model.H & input_mps)^all), -1.0), 2)
+    Parameters
+    ----------
+    model : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
+        Spaced Matrix Product Operator
+    data: :class:`quimb.tensor.MatrixProductState`
+        Input mps.
+    Returns
+    -------
+    float
+    """
+    assert type(model) == SpacedMatrixProductOperator
+    if len(model.tensors) < len(data.tensors):
+        inds_contract = []
+        for i in range(len(data.tensors)):
+            inds_contract.append(f'k{i}')
+
+        mps = (model.H & data)
+        for index in inds_contract:
+            mps.contract_ind(index)
+    else:
+        mps = model.apply(data)
+    return jax.lax.pow(mps.H & mps ^ all, 2)
 
 def no_reg(x):
     return 0
 
-def reg_norm_logrelu(P):
-    """Regularization cost using ReLU of the log of the Frobenius-norm of `P`.
+def reg_log_norm(model) -> Number:
+    """Regularization cost - log(Frobenius-norm of `model`)
 
     Parameters
     ----------
-    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
-        Spaced Matrix Product Operator
-
+    model : :class:`quimb.tensor.MatrixProductState`
+        Matrix Product State model
     Returns
     -------
     float
     """
-    return do("maximum", 0.0, do("log", P.H.apply(P)))
-
-def reg_norm_quad(P):
-    """Regularization cost using the quadratic formula centered in 1 of the Frobenius-norm of `P`.
-
-    Parameters
-    ----------
-    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
-        Spaced Matrix Product Operator
-
-    Returns
-    -------
-    float
-    """
-    return do("power", do("add", P.H.apply(P), -1.0), 2)
-
-def error_logquad(P, data):
-    """Example of error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
-
-    Parameters
-    ----------
-    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
-        Spaced Matrix Product Operator
-    data: :class:`quimb.tensor.MatrixProductState`
-        Input mps.
-    Returns
-    -------
-    float
-    """
-    if len(P.tensors) < len(data.tensors):
-        inds_contract = []
-        for i in range(len(data.tensors)):
-            inds_contract.append(f'k{i}')
-        mps = (P.H&data)
-        for index in inds_contract:
-            mps.contract_ind(index)
+    assert type(model) in [SpacedMatrixProductOperator,
+                           ParametrizedMatrixProductState,
+                           ParametrizedMatrixProductOperator,
+                           qtn.MatrixProductState,
+                           qtn.MatrixProductOperator]
+    
+    if type(model) in [SpacedMatrixProductOperator]:
+        tn = model.H.apply(model)
+        norm = tn.contract_cumulative(tn.site_tags)
     else:
-        mps = P.apply(data)
-    return do("power", do("add", do("log", mps.H & mps ^ all), -1.0), 2)
+        norm = model.norm()
+    return jax.lax.log(norm)
 
-def error_quad(P, data):
+def reg_log_norm_pow(model) -> Number:
+    """Regularization cost - log(Frobenius-norm of `model`)
+
+    Parameters
+    ----------
+    model : :class:`quimb.tensor.MatrixProductState`
+        Matrix Product State model
+    Returns
+    -------
+    float
+    """
+    assert type(model) in [SpacedMatrixProductOperator,
+                           ParametrizedMatrixProductState,
+                           ParametrizedMatrixProductOperator,
+                           qtn.MatrixProductState,
+                           qtn.MatrixProductOperator]
+    
+    if type(model) in [SpacedMatrixProductOperator]:
+        tn = model.H.apply(model)
+        norm = tn.contract_cumulative(tn.site_tags)
+    else:
+        norm = model.norm()
+    return jax.lax.log(jax.lax.pow(norm, 2))
+
+def reg_log_norm_relu(model) -> Number:
+    """Regularization cost using ReLU of the log of the Frobenius-norm of `model`.
+
+    Parameters
+    ----------
+    model : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
+        Spaced Matrix Product Operator
+
+    Returns
+    -------
+    float
+    """
+    assert type(model) in [SpacedMatrixProductOperator,
+                           ParametrizedMatrixProductState,
+                            ParametrizedMatrixProductOperator,
+                             qtn.MatrixProductState,
+                            qtn.MatrixProductOperator]
+    
+    if type(model) in [SpacedMatrixProductOperator]:
+        tn = model.H.apply(model)
+        norm = tn.contract_cumulative(tn.site_tags)
+    else:
+        norm = model.norm()
+
+    return jax.lax.max(0.0, jax.lax.log(norm))
+
+def reg_norm_quad(model) -> Number:
+    """Regularization cost using the quadratic formula centered in 1 of the Frobenius-norm of `model`.
+
+    Parameters
+    ----------
+    model : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
+        Spaced Matrix Product Operator
+
+    Returns
+    -------
+    float
+    """
+    assert type(model) in [SpacedMatrixProductOperator,
+                           ParametrizedMatrixProductState,
+                           ParametrizedMatrixProductOperator,
+                           qtn.MatrixProductState,
+                           qtn.MatrixProductOperator]
+
+    if type(model) in [SpacedMatrixProductOperator]:
+        tn = model.H.apply(model)
+        norm = tn.contract_cumulative(tn.site_tags)
+    else:
+        norm = model.norm()
+
+    return jax.lax.pow(jax.lax.log(norm) - 1.0, 2)
+
+def error_logquad(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState) -> Number:
     """Example of error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
 
     Parameters
     ----------
-    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
+    model : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
     data: :class:`quimb.tensor.MatrixProductState`
         Input mps.
@@ -88,15 +173,14 @@ def error_quad(P, data):
     -------
     float
     """
-    mps = P.apply(data)
-    return do("power", do("add", mps.H & mps ^ all, -1.0), 2)
+    return jax.lax.pow((jax.lax.log(transformed_squared_norm(model, data)) - 1.0), 2)
 
-def error_distance_to_origin(P, data):
+def error_quad(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState) -> Number:
     """Example of error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
 
     Parameters
     ----------
-    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
+    model : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
     data: :class:`quimb.tensor.MatrixProductState`
         Input mps.
@@ -104,40 +188,158 @@ def error_distance_to_origin(P, data):
     -------
     float
     """
-    mps = P.apply(data)
-    return - (mps.H & mps ^ all)
+    return jax.lax.pow((transformed_squared_norm(model, data) - 1.0), 2)
 
-def softmax(z):
-    sum_z = do("sum", jnp.asarray([do("power", math.e, z_j) for z_j in z]))
-    return jnp.asarray([do("power", math.e, z_i)/sum_z for z_i in z])
+def softmax(z, position) -> Number:
+    """ Softmax function.
 
-def error_cross_entropy(P, data, mps_target):
-    """Example of supervised error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
+    Parameters
+    ----------
+    z : :class:`jnp.array``
+        Predicted probabilities.
+    position: int
+        Indicates for which class we are calculating softmax value.
+    Returns
+    -------
+    float
+    """
+    return jnp.exp(z[position]) / jnp.sum(jnp.exp(z))
+
+def cross_entropy_softmax(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, targets: jnp.array) -> Number:
+    """Cross-entropy loss function for supervised learning.
     
     Parameters
     ----------
-    P : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
+    model : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
         Spaced Matrix Product Operator
     data: :class:`quimb.tensor.MatrixProductState`
-        Input mps.
-    mps_target: :class:`numpy.ndarray`
-        Target data.
+        Input Matrix Product State
+    targets: :class:`numpy.ndarray`
+        Target class vector. Example = [1 0 0 0] for n_classes = 4.
+    
+    Returns
+    -------
+    float
+    
+    """
+    if len(model.tensors) < len(data.tensors):
+        inds_contract = []
+        for i in range(len(data.tensors)):
+            inds_contract.append(f'k{i}')
+
+        output = (model.H & data)
+        for index in inds_contract:
+            output.contract_ind(index)
+
+        output = output^all
+    elif len(model.tensors) == len(data.tensors):
+        if hasattr(model, 'apply'):
+            output = model.apply(data)^all
+        else:
+            output = (model.H & data)^all
+    else:
+        raise ValueError('Number of tensors for input data MPS needs to be higher or equal number of tensors in model.')
+    
+    output = output.data.reshape((len(targets), ))
+    output = output/jnp.linalg.norm(output)
+
+    return - jnp.log(softmax(output, jnp.argmax(targets)))
+
+def loss_wrapper_optax(optax_loss = None) -> Callable:
+    """Wrapper around optax loss functions for supervised learning. Make sure you got all inputs to loss function correct.
+    Refer to documentation for each loss to https://optax.readthedocs.io/en/latest/api/losses.html .
+    Make sure SMPO has only one output with dimension = number of classes.
+    
+    Parameters
+    ----------
+    model : :class:`tn4ml.models.model.Model`
+        Tensor Network model.
+    data: :class:`quimb.tensor.MatrixProductState`
+        Input Matrix Product State
+    y_true: :class:`numpy.ndarray`
+        Target class vector. Example = [1 0 0 0] for n_classes = 4.
+    kwargs : dict
+        Additional arguments for optax loss function.
     Returns
     -------
     float
     """
-    mps = P.apply(data)
-    class_vector = mps.tensors[0].data
-    class_vector = do("reshape", class_vector, (5,))
-    prob_dist = softmax(class_vector)
-    return - do("sum", mps_target * do("log", do("power", prob_dist, 2)))
 
-def loss_fn(model, data, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Embedding] = None) -> Number:
+    assert optax_loss != None
+
+    def loss_optax(model: Model, data: qtn.MatrixProductState, y_true: Optional[jnp.array] = None, **kwargs) -> Number:
+
+        """Loss function for learning. Make sure you got all inputs to loss function correct.
+        
+        Parameters
+        ----------
+        model : :class:`tn4ml.models.model.Model`
+            Tensor Network model.
+        data: :class:`quimb.tensor.MatrixProductState`
+            Input Matrix Product State
+        y_true: :class:`numpy.ndarray`
+            Target class vector. Example = [1 0 0 0] for n_classes = 4.
+        kwargs : dict
+            Additional arguments for optax loss function.
+
+        Returns
+        -------
+        float
+        """
+
+        # if not callable(getattr(model, "apply", None)):
+        #     raise AttributeError("Model should have 'apply' method.")
+
+        # if hasattr(model, 'lower_inds') and len(list(model.lower_inds)) > 1:
+        #     raise ValueError('Model has more than one output! Rethink your contraction path to contract to vector size = (n_classes,).')
+        
+        if isinstance(model, SpacedMatrixProductOperator):
+            if len(model.tensors) < len(data.tensors):
+                inds_contract = []
+                for i in range(len(data.tensors)):
+                    inds_contract.append(f'k{i}')
+
+                output = (model.H & data)
+                for index in inds_contract:
+                    output.contract_ind(index)
+                
+                output = output^all
+                output = output.data.reshape((len(y_true), ))
+                
+                y_pred = jnp.log(output)
+                # normalize
+                y_pred = y_pred/jnp.linalg.norm(y_pred)
+            else:
+                output = model.apply(data)
+                
+                if len(output.tensors) > 1:
+                    output = output^all
+                    y_pred = output.data
+                else:
+                    y_pred = jnp.expand_dims(jnp.squeeze(output.tensors[0].data), axis=0)
+                
+                if y_true is not None:
+                    y_true = jnp.expand_dims(jnp.squeeze(y_true), axis=0)
+
+        elif isinstance(model, ParametrizedMatrixProductState):
+            y_pred = model & data ^ all
+        
+        # normalize
+        y_pred = y_pred/jnp.linalg.norm(y_pred)
+
+        if y_true is not None:
+            return optax_loss(y_pred, y_true, **kwargs)[0]
+        else:
+            return optax_loss(y_pred, **kwargs)
+    return loss_optax
+
+def combined_loss(model: Model, data: np.ndarray = None, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Embedding] = None) -> Number:
     """Example of Loss function with calculation of error on input data and regularization.
 
     Parameters
     ----------
     model : :class:`tn4ml.models.Model`
+        Tensor Network with parametrized tensors.
     data: :class:`numpy.ndarray`
         Data used for computing the loss value.
     error: function
@@ -151,4 +353,7 @@ def loss_fn(model, data, error: Callable = error_logquad, reg: Callable = no_reg
     -------
     float
     """
-    return do("mean", [error(model, embed(sample, embedding)) for sample in data] if embedding else error(model, data)) + reg(model)
+    if not data:
+        raise ValueError('Provide input data!')
+    
+    return np.mean([error(model, embed(sample, embedding)) for sample in data] if embedding else error(model, data)) + reg(model)

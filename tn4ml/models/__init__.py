@@ -4,14 +4,20 @@
 from .model import (
     Model,
     load_model,
-    _fit,
-    _fit_sweeps
+    _batch_iterator
 )
 
 from .smpo import(
-    SpacedMatrixProductOperator
+    SpacedMatrixProductOperator,
+    SMPO_initialize
 )
 
 from .mps import(
-    TrainableMatrixProductState
+    ParametrizedMatrixProductState,
+    MPS_initialize
+)
+
+from .mpo import(
+    ParametrizedMatrixProductOperator,
+    MPO_initialize
 )
