@@ -197,7 +197,11 @@ def identity_init(type: str,
         elif type == 'copy':
             # from @joserapa98/tensorkrowch
             tensor = jnp.zeros(shape, dtype=dtype)
-            i = np.arange(min(shape), dtype=int)
+            rank = len(shape)
+            if rank <= 1:
+                i = 0
+            else:
+                i = np.arange(min(shape), dtype=int)
             tensor = tensor.at[(i,) * rank].set(1.)
         else:
             raise ValueError('Defined only for diagonal and bond dimension identity intialization!')
@@ -223,7 +227,7 @@ def noise_init(std: Any = 1e-9,
     Examples
     --------
     >>> import jax, jax.numpy as jnp
-    >>> from tn4ml.initializers import gramschmidt_init
+    >>> from tn4ml.initializers import noise_init
     >>> initializer = noise_init(1e-8)
     >>> initializer(jax.random.key(42), (2, 3), jnp.float32)
     Array([[ 6.12265216e-09,  1.12258824e-08,  1.13733174e-08],
