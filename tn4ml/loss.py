@@ -328,7 +328,7 @@ def loss_wrapper_optax(optax_loss = None) -> Callable:
         y_pred = y_pred/jnp.linalg.norm(y_pred)
 
         if y_true is not None:
-            return optax_loss(y_pred, y_true, **kwargs)[0]
+            return optax_loss(y_pred, y_true, **kwargs)
         else:
             return optax_loss(y_pred, **kwargs)
     return loss_optax
