@@ -241,4 +241,4 @@ class Global(Strategy):
 
 def _check_model(model):
     if not all(hasattr(model, attr) for attr in ['sites', 'canonize', 'bond_size', 'bond', 'site_tag', 'select_tensors']):
-        raise TypeError("model object doesn't have necessary methods or properties")
+        raise TypeError("Model object doesn't have necessary methods or properties")
