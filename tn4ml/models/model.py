@@ -37,7 +37,7 @@ class Model(qtn.TensorNetwork):
         self.strategy : Any = 'global'
         self.optimizer : optax.GradientTransformation = optax.adam
         self.learning_rate : float = 1e-2
-        self.train_type : str = 'unsupervised'
+        self.train_type : int = 0
         self.gradient_transforms : Sequence = None
         self.opt_state : Any = None
         self.cache : dict = {}
@@ -57,6 +57,15 @@ class Model(qtn.TensorNetwork):
         arrays = tuple(map(lambda x: np.asarray(jax.device_get(x)), self.arrays))
         model = type(self)(arrays)
         qu.save_to_disk(model, f'{dir_name}/{model_name}.pkl')
+    
+    def nparams(self):
+        """Returns number of parameters of the model.
+        
+        Returns
+        -------
+        int
+        """
+        return sum([np.prod(tensor.data.shape) for tensor in self.tensors])
 
     def configure(self, **kwargs):
 
@@ -82,8 +91,8 @@ class Model(qtn.TensorNetwork):
             else:
                 raise AttributeError(f"Attribute {key} not found")
                 
-        if self.train_type not in ['unsupervised', 'supervised']:
-            raise AttributeError("Specify type of training: 'supervised' or 'unsupervised'!")
+        if self.train_type not in [0, 1]:
+            raise AttributeError("Specify type of training: 0 = 'unsupervised' or 1 ='supervised'!")
         
         if not hasattr(self, 'optimizer') or not hasattr(self, 'gradient_transforms'):
             raise AttributeError("Provide 'optimizer' or sequence of 'gradient_transforms'! ")
@@ -96,7 +105,7 @@ class Model(qtn.TensorNetwork):
             else:
                 self.optimizer = optax.adam(learning_rate=self.learning_rate)
 
-    def update_tensors(self, params, sitetags=None):
+    def update_tensors(self, params):
 
         """Updates tensors of the model with new parameters.
         
@@ -112,17 +121,17 @@ class Model(qtn.TensorNetwork):
         None
         """
         if isinstance(self.strategy, Sweeps):
-            if sitetags is None:
+            if self.sitetags is None:
                 raise ValueError("For Sweeping strategy you must provide names of tensors for differentiation.")
-            tensor = self.select_tensors(sitetags)[0]
+            tensor = self.select_tensors(self.sitetags)[0]
             tensor.modify(data = params[0])
         else:
             for tensor, array in zip(self.tensors, params):
                 tensor.modify(data=array)
 
     def create_cache(self,
-                    model,
-                    embedding: Embedding,
+                    loss_fn,
+                    embedding,
                     input_shape: tuple,
                     target_shape: Optional[tuple] = None,
                     inputs_dtype: Any = jnp.float_,
@@ -150,30 +159,17 @@ class Model(qtn.TensorNetwork):
         """
         
         if self.strategy == 'global':
-            params = model.arrays
+            params = self.arrays
 
             dummy_input = jnp.ones(shape=input_shape, dtype=inputs_dtype)
-            if self.train_type == 'unsupervised':
-                def loss_fn(data, *params):
-                    with qtn.contract_backend("jax"), autoray.backend_like("jax"):
-                        tn = model.copy()
-                        for tensor, array in zip(tn.tensors, params):
-                            tensor.modify(data=array)
-                        input_tn = embed(data, embedding)
-                        return self.loss(tn, input_tn)
-                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0] + [None]*self.L)).lower(dummy_input, *params)
-                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 1 for i in range(self.L))), in_axes=[0] + [None]*self.L)).lower(dummy_input, *params)
-            else:
+            if target_shape is not None:
                 dummy_targets = jnp.ones(shape=target_shape, dtype=targets_dtype)
-                def loss_fn(data, targets, *params):
-                    with qtn.contract_backend("jax"), autoray.backend_like("jax"):
-                        tn = model.copy()
-                        for tensor, array in zip(tn.tensors, params):
-                            tensor.modify(data=array)
-                        input_tn = embed(data, embedding)
-                        return self.loss(tn, input_tn, targets)
-                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L)).lower(dummy_input, dummy_targets, *params)
-                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, 0] + [None] * self.L)).lower(dummy_input, dummy_targets, *params)
+
+                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L, axis_name='batch')).lower(dummy_input, dummy_targets, *params)
+                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, 0] + [None] * self.L, axis_name='batch')).lower(dummy_input, dummy_targets, *params)
+            else:
+                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L, axis_name='batch')).lower(dummy_input, None, *params)
+                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, None] + [None] * self.L, axis_name='batch')).lower(dummy_input, None, *params)
 
             # save compiled functions
             self.cache["loss_compiled"] = loss_ir.compile()
@@ -226,17 +222,13 @@ class Model(qtn.TensorNetwork):
             -------
             float, :class:`jax.numpy.ndarray`
             """
-            if targets is not None:
-                l = loss_func(data, targets, *params)
-                g = grads_func(data, targets, *params)
-            else:
-                l = loss_func(data, *params)
-                g = grads_func(data, *params)
+            l = loss_func(data, targets, *params)
+            g = grads_func(data, targets, *params)
             
             g = [jnp.sum(gi, axis=0) / data.shape[0] for gi in g]
             return jnp.sum(l)/data.shape[0], g
 
-        def train_step(params, opt_state, data, sitetags=None, grad_clip_threshold=None):
+        def train_step(params, opt_state, data, grad_clip_threshold=None):
             """ Performs one training step.
 
             Parameters
@@ -280,14 +272,15 @@ class Model(qtn.TensorNetwork):
             params = tuple(jnp.array(v) for v in params.values())
 
             # update TN inplace
-            self.update_tensors(params, sitetags)
+            self.update_tensors(params)
             
+            # for numerical stability
             self.normalize()
 
             return params, opt_state, loss
         
         return train_step, opt_state
-
+    
     def train(self,
             inputs: Collection,
             val_inputs: Optional[Collection] = None,
@@ -356,18 +349,57 @@ class Model(qtn.TensorNetwork):
 
         n_batches = (len(inputs)//self.batch_size)
 
-        self.history = dict()
-        self.history['loss'] = []
-        self.history['epoch_time'] = []
-        self.history['unfinished'] = False
-        if val_inputs is not None:
-            self.history['val_loss'] = []
+        if not hasattr(self, 'history'):
+            self.history = dict()
+            self.history['loss'] = []
+            self.history['epoch_time'] = []
+            self.history['unfinished'] = False
+            if val_inputs is not None:
+                self.history['val_loss'] = []
+        
+        self.sitetags = None # for sweeping strategy
+
+        # define loss function for training with global strategy
+        # def supervised_loss(data, targets, *params):
+        #     with qtn.contract_backend("jax"):
+        #         tn = self.copy()
+        #         for tensor, array in zip(tn.tensors, params):
+        #             tensor.modify(data=array)
+        #         input_tn = embed(data, embedding)
+        #         return self.loss(tn, input_tn, targets)
+
+        # def unsupervised_loss(data, *params):
+        #     with qtn.contract_backend("jax"):
+        #         tn = self.copy()
+        #         for tensor, array in zip(tn.tensors, params):
+        #             tensor.modify(data=array)
+        #         input_tn = embed(data, embedding)
+        #         return self.loss(tn, input_tn)
+            
+        def loss_fn(data, targets=None, *params):
+            """
+            Loss function that adapts based on training type.
+            train_type: 0 for unsupervised, 1 for supervised
+            """
+            tn = self.copy()
+            if self.sitetags is not None:
+                tn.select_tensors(self.sitetags)[0].modify(data=params[0])
+            else:
+                for tensor, array in zip(tn.tensors, params):
+                    tensor.modify(data=array)
+            
+            input_tn = embed(data, embedding)
+
+            if self.train_type == 0:
+                return self.loss(tn, input_tn)
+            else:
+                return self.loss(tn, input_tn, targets)
 
         if cache:
             # Caching loss computation and gradients
             if not 'hash' in self.cache or self.cache["hash"] != hash((embedding, self.strategy, self.loss, self.train_type, self.optimizer, self.shape)):
-                model = self.copy()
-                self.create_cache(model,
+                #model = self.copy()
+                self.create_cache(loss_fn,
                                 embedding,
                                 (self.batch_size, inputs.shape[1]),
                                 (self.batch_size, targets.shape[1]) if targets is not None else None,
@@ -379,25 +411,11 @@ class Model(qtn.TensorNetwork):
                 self.step, self.opt_state = self.create_train_step(params=params, loss_func=self.cache['loss_compiled'], grads_func=self.cache['grads_compiled'])
         else:
             # Train without caching
-            model = self.copy()
-
             if isinstance(self.strategy, Sweeps):
-                if self.train_type == 'unsupervised':
-                    def loss_fn(data, params):
-                        with qtn.contract_backend("jax"):
-                            tn = model.copy()
-                            tn.select_tensors(sitetags)[0].modify(data=params)
-                            input_tn = embed(data, embedding)
-                            return self.loss(tn, input_tn)
-                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None]))
-                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[1]), in_axes=[0, None]))
+                if self.train_type == 0:
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None]))
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[2]), in_axes=[0, None, None]))
                 else:
-                    def loss_fn(data, targets, params):
-                        with qtn.contract_backend("jax"):
-                            tn = model.copy()
-                            tn.select_tensors(sitetags)[0].modify(data=params)
-                            input_tn = embed(data, embedding)
-                            return self.loss(tn, input_tn, targets)
                     self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None]))
                     self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[2]), in_axes=[0, 0, None]))
                 
@@ -407,10 +425,11 @@ class Model(qtn.TensorNetwork):
                 for s, sites in enumerate(self.strategy.iterate_sites(self)):
                     self.strategy.prehook(self, sites)
                     
-                    sitetags = [self.site_tag(site) for site in sites]
+                    self.sitetags = [self.site_tag(site) for site in sites]
                     
-                    params_i = self.select_tensors(sitetags)[0].data
-                    params_i = jnp.expand_dims(params_i, axis=0)
+                    params_i = self.select_tensors(self.sitetags)[0].data
+                    params_i = jnp.expand_dims(params_i, axis=0) # add batch dimension
+
                     self.step, opt_state = self.create_train_step(params=params_i, loss_func=self.loss_func, grads_func=self.grads_func)
 
                     self.opt_states.append(opt_state)
@@ -420,24 +439,10 @@ class Model(qtn.TensorNetwork):
                 if self.strategy != 'global':
                     raise ValueError("Only Global Gradient Descent and DMRG Sweeping strategy is supported for now!")
                 
-                if self.train_type == 'unsupervised':
-                    def loss_fn(data, *params):
-                        with qtn.contract_backend("jax"):
-                            tn = model.copy()
-                            for tensor, array in zip(tn.tensors, params):
-                                tensor.modify(data=array)
-                            input_tn = embed(data, embedding)
-                            return self.loss(tn, input_tn)
-                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0] + [None]*self.L))
-                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 1 for i in range(self.L))), in_axes=[0] + [None]*self.L))
+                if self.train_type == 0:
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L))
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, None] + [None] * self.L))
                 else:
-                    def loss_fn(data, targets, *params):
-                        with qtn.contract_backend("jax"):
-                            tn = model.copy()
-                            for tensor, array in zip(tn.tensors, params):
-                                tensor.modify(data=array)
-                            input_tn = embed(data, embedding)
-                            return self.loss(tn, input_tn, targets)
                     self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L))
                     self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, 0] + [None] * self.L))
                 
@@ -456,12 +461,12 @@ class Model(qtn.TensorNetwork):
                         for s, sites in enumerate(self.strategy.iterate_sites(self)):
                             self.strategy.prehook(self, sites)
                             
-                            sitetags = [self.site_tag(site) for site in sites]
+                            self.sitetags = [self.site_tag(site) for site in sites]
                             
-                            params_i = self.select_tensors(sitetags)[0].data
+                            params_i = self.select_tensors(self.sitetags)[0].data
                             params_i = jnp.expand_dims(params_i, axis=0) # add batch dimension
                             
-                            _, self.opt_states[s], loss_group = self.step(params_i, self.opt_states[s], batch_data, sitetags=sitetags, grad_clip_threshold=gradient_clip_threshold)
+                            _, self.opt_states[s], loss_group = self.step(params_i, self.opt_states[s], batch_data, grad_clip_threshold=gradient_clip_threshold)
                             
                             self.strategy.posthook(self, sites)
 
@@ -492,7 +497,7 @@ class Model(qtn.TensorNetwork):
                 
                 # evaluate validation loss
                 if val_inputs is not None:
-                    loss_val_epoch = self.evaluate(val_inputs, val_targets, dtype=dtype)
+                    loss_val_epoch = self.evaluate(val_inputs, val_targets, embedding=embedding, evaluate_type=self.train_type, dtype=dtype)
                     self.history['val_loss'].append(loss_val_epoch)
 
                     # early stopping
@@ -556,9 +561,9 @@ class Model(qtn.TensorNetwork):
     def evaluate(self, 
                  inputs: Collection,
                  targets: Optional[Collection] = None,
-                 batch_size: Optional[int] = 1,
+                 batch_size: Optional[int] = None,
                  embedding: Embedding = trigonometric(),
-                 evaluate_type: str = 'supervised',
+                 evaluate_type: int = 0,
                  return_list: bool = False,
                  loss_function: Optional[Callable] = None,
                  dtype: Any = jnp.float_):
@@ -575,8 +580,8 @@ class Model(qtn.TensorNetwork):
             Number of samples per evaluation.
         embedding : :class:`tn4ml.embeddings.Embedding`
             Data embedding function.
-        evaluate_type : str
-            Type of evaluation: 'supervised' or 'unsupervised'.
+        evaluate_type : int
+            Type of evaluation: 0 = 'unsupervised' or 1 ='unsupervised'.
         return_list : bool
             If True, returns list of loss values for each batch.
         dtype : Any
@@ -592,21 +597,48 @@ class Model(qtn.TensorNetwork):
             if targets.ndim == 1:
                 targets = np.expand_dims(targets, axis=-1)
         
+        if hasattr(self, 'batch_size'):
+            if len(self.cache.keys()) == 0:
+                if len(inputs) < self.batch_size:
+                    if self.cache["loss_compiled"] is not None:
+                        raise ValueError(f"Input data must have at least {self.batch_size} samples, because loss is precompiled!")
+            if batch_size is None:
+                batch_size = self.batch_size
+
         if not hasattr(self, 'batch_size') and len(self.cache.keys()) == 0:
             self.batch_size = batch_size
-
-        if len(inputs) < self.batch_size and self.cache["loss_compiled"] is not None:
-            raise ValueError(f"Input data must have at least {self.batch_size} samples, because loss is precompiled!")
         
         if not hasattr(self, 'loss') or self.loss is None:
-            self.loss = loss_function
+            if loss_function is not None:
+                self.loss = loss_function
+            else:
+                raise ValueError("Loss function not provided!")
         
         loss_value = 0
         if return_list:
             loss = []
         
-        if (len(self.cache.keys()) == 0 or batch_size is None) and hasattr(self, 'batch_size'):
-            batch_size = self.batch_size
+        # if (len(self.cache.keys()) == 0 or batch_size is None) and hasattr(self, 'batch_size'):
+        #     batch_size = self.batch_size
+
+        def loss_fn(data, targets=None, *params):
+            """
+            Loss function that adapts based on training type.
+            train_type: 0 for unsupervised, 1 for supervised
+            """
+            tn = self.copy()
+            if hasattr(self, 'sitetags') and self.sitetags is not None:
+                tn.select_tensors(self.sitetags)[0].modify(data=params[0])
+            else:
+                for tensor, array in zip(tn.tensors, params):
+                    tensor.modify(data=array)
+            
+            input_tn = embed(data, embedding)
+
+            if self.train_type == 0:
+                return self.loss(tn, input_tn)
+            else:
+                return self.loss(tn, input_tn, targets)
 
         for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype):
             if len(batch_data) == 2:
@@ -618,33 +650,21 @@ class Model(qtn.TensorNetwork):
 
             if isinstance(self.strategy, Sweeps):
                 if not hasattr(self, 'loss_func'):
-                    if evaluate_type == 'unsupervised':
-                        def loss_fn(data, params):
-                            with qtn.contract_backend("jax"):
-                                tn = self.copy()
-                                tn.select_tensors(sitetags)[0].modify(data=params)
-                                input_tn = embed(data, embedding)
-                                return self.loss(tn, input_tn)
-                        self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None]))
+                    if evaluate_type == 0:
+                        self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None]))
                     else:
-                        def loss_fn(data, targets, params):
-                            with qtn.contract_backend("jax"):
-                                tn = self.copy()
-                                tn.select_tensors(sitetags)[0].modify(data=params)
-                                input_tn = embed(data, embedding)
-                                return self.loss(tn, input_tn, targets)
                         self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None]))
                 
                 loss_curr = np.zeros((x.shape[0],))
                 for s, sites in enumerate(self.strategy.iterate_sites(self)):
                     self.strategy.prehook(self, sites)
                     
-                    sitetags = [self.site_tag(site) for site in sites]
+                    self.sitetags = [self.site_tag(site) for site in sites]
                     
-                    params_i = self.select_tensors(sitetags)[0].data
+                    params_i = self.select_tensors(self.sitetags)[0].data
                     params_i = jnp.expand_dims(params_i, axis=0)
 
-                    if evaluate_type == 'unsupervised':
+                    if evaluate_type == 0:
                         loss_group = self.loss_func(x, *params_i)
                     else:
                         loss_group = self.loss_func(x, y, *params_i)
@@ -657,33 +677,13 @@ class Model(qtn.TensorNetwork):
                 params = self.arrays
                 if len(self.cache.keys()) == 0 or (len(self.cache.keys()) > 0 and batch_size != self.batch_size):
                     if not hasattr(self, 'loss_func'):
-                        if evaluate_type == 'unsupervised':
-                            def loss_fn(data, *params):
-                                with qtn.contract_backend("jax"):
-                                    tn = self.copy()
-                                    for tensor, array in zip(tn.tensors, params):
-                                        tensor.modify(data=array)
-                                    input_tn = embed(data, embedding)
-                                    return self.loss(tn, input_tn)
-                            self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0] + [None]*self.L))
+                        if evaluate_type == 0:
+                            self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L))
                         else:
-                            def loss_fn(data, targets, *params):
-                                with qtn.contract_backend("jax"):
-                                    tn = self.copy()
-                                    for tensor, array in zip(tn.tensors, params):
-                                        tensor.modify(data=array)
-                                    input_tn = embed(data, embedding)
-                                    return self.loss(tn, input_tn, targets)
                             self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L))
-                    if evaluate_type == 'unsupervised':
-                        loss_curr = self.loss_func(x, *params)
-                    else:
-                        loss_curr = self.loss_func(x, y, *params)
+                    loss_curr = self.loss_func(x, y, *params)
                 else:
-                    if evaluate_type == 'unsupervised':
-                        loss_curr = self.cache["loss_compiled"](x, *params)
-                    else:
-                        loss_curr = self.cache["loss_compiled"](x, y, *params)
+                    loss_curr = self.cache["loss_compiled"](x, y, *params)
             
             loss_value += np.mean(loss_curr)
             if return_list:
