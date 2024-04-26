@@ -11,7 +11,7 @@ import jax.numpy as jnp
 
 from .model import Model
 
-class ParametrizedMatrixProductOperator(Model, MatrixProductOperator):
+class MatrixProductOperator(Model, qtn.MatrixProductOperator):
     """A Trainable MatrixProductOperator class.
     See :class:`quimb.tensor.tensor_1d.MatrixProductOperator` for explanation of other attributes and methods.
     """
@@ -21,10 +21,10 @@ class ParametrizedMatrixProductOperator(Model, MatrixProductOperator):
         #     Model.__init__(self)
         #     return
         Model.__init__(self)
-        MatrixProductOperator.__init__(self, arrays, **kwargs)
+        qtn.MatrixProductOperator.__init__(self, arrays, **kwargs)
     
     def normalize(self, insert=None):
-        """Function for normalizing tensors of :class:`tn4ml.models.mpo.ParametrizedMatrixProductOperator`.
+        """Function for normalizing tensors of :class:`tn4ml.models.mpo.MatrixProductOperator`.
 
         Parameters
         ----------
@@ -51,7 +51,7 @@ class ParametrizedMatrixProductOperator(Model, MatrixProductOperator):
     #         model.__dict__[key] = self.__dict__[key]
     #     return model
     
-def trainable_wrapper(mps: qtn.MatrixProductOperator, **kwargs) -> ParametrizedMatrixProductOperator:
+def trainable_wrapper(mps: qtn.MatrixProductOperator, **kwargs) -> MatrixProductOperator:
     """ Creates a wrapper around qtn.MatrixProductOperator so it can be trainable.
 
     Parameters
@@ -61,10 +61,10 @@ def trainable_wrapper(mps: qtn.MatrixProductOperator, **kwargs) -> ParametrizedM
 
     Returns
     -------
-    :class:`tn4ml.models.mps.ParametrizedMatrixProductOperator`
+    :class:`tn4ml.models.mps.MatrixProductOperator`
     """
     tensors = mps.arrays
-    return ParametrizedMatrixProductOperator(tensors, **kwargs)
+    return MatrixProductOperator(tensors, **kwargs)
     
 def generate_shape(method: str,
                     L: int,
@@ -87,9 +87,9 @@ def generate_shape(method: str,
     phys_dim :  tuple(int, int)
         Dimension of physical indices for individual tensor - *up* and *down*.
     cyclic : bool
-        Flag for indicating if SpacedMatrixProductOperator this tensor is part of is cyclic. *Default=False*.
+        Flag for indicating if MatrixProductOperator this tensor is part of is cyclic. *Default=False*.
     position : int
-        Position of tensor in SpacedMatrixProductOperator.
+        Position of tensor in MatrixProductOperator.
     Returns
     -------
         tuple
@@ -137,7 +137,7 @@ def MPO_initialize(L: int,
             canonical_center: int = None,
             **kwargs):
     
-    """Generates :class:`tn4ml.models.mps.ParametrizedMatrixProductState`.
+    """Generates :class:`tn4ml.models.mps.MatrixProductOperator`.
 
     Parameters
     ----------
@@ -166,7 +166,7 @@ def MPO_initialize(L: int,
 
     Returns
     -------
-    :class:`tn4ml.models.mps.ParametrizedMatrixProductState`
+    :class:`tn4ml.models.mps.MatrixProductOperator`
     """
 
     if cyclic and shape_method != 'even':
@@ -184,7 +184,7 @@ def MPO_initialize(L: int,
         # TODO check is it min(bond_dim, np.prod(phys_dim)) maybe better
         tensors[insert] /= np.sqrt(min(bond_dim, phys_dim[0]))
     
-    mpo = ParametrizedMatrixProductOperator(tensors, **kwargs)
+    mpo = MatrixProductOperator(tensors, **kwargs)
     
     if compress and shape_method == 'even':
         mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim

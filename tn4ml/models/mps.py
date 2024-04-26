@@ -4,20 +4,19 @@ import autoray as a
 
 from quimb import *
 import quimb.tensor as qtn
-from quimb.tensor.tensor_1d import MatrixProductState
 
 from jax.nn.initializers import Initializer
 import jax.numpy as jnp
 
 from .model import Model
 
-class ParametrizedMatrixProductState(Model, MatrixProductState):
+class MatrixProductState(Model, qtn.MatrixProductState):
     """A Trainable MatrixProductState class.
     See :class:`quimb.tensor.tensor_1d.MatrixProductState` for explanation of other attributes and methods.
     """
 
     def __init__(self, arrays, **kwargs):
-        """Initializes :class:`tn4ml.models.mps.ParametrizedMatrixProductState`.
+        """Initializes :class:`tn4ml.models.mps.MatrixProductState`.
         
         Parameters
         ----------
@@ -27,7 +26,7 @@ class ParametrizedMatrixProductState(Model, MatrixProductState):
             Additional arguments.
         """
         Model.__init__(self)
-        MatrixProductState.__init__(self, arrays, **kwargs)
+        qtn.MatrixProductState.__init__(self, arrays, **kwargs)
     
     # def copy(self):
     #     """Copies the model.
@@ -37,12 +36,12 @@ class ParametrizedMatrixProductState(Model, MatrixProductState):
     #     Model of the same type.
     #     """
 
-    #     model = self.copy()
+    #     model = type(self)(self.arrays)
     #     for key in self.__dict__.keys():
     #         model.__dict__[key] = self.__dict__[key]
     #     return model
     
-def trainable_wrapper(mps: qtn.MatrixProductState, **kwargs) -> ParametrizedMatrixProductState:
+def trainable_wrapper(mps: qtn.MatrixProductState, **kwargs) -> MatrixProductState:
     """ Creates a wrapper around qtn.MatrixProductState so it can be trainable.
 
     Parameters
@@ -52,10 +51,10 @@ def trainable_wrapper(mps: qtn.MatrixProductState, **kwargs) -> ParametrizedMatr
 
     Returns
     -------
-    :class:`tn4ml.models.mps.ParametrizedMatrixProductState`
+    :class:`tn4ml.models.mps.MatrixProductState`
     """
     tensors = mps.arrays
-    return ParametrizedMatrixProductState(tensors, **kwargs)
+    return MatrixProductState(tensors, **kwargs)
     
 def generate_shape(method: str,
                     L: int,
@@ -78,9 +77,9 @@ def generate_shape(method: str,
     phys_dim :  int
         Dimension of physical index for individual tensor.
     cyclic : bool
-        Flag for indicating if SpacedMatrixProductOperator this tensor is part of is cyclic. *Default=False*.
+        Flag for indicating if MatrixProductState this tensor is part of is cyclic. *Default=False*.
     position : int
-        Position of tensor in SpacedMatrixProductOperator.
+        Position of tensor in MatrixProductState.
     Returns
     -------
         tuple
@@ -125,7 +124,7 @@ def MPS_initialize(L: int,
             canonical_center: int = None,
             **kwargs):
     
-    """Generates :class:`tn4ml.models.mps.ParametrizedMatrixProductState`.
+    """Generates :class:`tn4ml.models.mps.MatrixProductState`.
 
     Parameters
     ----------
@@ -154,7 +153,7 @@ def MPS_initialize(L: int,
 
     Returns
     -------
-    :class:`tn4ml.models.mps.ParametrizedMatrixProductState`
+    :class:`tn4ml.models.mps.MatrixProductState`
     """
 
     if cyclic and shape_method != 'even':
@@ -171,7 +170,7 @@ def MPS_initialize(L: int,
         # does insert have to be 0? TODO - check!
         tensors[insert] /= np.sqrt(phys_dim)
     
-    mps = ParametrizedMatrixProductState(tensors, **kwargs)
+    mps = MatrixProductState(tensors, **kwargs)
     
     if compress:
         if shape_method == 'even':
