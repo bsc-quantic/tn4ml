@@ -13,11 +13,11 @@ from .smpo import(
 )
 
 from .mps import(
-    ParametrizedMatrixProductState,
+    MatrixProductState,
     MPS_initialize
 )
 
 from .mpo import(
-    ParametrizedMatrixProductOperator,
+    MatrixProductOperator,
     MPO_initialize
 )
