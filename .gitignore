@@ -295,3 +295,6 @@ examples/*
 
 # trainings
 /docs/source/notebooks/tests/*
+
+# datasets
+/docs/source/notebooks/datasets/*
