@@ -1,5 +1,6 @@
 import abc
 import quimb.tensor as qtn
+from tn4ml.models.mps import MatrixProductState
 
 class Strategy:
     """Decides how the gradients are computed. i.e. computes the gradients of each tensor separately or only of one site.
@@ -171,11 +172,12 @@ class Sweeps(Strategy):
         if  self.two_way and sitel > siter:
             siter, sitel = sites
         
-        if isinstance(model, qtn.MatrixProductState): # TODO - fix! not working
+        if isinstance(model, qtn.MatrixProductState) or isinstance(model, MatrixProductState): # TODO - fix! not working
             site_ind_prefix = model.site_ind_id.rstrip("{}")
             vindl = [f'{site_ind_prefix}{sitel}'] + ([model.bond(sitel - 1, sitel)] if sitel > 0 else [])
-            vindr = [f'{site_ind_prefix}{siter}']
-            qtn.tensor_core.tensor_split(tensor, left_inds=vindl, right_inds=vindr, bond_ind=self.bond_name, max_bond=self.bond_dim_split, **self.split_opts)
+            vindr = [f'{site_ind_prefix}{siter}'] + ([model.bond(siter, siter + 1)] if siter < model.nsites - 1 else [])
+            left_inds = [*vindl]
+            right_inds = [*vindr]
         else:
             site_ind_prefix = model.upper_ind_id.rstrip("{}")
             vindr = [model.upper_ind(siter)] + ([model.bond(siter, siter + 1)] if siter < model.nsites - 1 else [])
@@ -195,25 +197,25 @@ class Sweeps(Strategy):
             else:
                 right_inds=[*vindr]
             
-            splited_tensors = qtn.tensor_core.tensor_split(tensor, get='tensors', left_inds=left_inds, right_inds=right_inds, bond_ind = self.bond_name, max_bond=self.bond_dim_split, **self.split_opts)
+        splited_tensors = qtn.tensor_core.tensor_split(tensor, get='tensors', left_inds=left_inds, right_inds=right_inds, bond_ind = self.bond_name, max_bond=self.bond_dim_split, **self.split_opts)
 
-            tids = model._get_tids_from_tags(sitetags, which='all')
-            for tid in tuple(tids):
-                model.pop_tensor(tid)
-                
-            # transpose to LRP order
-            for t in splited_tensors:
-                inds = t.inds
-                inds_len = len(inds)
-                if inds_len in [2, 3, 4]:
-                    for direction in [self.left_inds, self.right_inds]:
-                        if inds_len == len(direction) and sorted(inds) == sorted(direction):
-                            t.transpose(*direction[:inds_len], inplace=True)
-                            break
-                else:
-                    raise ValueError('Something is wrong in index ordering!')
+        tids = model._get_tids_from_tags(sitetags, which='all')
+        for tid in tuple(tids):
+            model.pop_tensor(tid)
+            
+        # transpose to LRP order
+        for t in splited_tensors:
+            inds = t.inds
+            inds_len = len(inds)
+            if inds_len in [2, 3, 4]:
+                for direction in [self.left_inds, self.right_inds]:
+                    if inds_len == len(direction) and sorted(inds) == sorted(direction):
+                        t.transpose(*direction[:inds_len], inplace=True)
+                        break
+            else:
+                raise ValueError('Something is wrong in index ordering!')
 
-                model.add_tensor(t)
+            model.add_tensor(t)
         # fix tags
         for tag in sitetags:
             for tensor in model.select_tensors(tag):
