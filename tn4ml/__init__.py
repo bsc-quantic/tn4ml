@@ -27,6 +27,7 @@ from .loss import (
     error_logquad,
     error_quad,
     softmax,
+    MSE,
     loss_wrapper_optax,
     combined_loss,
 )
