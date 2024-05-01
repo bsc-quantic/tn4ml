@@ -13,12 +13,12 @@ Model
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: tn4ml.models.mps.ParametrizedMatrixProductState
+.. autoclass:: tn4ml.models.mps.MatrixProductState
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: tn4ml.models.mpo.ParametrizedMatrixProductOperator
+.. autoclass:: tn4ml.models.mpo.MatrixProductOperator
    :members:
    :undoc-members:
    :show-inheritance:
