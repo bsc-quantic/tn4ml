@@ -15,9 +15,6 @@ from ..embeddings import *
 from ..strategy import *
 from ..util import gradient_clip
 
-from jax import config
-config.update("jax_enable_x64", True)
-
 class Model(qtn.TensorNetwork):
     """:class:`tn4ml.models.Model` class models training model of class :class:`quimb.tensor.tensor_core.TensorNetwork`.
 
@@ -91,8 +88,8 @@ class Model(qtn.TensorNetwork):
             else:
                 raise AttributeError(f"Attribute {key} not found")
                 
-        if self.train_type not in [0, 1]:
-            raise AttributeError("Specify type of training: 0 = 'unsupervised' or 1 ='supervised'!")
+        if self.train_type not in [0, 1, 2]:
+            raise AttributeError("Specify type of training: 0 = 'unsupervised' or 1 ='supervised', 2 = 'target TN'!")
         
         if not hasattr(self, 'optimizer') or not hasattr(self, 'gradient_transforms'):
             raise AttributeError("Provide 'optimizer' or sequence of 'gradient_transforms'! ")
@@ -100,7 +97,7 @@ class Model(qtn.TensorNetwork):
         if self.gradient_transforms:
             self.optimizer = optax.chain(*self.gradient_transforms)
         else:
-            if hasattr(self, 'optimizer'):
+            if hasattr(self, 'optimizer') and callable(self.optimizer):
                 self.optimizer = self.optimizer(learning_rate = self.learning_rate)
             else:
                 self.optimizer = optax.adam(learning_rate=self.learning_rate)
@@ -131,9 +128,10 @@ class Model(qtn.TensorNetwork):
 
     def create_cache(self,
                     loss_fn,
-                    embedding,
-                    input_shape: tuple,
+                    embedding: Optional[Embedding] = trigonometric(),
+                    input_shape: Optional[tuple] = None,
                     target_shape: Optional[tuple] = None,
+                    target_params: Optional[Collection] = None,
                     inputs_dtype: Any = jnp.float_,
                     targets_dtype: Any = None):
         """Creates cache for compiled functions to calculate loss and gradients.
@@ -163,14 +161,20 @@ class Model(qtn.TensorNetwork):
 
             dummy_input = jnp.ones(shape=input_shape, dtype=inputs_dtype)
             if target_shape is not None:
+                # supervised
                 dummy_targets = jnp.ones(shape=target_shape, dtype=targets_dtype)
 
-                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L, axis_name='batch')).lower(dummy_input, dummy_targets, *params)
-                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, 0] + [None] * self.L, axis_name='batch')).lower(dummy_input, dummy_targets, *params)
+                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None] + [None]*self.L)).lower(dummy_input, dummy_targets, None, *params)
+                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 3 for i in range(self.L))), in_axes=[0, 0, None] + [None] * self.L)).lower(dummy_input, dummy_targets, None, *params)
+            elif target_params is not None:
+                # with target TN
+                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*len(target_params) + [None]*self.L)).lower(dummy_input, None, *target_params, *params)
+                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 + len(target_params) for i in range(self.L))), in_axes=[0, None] + [None]*len(target_params) + [None] * self.L)).lower(dummy_input, None, *target_params, *params)
             else:
-                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L, axis_name='batch')).lower(dummy_input, None, *params)
-                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, None] + [None] * self.L, axis_name='batch')).lower(dummy_input, None, *params)
-
+                # unsupervised
+                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None] + [None]*self.L)).lower(dummy_input, None, None, *params)
+                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 3 for i in range(self.L))), in_axes=[0, None, None] + [None] * self.L)).lower(dummy_input, None, None, *params)
+            
             # save compiled functions
             self.cache["loss_compiled"] = loss_ir.compile()
             self.cache["grads_compiled"] = grads_ir.compile()
@@ -286,6 +290,7 @@ class Model(qtn.TensorNetwork):
             val_inputs: Optional[Collection] = None,
             targets: Optional[Collection] = None,
             val_targets: Optional[Collection] = None,
+            tn_target: Optional[qtn.TensorNetwork] = None,
             batch_size: Optional[int] = None,
             epochs: Optional[int] = 1,
             embedding: Embedding = trigonometric(),
@@ -310,6 +315,8 @@ class Model(qtn.TensorNetwork):
             Targets for training procedure (if training is supervised).
         val_targets: sequence of :class:`numpy.ndarray`
             Targets for validation (if training is supervised).
+        tn_target: :class:`quimb.tensor.tensor_core.TensorNetwork` or any specialized TN class from `quimb.tensor` module
+            Target tensor network for training.
         batch_size : int, or default `None`
             Number of samples per gradient update.
         epochs : int
@@ -358,28 +365,14 @@ class Model(qtn.TensorNetwork):
                 self.history['val_loss'] = []
         
         self.sitetags = None # for sweeping strategy
-
-        # define loss function for training with global strategy
-        # def supervised_loss(data, targets, *params):
-        #     with qtn.contract_backend("jax"):
-        #         tn = self.copy()
-        #         for tensor, array in zip(tn.tensors, params):
-        #             tensor.modify(data=array)
-        #         input_tn = embed(data, embedding)
-        #         return self.loss(tn, input_tn, targets)
-
-        # def unsupervised_loss(data, *params):
-        #     with qtn.contract_backend("jax"):
-        #         tn = self.copy()
-        #         for tensor, array in zip(tn.tensors, params):
-        #             tensor.modify(data=array)
-        #         input_tn = embed(data, embedding)
-        #         return self.loss(tn, input_tn)
-            
-        def loss_fn(data, targets=None, *params):
+        
+        if tn_target is not None:
+            skeleton_target, params_target = qu.pack(tn_target)
+        
+        def loss_fn(data, targets=None, target_params=None, *params):
             """
             Loss function that adapts based on training type.
-            train_type: 0 for unsupervised, 1 for supervised
+            train_type: 0 for unsupervised, 1 for supervised, 2 for training with target TN
             """
             tn = self.copy()
             if self.sitetags is not None:
@@ -388,12 +381,17 @@ class Model(qtn.TensorNetwork):
                 for tensor, array in zip(tn.tensors, params):
                     tensor.modify(data=array)
             
-            input_tn = embed(data, embedding)
+            if target_params is None:
+                tn_i = embed(data, embedding)
 
-            if self.train_type == 0:
-                return self.loss(tn, input_tn)
+                if self.train_type == 0:
+                    return self.loss(tn, tn_i)
+                else:
+                    return self.loss(tn, tn_i, targets)
             else:
-                return self.loss(tn, input_tn, targets)
+                assert self.train_type == 2, "Train type must be 2 for this type of loss function!"
+                tn_target = qtn.unpack(skeleton_target, target_params)
+                return self.loss(tn, tn_target)
 
         if cache:
             # Caching loss computation and gradients
@@ -401,8 +399,9 @@ class Model(qtn.TensorNetwork):
                 #model = self.copy()
                 self.create_cache(loss_fn,
                                 embedding,
-                                (self.batch_size, inputs.shape[1]),
+                                (self.batch_size, inputs.shape[1]) if inputs is not None else None,
                                 (self.batch_size, targets.shape[1]) if targets is not None else None,
+                                params_target if tn_target is not None else None,
                                 dtype,
                                 targets.dtype if targets is not None else None)
                 
@@ -413,11 +412,16 @@ class Model(qtn.TensorNetwork):
             # Train without caching
             if isinstance(self.strategy, Sweeps):
                 if self.train_type == 0:
-                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None]))
-                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[2]), in_axes=[0, None, None]))
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None, None]))
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[2]), in_axes=[0, None, None, None]))
+                elif self.train_type == 1:
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None, None]))
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[2]), in_axes=[0, 0, None, None]))
+                elif self.train_type == 2:
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*len(params_target) + [None]*self.L))
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[i + 2 + len(params_target) for i in range(self.L)]), in_axes=[0, None] + [None]*len(params_target) + [None]*self.L))
                 else:
-                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None]))
-                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[2]), in_axes=[0, 0, None]))
+                    raise ValueError("Specify type of training: 0 = 'unsupervised' or 1 ='supervised' or 2 = 'with target TN'!")
                 
                 # initialize optimizer
                 self.opt_states = []
@@ -442,9 +446,14 @@ class Model(qtn.TensorNetwork):
                 if self.train_type == 0:
                     self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L))
                     self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, None] + [None] * self.L))
-                else:
+                elif self.train_type == 1:
                     self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L))
                     self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, 0] + [None] * self.L))
+                elif self.train_type == 2:
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*len(params_target) + [None]*self.L))
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 + len(params_target) for i in range(self.L))), in_axes=[0, None] + [None]*len(params_target) + [None]*self.L))
+                else:
+                    raise ValueError("Specify type of training: 0 = 'unsupervised' or 1 ='supervised' or 2 = 'with target TN'!")
                 
                 # initialize optimizer
                 params = self.arrays
@@ -559,8 +568,9 @@ class Model(qtn.TensorNetwork):
             return output.arrays
 
     def evaluate(self, 
-                 inputs: Collection,
+                 inputs: Collection = None,
                  targets: Optional[Collection] = None,
+                 tn_target: Optional[qtn.TensorNetwork] = None,
                  batch_size: Optional[int] = None,
                  embedding: Embedding = trigonometric(),
                  evaluate_type: int = 0,
@@ -576,6 +586,8 @@ class Model(qtn.TensorNetwork):
             Data used for evaluation.
         targets: sequence of :class:`numpy.ndarray`
             Targets for evaluation (if evaluation is supervised).
+        tn_target: :class:`quimb.tensor.tensor_core.TensorNetwork` or any specialized TN class from `quimb
+            Target tensor network for evaluation.
         batch_size : int, or default `None`
             Number of samples per evaluation.
         embedding : :class:`tn4ml.embeddings.Embedding`
@@ -593,9 +605,15 @@ class Model(qtn.TensorNetwork):
             Loss value.
         """
 
+        if evaluate_type not in [0, 1, 2]:
+            raise ValueError("Specify type of evaluation: 0 = 'unsupervised' or 1 ='supervised' or 2 = 'with target TN'!")
+
         if targets is not None:
             if targets.ndim == 1:
                 targets = np.expand_dims(targets, axis=-1)
+
+        if tn_target is not None:
+            skeleton_target, params_target = qu.pack(tn_target)
         
         if hasattr(self, 'batch_size'):
             if len(self.cache.keys()) == 0:
@@ -617,14 +635,11 @@ class Model(qtn.TensorNetwork):
         loss_value = 0
         if return_list:
             loss = []
-        
-        # if (len(self.cache.keys()) == 0 or batch_size is None) and hasattr(self, 'batch_size'):
-        #     batch_size = self.batch_size
 
-        def loss_fn(data, targets=None, *params):
+        def loss_fn(data=None, targets=None, target_params=None, *params):
             """
             Loss function that adapts based on training type.
-            train_type: 0 for unsupervised, 1 for supervised
+            train_type: 0 for unsupervised, 1 for supervised, 2 for training with target TN
             """
             tn = self.copy()
             if hasattr(self, 'sitetags') and self.sitetags is not None:
@@ -633,61 +648,85 @@ class Model(qtn.TensorNetwork):
                 for tensor, array in zip(tn.tensors, params):
                     tensor.modify(data=array)
             
-            input_tn = embed(data, embedding)
+            if target_params is None:
+                assert data is not None, "Input data must be provided!"
 
-            if self.train_type == 0:
-                return self.loss(tn, input_tn)
+                tn_i = embed(data, embedding)
+
+                if evaluate_type == 0:
+                    return self.loss(tn, tn_i)
+                else:
+                    return self.loss(tn, tn_i, targets)
             else:
-                return self.loss(tn, input_tn, targets)
+                assert evaluate_type == 2, "Train type must be 2 for this type of loss function!"
+                tn_target = qtn.unpack(skeleton_target, target_params)
+                return self.loss(tn, tn_target)
+        
+        if inputs is None:
+            assert evaluate_type == 2, "If inputs are not provided, evaluation type must be 2!"
+            assert tn_target is not None, "If inputs are not provided, target tensor network must be provided!"
 
-        for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype):
-            if len(batch_data) == 2:
-                x, y = batch_data
-                x, y = jnp.array(x), jnp.array(y)
-            else:
-                x = jnp.array(batch_data)
-                y = None
+            self.loss_func = jax.jit(loss_fn)
 
-            if isinstance(self.strategy, Sweeps):
-                if not hasattr(self, 'loss_func'):
-                    if evaluate_type == 0:
-                        self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None]))
-                    else:
-                        self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None]))
+            # add for sweeping or global optimization
+
+        else:
+            for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype):
+                if len(batch_data) == 2:
+                    x, y = batch_data
+                    x, y = jnp.array(x), jnp.array(y)
+                else:
+                    x = jnp.array(batch_data)
+                    y = None
                 
-                loss_curr = np.zeros((x.shape[0],))
-                for s, sites in enumerate(self.strategy.iterate_sites(self)):
-                    self.strategy.prehook(self, sites)
-                    
-                    self.sitetags = [self.site_tag(site) for site in sites]
-                    
-                    params_i = self.select_tensors(self.sitetags)[0].data
-                    params_i = jnp.expand_dims(params_i, axis=0)
-
-                    if evaluate_type == 0:
-                        loss_group = self.loss_func(x, *params_i)
-                    else:
-                        loss_group = self.loss_func(x, y, *params_i)
-
-                    self.strategy.posthook(self, sites)
-
-                    loss_curr += loss_group
-                loss_curr /= (s+1)
-            else:
-                params = self.arrays
-                if len(self.cache.keys()) == 0 or (len(self.cache.keys()) > 0 and batch_size != self.batch_size):
+                if isinstance(self.strategy, Sweeps):
                     if not hasattr(self, 'loss_func'):
                         if evaluate_type == 0:
-                            self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L))
+                            # unsupervised
+                            self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None, None]))
+                        elif evaluate_type == 1:
+                            # supervised
+                            self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None, None]))
                         else:
-                            self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L))
-                    loss_curr = self.loss_func(x, y, *params)
+                            # with target TN
+                            self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*len(params_target) + [None]*self.L))
+                    
+                    loss_curr = np.zeros((x.shape[0],))
+                    for s, sites in enumerate(self.strategy.iterate_sites(self)):
+                        self.strategy.prehook(self, sites)
+                        
+                        self.sitetags = [self.site_tag(site) for site in sites]
+                        
+                        params_i = self.select_tensors(self.sitetags)[0].data
+                        params_i = jnp.expand_dims(params_i, axis=0)
+
+                        loss_group = self.loss_func(x, y, *params_i)
+
+                        self.strategy.posthook(self, sites)
+
+                        loss_curr += loss_group
+                    loss_curr /= (s+1)
                 else:
-                    loss_curr = self.cache["loss_compiled"](x, y, *params)
-            
-            loss_value += np.mean(loss_curr)
-            if return_list:
-                loss.extend(loss_curr)
+                    params = self.arrays
+                    if len(self.cache.keys()) == 0 or (len(self.cache.keys()) > 0 and batch_size != self.batch_size):
+                        if not hasattr(self, 'loss_func'):
+                            if evaluate_type == 0:
+                                # unsupervised
+                                self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None] + [None]*self.L))
+                            elif evaluate_type == 1:
+                                # supervised
+                                self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None] + [None]*self.L))
+                            else:
+                                # with target TN
+                                self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*len(params_target) + [None]*self.L))
+                            
+                        loss_curr = self.loss_func(x, y, *params)
+                    else:
+                        loss_curr = self.cache["loss_compiled"](x, y, *params)
+                
+                loss_value += np.mean(loss_curr)
+                if return_list:
+                    loss.extend(loss_curr)
 
         if return_list:
             return np.asarray(loss)
