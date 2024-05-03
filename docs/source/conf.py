@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath('../../'))
 
 project = 'tn4ml'
 copyright = '2024, Barcelona Supercomputing Center - Centro Nacional de Supercomputación'
-author = 'Ema Puljak, Sergio Sánchez Ramírez, Sergi Masor Llima, Jofre Valles Muns'
+author = 'Ema Puljak, Sergio Sánchez Ramírez, Sergi Masor Llima, Jofre Vallès-Muns'
 release = '1.0'
 
 # -- General configuration ---------------------------------------------------
