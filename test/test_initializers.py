@@ -5,7 +5,7 @@ from tn4ml.util import *
 import tn4ml
 import jax, jax,numpy as jnp
 
-def check_orthonormal_vectors(Q, type='row', atol=1e-6):
+def check_orthonormal_vectors(Q, type='rows', atol=1e-6):
     """
     Check if the rows of matrix Q form an orthonormal set.
     
