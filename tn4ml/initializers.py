@@ -8,7 +8,7 @@ from jax.typing import ArrayLike
 from jax.nn.initializers import *
 from .util import gramschmidt_col, gramschmidt_row
 
-def zeros_init() -> Initializer:
+def zeros_init(dtype: Any = jnp.float_) -> Initializer:
     """Builds an initializer that initializes tensors with zeros.
 
     Examples
@@ -23,7 +23,7 @@ def zeros_init() -> Initializer:
     
     def init(key: Any,
            shape: core.Shape,
-           dtype: Any) -> jnp.ndarray:
+           dtype: Any = dtype) -> jnp.ndarray:
         """Initializes a tensor.
         
         Parameters
@@ -43,7 +43,7 @@ def zeros_init() -> Initializer:
         return jax.nn.initializers.zeros(key, shape, dtype)
     return init
 
-def ones_init() -> Initializer:
+def ones_init(dtype: Any = jnp.float_) -> Initializer:
     """Builds an initializer that initializes tensors with ones.
 
     Examples
@@ -58,7 +58,7 @@ def ones_init() -> Initializer:
     
     def init(key: Any,
            shape: core.Shape,
-           dtype: Any) -> jnp.ndarray:
+           dtype: Any = dtype) -> jnp.ndarray:
         """Initializes a tensor.
         
         Parameters
