@@ -3,17 +3,17 @@
 
 from .model import (
     Model,
-    load_model,
-    _fit,
-    _fit_sweeps
+    load_model,    
 )
 
 from .smpo import(
-    SpacedMatrixProductOperator
+    SpacedMatrixProductOperator,
+    SMPO_initialize,
+    generate_shape
 )
 
 from .mps import(
-    TrainableMatrixProductState
+    MatrixProductState
 )
 
 from .lotenet import(

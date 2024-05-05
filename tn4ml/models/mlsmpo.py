@@ -3,10 +3,14 @@ import math
 import numpy as np
 import quimb as qu
 import quimb.tensor as qtn
+from jax.nn.initializers import Initializer
+import jax.numpy as jnp
+import jax
+from typing import Any
 from torch.func import vmap
 import tn4ml.embeddings as embeddings
-from  tn4ml.models import SpacedMatrixProductOperator
-from tn4ml.util import squeeze_dimensions, rearanged_dimensions, squeeze_image, rearange_image, unsqueeze_image_pooling, unsqueezed_dimensions
+from tn4ml.models.smpo import SMPO_initialize
+from tn4ml.util import squeeze_dimensions, rearanged_dimensions, squeeze_image, rearange_image, unsqueeze_image_pooling
 
 
 def calc_num_layers(input_dim, kernel, S):
@@ -38,27 +42,37 @@ class MLSMPO(torch.nn.Module):
 
     # initialization
     def __init__(self,
-                 input_dim: tuple[int, ...],
-                 spacing: int,
-                 output_dim: int,
-                 bond_dim: int,
-                 virtual_dim: int = 1,
-                 kernels: tuple[int, ...] = [2, 2],
-                 phys_dim_input: int = 2,
-                 embedding_input: embeddings.Embedding = embeddings.trigonometric(),
-                 device: torch.device = torch.device('cpu')):
+                    input_dim: tuple[int, ...],
+                    spacings: tuple[int, ...],
+                    output_dim: int,
+                    bond_dim: int,
+                    initializer: Initializer,
+                    dtype: Any = jnp.float_,
+                    shape_method: str = 'even',
+                    compress: bool = False,
+                    canonical_center: int = None,
+                    virtual_dim: int = 1,
+                    kernels: tuple[int, ...] = [2, 2],
+                    phys_dim_input: int = 2,
+                    embedding_input: embeddings.Embedding = embeddings.trigonometric(),
+                    device: torch.device = torch.device('cpu'),
+                    mean: float = 0.0,
+                    std: float = 1.0):
         
         super().__init__()
 
         self.input_dim = input_dim
+        self.spacings = spacings
         self.output_dim = output_dim
         self.bond_dim = bond_dim
+        self.initializer = initializer
         self.virtual_dim = virtual_dim
         self.kernels = kernels
-        self.phys_dim_input = phys_dim_input
+        #self.phys_dim_input = phys_dim_input # not needed for now
         self.embedding_input = embedding_input
         self.device = device
-        self.spacing = spacing
+        self.mean = mean
+        self.std = std
 
         self.S = len(self.input_dim) - 1 # dimensionality of inputs
 
@@ -78,20 +92,28 @@ class MLSMPO(torch.nn.Module):
             print(f'N_layer = {i}')
             print(f'N_i, feature_dim = {N_i}, {feature_dim}')
             # MPS with output index
-            layer_i = SpacedMatrixProductOperator.rand_init(n=N_i,\
-                                                            spacing=self.spacing,\
-                                                            bond_dim = self.bond_dim,\
-                                                            phys_dim=(feature_dim, self.virtual_dim),\
-                                                            init_func='random_eye')
+            key = jax.random.PRNGKey(0)
+            layer_i = SMPO_initialize(L=N_i,
+                                    initializer=initializer,
+                                    key=key,
+                                    shape_method=shape_method,
+                                    spacing=self.spacings[i],
+                                    bond_dim=self.bond_dim,
+                                    phys_dim=(feature_dim, self.virtual_dim),
+                                    cyclic=False,
+                                    compress=compress,
+                                    canonical_center=canonical_center,
+                                    dtype=dtype)
+            print(layer_i.norm())
             print(f'#outputs = {len(list(layer_i.lower_inds))}')
             
             n_outputs = len(list(layer_i.lower_inds))
-            # gather params and skeleton of each MPS
-            param, skeleton = qtn.pack(layer_i)
 
+            # gather params and skeleton of each MPS
             param_dict = {}
+            param, skeleton = qtn.pack(layer_i)
             for j, data in param.items():
-                param_dict[f'param_{j}_nL{i}'] = torch.nn.Parameter(torch.tensor(data, dtype=torch.float64), requires_grad=True)
+                param_dict[f'param_{j}_nL{i}'] = torch.nn.Parameter(torch.tensor(np.asarray(data), dtype=torch.float64), requires_grad=True)
             params.append(torch.nn.ParameterDict(param_dict))
             skeletons.append(skeleton)
 
@@ -104,7 +126,7 @@ class MLSMPO(torch.nn.Module):
             rearanged_dim = rearanged_dimensions(output_shape, S=2)
             print(f"Rearanged dim H' x W' = {rearanged_dim}")
             # find new N_i -> number of MPSs in next layer
-            new_dim, feature_dim = squeeze_dimensions(rearanged_dim, self.kernels[1])
+            new_dim, feature_dim = squeeze_dimensions(rearanged_dim, self.kernels[i+1])
             N_i = math.prod(new_dim)
         
         print('OUTPUT')
@@ -112,16 +134,25 @@ class MLSMPO(torch.nn.Module):
         print(f'N_i, feature_dim = {N_i}, {feature_dim}')
         # NEW
         print(f'Number of tensors in last layer = {N_i}')
-        layer_i = SpacedMatrixProductOperator.rand_orthogonal(n=N_i,\
-                                                        spacing=N_i,\
-                                                        bond_dim = self.bond_dim,\
-                                                        phys_dim=(feature_dim, self.output_dim),\
-                                                        init_func='normal')
+
+        key = jax.random.PRNGKey(0)
+        layer_i = SMPO_initialize(L=N_i,\
+                                initializer=initializer,
+                                key=key,
+                                shape_method=shape_method,
+                                spacing=N_i,
+                                bond_dim=self.bond_dim,
+                                phys_dim=(feature_dim, self.output_dim),
+                                cyclic=False,
+                                compress=compress,
+                                canonical_center=canonical_center,
+                                dtype=dtype)
+        print(layer_i.norm())
         print(f'#outputs = {len(list(layer_i.lower_inds))}')
         param, skeleton = qtn.pack(layer_i)
         param_dict = {}
         for j, data in param.items():
-            param_dict[f'param_{j}_nL{self.n_layers}'] = torch.nn.Parameter(torch.tensor(data, dtype=torch.float64), requires_grad=True)
+            param_dict[f'param_{j}_nL{self.n_layers}'] = torch.nn.Parameter(torch.tensor(np.asarray(data), dtype=torch.float64), requires_grad=True)
         params.append(torch.nn.ParameterDict(param_dict))
         skeletons.append(skeleton)
         
@@ -140,26 +171,34 @@ class MLSMPO(torch.nn.Module):
         N_i, feature_dim = squeezed_image.shape
         embedding = embeddings.whatever_encoding(dim=feature_dim)
         mps_input = embeddings.embed(squeezed_image, embedding)
+        # print('Embedded input image or layer ith image')
+        # print(mps_input.arrays[:5])
         mps_input.normalize()
-
         # return params to quimb
         params_quimb = {int(key.split('_')[1]): value for key, value in params.items()}
 
         # unpack model from params and skeleton
         mps_model = qtn.unpack(params_quimb, skeleton)
         mps_model.normalize()
-        
+        # print(f'Number of tensors: {len(mps_model.tensors)}')
+        # print(f'MPS MODEL norm = {mps_model.norm()}')
+
         n_outputs = len(list(mps_model.lower_inds))
 
         # MPS + MPS_with_output = vector
         output = mps_model.apply(mps_input)
+        # print('--------outputs------------')
+        # for i, t in enumerate(output.tensors):
+        #     print(f'-------- output number = {i} ---------------')
+        #     print(t.data)
         output.normalize()
-
-        # # Iteratively contract the result with each subsequent tensor
+        # Iteratively contract the result with each subsequent tensor
         result = output[0]
         # Iteratively contract the result with each subsequent tensor
         for i in range(1, len(output.tensors)):
+            #print(f'----- step = {i} --------')
             result = result.contract(output[i])
+            #print(result.data)
             new_inds = [ind for ind, size in zip(result.inds, result.shape) if size > 1]
             # Corresponding sizes for the new shape
             new_shape = [size for size in result.shape if size > 1]
@@ -168,6 +207,7 @@ class MLSMPO(torch.nn.Module):
         result.drop_tags(result.tags)
         result.add_tag(['I0'])
         result = result.data.reshape((self.virtual_dim**n_outputs,))
+        #print(result)
         return result.to(device=self.device)
     
     def pass_final_layer(self, input_image, params, skeleton):
@@ -191,7 +231,7 @@ class MLSMPO(torch.nn.Module):
         
         # MPS + MPS_with_output = vector
         output = mps_model.apply(mps_input)^all
-        #output.normalize()
+        output.normalize()
         return output.data.reshape((self.output_dim,)).to(device=self.device)
     
     def forward(self, x):
@@ -215,9 +255,8 @@ class MLSMPO(torch.nn.Module):
             if n_layer == self.n_layers - 1:
                 x = vmap(self.pass_final_layer, in_dims=(0, None, None))(x, params_i, skeleton_i)
                 return x
-            
+
             x = vmap(self.pass_per_layer, in_dims=(0, None, None, None))(x, n_layer, params_i, skeleton_i)
-            
             #x_dims = x.shape[1:]
 
             # reshape
@@ -231,4 +270,3 @@ class MLSMPO(torch.nn.Module):
             # reshape to image-like for next layer
             #x = torch.unsqueeze(x, -1)
             x = vmap(rearange_image, in_dims=(0, None, None))(x, self.S, self.device)
-            #print(x.shape)

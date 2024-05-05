@@ -1,131 +1,187 @@
-import itertools
-from numbers import Integral
+from typing import Any
 import numpy as np
 import autoray as a
+
 from quimb import *
 import quimb.tensor as qtn
-from quimb.tensor.tensor_1d import MatrixProductState, TensorNetwork, TensorNetwork1DFlat
-from .model import Model
-from ..util import gramschmidt
 
-class TrainableMatrixProductState(Model, MatrixProductState):
+from jax.nn.initializers import Initializer
+import jax.numpy as jnp
+
+from .model import Model
+
+class MatrixProductState(Model, qtn.MatrixProductState):
     """A Trainable MatrixProductState class.
     See :class:`quimb.tensor.tensor_1d.MatrixProductState` for explanation of other attributes and methods.
     """
 
     def __init__(self, arrays, **kwargs):
-        # if isinstance(arrays, MatrixProductState):
-        #     Model.__init__(self)
-        #     return
+        """Initializes :class:`tn4ml.models.mps.MatrixProductState`.
+        
+        Parameters
+        ----------
+        arrays : list
+            List of arrays to be used as tensors.
+        kwargs : dict
+            Additional arguments.
+        """
         Model.__init__(self)
-        MatrixProductState.__init__(self, arrays, **kwargs)
+        qtn.MatrixProductState.__init__(self, arrays, **kwargs)
     
-    def rand_state(L: int, bond_dim: int, phys_dim: int=2, normalize: bool=True, cyclic: bool=False, dtype: str="float64", trans_invar: bool = False, **kwargs):
-        """Initialize randomly tensors - taken from quimb.tensor.MPS_rand_state().
-
-        Parameters
-        ----------
-        L: int
-            Number of tensors.
-        bond_dim : int
-            Dimension of virtual indices between tensors. *Default = 2*.
-        phys_dim :  int
-            Dimension of physical indices for individual tensor - *up* and *down*.
-        normalize : bool
-            Flag to normlize tensor network.
-        cyclic : bool
-            Flag for indicating if SpacedMatrixProductOperator is cyclic. *Default=False*.
-        trans_invar : bool
-            Type of random number for generating arrays data. *Default='uniform'*.
-
-        Returns
-        -------
-        :class:`tn4ml.models.mps.TrainableMatrixProductState`
-        """
-
-        rmps = qtn.MPS_rand_state(L, bond_dim=bond_dim,\
-                                  phys_dim = phys_dim,\
-                                  normalize = normalize,\
-                                  cyclic = cyclic,\
-                                  dtype = dtype,\
-                                 trans_invar = trans_invar,\
-                                 **kwargs)
-        arrays = rmps.arrays
-        return TrainableMatrixProductState(arrays, **kwargs)
-
+    # def copy(self):
+    #     """Copies the model.
         
-    def rand_orthogonal(L: int, bond_dim: int = 2, phys_dim: int = 2, normalize: bool=True, cyclic: bool=False, dtype: str="float64", init_func: str = "uniform", scale: float = 1.0, seed: int = None, **kwargs):
-        """Initialize tensors with Gram-Schmidt ortogonalization procedure ensuring normalized state.
-        Currently this function is only supported for `cyclic=False`.
+    #     Returns
+    #     -------
+    #     Model of the same type.
+    #     """
 
-        Parameters
-        ----------
-        L: int
-            Number of tensors.
-        bond_dim : int
-            Dimension of virtual indices between tensors. *Default = 2*.
-        phys_dim :  int
-            Dimension of physical indices for individual tensor - *up* and *down*.
-        normalize : bool
-            Flag to normlize tensor network.
-        cyclic : bool
-            Flag for indicating if SpacedMatrixProductOperator is cyclic. *Default=False*.
-        init_func : str
-            Type of random number for generating arrays data. *Default='uniform'*.
-        scale : float
-            The width of the distribution (standard deviation if `init_func='normal'`).
-        seed : int, or `None`
-            Seed for generating random number.
-        dtype : str 
-            Type of random number for quimb.randn()
+    #     model = type(self)(self.arrays)
+    #     for key in self.__dict__.keys():
+    #         model.__dict__[key] = self.__dict__[key]
+    #     return model
+    
+def trainable_wrapper(mps: qtn.MatrixProductState, **kwargs) -> MatrixProductState:
+    """ Creates a wrapper around qtn.MatrixProductState so it can be trainable.
 
-        Returns
-        -------
-        :class:`tn4ml.models.mps.TrainableMatrixProductState`
-        """
+    Parameters
+    ----------
+    mps : :class:`quimb.tensor.MatrixProductState`
+        Matrix Product State to be trained.
 
-        if cyclic:
-            raise NotImplementedError()
+    Returns
+    -------
+    :class:`tn4ml.models.mps.MatrixProductState`
+    """
+    tensors = mps.arrays
+    return MatrixProductState(tensors, **kwargs)
+    
+def generate_shape(method: str,
+                    L: int,
+                    bond_dim: int = 2,
+                    phys_dim: int = 2,
+                    cyclic: bool = False,
+                    position: int = None,
+                    ) -> tuple:
+    """Returns a shape of tensor .
 
-        # check for site varying physical dimensions
-        if isinstance(phys_dim, Integral):
-            phys_dims = itertools.repeat(phys_dim)
+    Parameters
+    ----------
+    method : str
+        Method on how to create shapes of tensors.  
+        'even' = exact dimensions as given by parameters, anything else = truncated dimensions.
+    L : int
+        Number of tensors.
+    bond_dim : int
+        Dimension of virtual indices between tensors. *Default = 4*.
+    phys_dim :  int
+        Dimension of physical index for individual tensor.
+    cyclic : bool
+        Flag for indicating if MatrixProductState this tensor is part of is cyclic. *Default=False*.
+    position : int
+        Position of tensor in MatrixProductState.
+    Returns
+    -------
+        tuple
+    """
+    
+    if method == 'even':
+        shape = (bond_dim, bond_dim, phys_dim)
+        if position == 1:
+            shape = (1, bond_dim, phys_dim)
+        if position == L:
+            shape = (bond_dim, 1, phys_dim)
+    else:
+        assert not cyclic
+        if position > L // 2:
+            j = (L + 1 - abs(2*position - L - 1)) // 2
         else:
-            phys_dims = itertools.cycle(phys_dim)
-        # LRP
-        arrays=[]
-        for i in range(1, L+1):
-            p = next(phys_dims)
-            if i > L // 2:
-                j = (L + 1 - abs(2*i - L - 1)) // 2
-            else:
-                j = i
-            
-            chil = min(bond_dim, p**(j-1))
-            chir = min(bond_dim, p**j)
+            j = position
+        
+        chir = min(bond_dim, phys_dim**j)
+        chil = min(bond_dim, phys_dim**(j-1))
 
-            if i > L // 2:
-                (chil, chir) = (chir, chil)
+        if position > L // 2:
+            (chil, chir) = (chir, chil)
 
-            if i == 1:
-                (chil, chir) = (chir, 1)
+        if position == 1:
+            (chil, chir) = (chir, 1)
 
-            shape = (chil, chir, p)
-
-            if seed != None:
-                A = gramschmidt(randn([shape[0], np.prod(shape[1:])], dtype=dtype, dist=init_func, scale=scale, seed=seed))
-            else:
-                A = gramschmidt(randn([shape[0], np.prod(shape[1:])], dtype=dtype, dist=init_func, scale=scale))
-            
-            arrays.append(np.reshape(A, shape))
+        shape = (chil, chir, phys_dim)
     
-        arrays[0] = np.reshape(arrays[0], (1, min(bond_dim, phys_dim), phys_dim))
-        #arrays[L-1] = np.reshape(arrays[L-1], (min(bond_dim, phys_dim), 1, phys_dim))
-        
-        arrays[0] /= np.sqrt(phys_dim)
-            
-        rmps = TrainableMatrixProductState(arrays, **kwargs)
-        
-        if normalize:
-            rmps.normalize()
-        return rmps
+    return shape
+
+def MPS_initialize(L: int,
+            initializer: Initializer,
+            key: Any,
+            dtype: Any = jnp.float_,
+            shape_method: str = 'even',
+            bond_dim: int = 4,
+            phys_dim: int = 2,
+            cyclic: bool = False,
+            compress: bool = False,
+            insert: int = None,
+            canonical_center: int = None,
+            **kwargs):
+    
+    """Generates :class:`tn4ml.models.mps.MatrixProductState`.
+
+    Parameters
+    ----------
+    L : int
+        Number of tensors.
+    initializer : :class:`jax.nn.initializers.Initializer``
+        Type of tensor initialization function.
+    key : Array
+        Argument key is a PRNG key (e.g. from `jax.random.key()`), used to generate random numbers to initialize the array.
+    dtype : Any
+        Type of tensor data (from `jax.numpy.float_`)
+    shape_method : str
+        Method to generate shapes for tensors.
+    bond_dim : int
+        Dimension of virtual indices between tensors. *Default = 4*.
+    phys_dim :  int
+        Dimension of physical index for individual tensor.
+    cyclic : bool
+        Flag for indicating if MatrixProductState is cyclic. *Default=False*.
+    compress : bool
+        Flag to truncate bond dimensions.
+    insert : int
+        Index of tensor divided by norm. When `None` the norm division is distributed across all tensors
+    canonical_center : int
+        If not `None` then create canonical form around canonical center index.
+
+    Returns
+    -------
+    :class:`tn4ml.models.mps.MatrixProductState`
+    """
+
+    if cyclic and shape_method != 'even':
+        raise NotImplementedError("Change shape_method to 'even'.")
+    
+    tensors = []
+    for i in range(1, L+1):
+        shape = generate_shape(shape_method, L, bond_dim, phys_dim, cyclic, i)
+
+        tensor = initializer(key, shape, dtype)
+        tensors.append(jnp.squeeze(tensor))
+
+    if insert and insert < L and shape_method == 'even':
+        # does insert have to be 0? TODO - check!
+        tensors[insert] /= np.sqrt(phys_dim)
+    
+    mps = MatrixProductState(tensors, **kwargs)
+    
+    if compress:
+        if shape_method == 'even':
+            mps.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
+        else:
+            raise ValueError('')
+
+    if canonical_center == None:
+        mps.normalize()
+    else:
+        mps.canonize(canonical_center)
+        mps.normalize(insert = canonical_center)
+    
+    return mps

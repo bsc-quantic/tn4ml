@@ -6,6 +6,7 @@ from .embeddings import (
     fourier,
     physics_embedding,
     whatever_encoding,
+    original_inverse,
     embed
 )
 
@@ -34,4 +35,14 @@ from .util import (
     rearange_image,
     rearanged_dimensions, 
     unsqueeze_image_pooling,
-    unsqueezed_dimensions)
+    gramschmidt,
+    gramschmidt_row,
+    gramschmidt_col)
+
+from .initializers import (
+    ones_init,
+    zeros_init,
+    gramschmidt_init,
+    identity_init,
+    noise_init
+)

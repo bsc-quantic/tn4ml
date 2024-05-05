@@ -209,14 +209,79 @@ class whatever_encoding(Embedding):
         """        
         super().__init__(**kwargs)
         self._dim = dim
+        # self._std = std
+        # self._mean = mean
 
     @property
     def dim(self) -> int:
         return self._dim
 
+    # @property
+    # def std(self) -> int:
+    #     return self._std
+    
+    # @property
+    # def mean(self) -> int:
+    #     return self._mean
+
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        # x = (x+1)/2
+        # std = torch.std(x)
+        # mean = torch.mean(x)
+        # # Avoid division by zero
+        # std = torch.clamp(std, min=1e-6)
+
+        # Perform zero-centering and normalization
         x = (x+1)/2
         return x
+
+class original_inverse(Embedding):
+    """Feature map `[x, 1-x]` or `[1, x, 1-x]`
+    where x = feature in range [0,1].
+
+    Attributes
+    ----------
+    p: int
+        Mapping dimension.
+    """
+    def __init__(self, p: int = 2, **kwargs):
+        self.p = p
+        super().__init__(**kwargs)
+
+    @property
+    def dim(self) -> int:
+        """ Mapping dimension """
+        return self.p
+
+    @property
+    def input_dim(self) -> int:
+        return 1
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        """Embedding function for original inverse.
+        
+        Parameters
+        ----------
+        x: :class:`Number`
+            Input feature.
+        
+        Returns
+        -------
+        jnp.ndarray
+            Embedding vector.
+        """
+        if self.p == 2:
+            vector = torch.zeros(2)
+            vector[0] = x
+            vector[1] = 1.0 - x
+        elif self.p == 3:
+            vector = torch.zeros(3)
+            vector[0] = 1.0
+            vector[1] = x
+            vector[2] = 1.0 - x
+        else:
+            raise ValueError('Invalid dimension')
+        return vector
 
 def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, **mps_opts):
     """Creates a product state from a vector of features `x`.
@@ -237,12 +302,6 @@ def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, **mps_
     #         raise ValueError('Provide embedding function for multi-dimensional data.')
     # else:
     #     multi_dim = False
-
-    # if multi_dim:
-    #     return phi_multidim(x, phi, **mps_opts)
-    # else:
-    # if pytorch:
-    #     phi = substitute_np_to_torch(phi)
     arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
     for i in [0, -1]:
         arrays[i] = arrays[i].reshape((1, phi.dim))

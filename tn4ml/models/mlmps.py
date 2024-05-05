@@ -6,7 +6,7 @@ import quimb.tensor as qtn
 from torch.func import vmap
 import tn4ml.embeddings as embeddings
 from  tn4ml.models import SpacedMatrixProductOperator
-from tn4ml.util import squeeze_dimensions, rearanged_dimensions, squeeze_image, rearange_image, unsqueeze_image_pooling, unsqueezed_dimensions
+from tn4ml.util import squeeze_dimensions, rearanged_dimensions, squeeze_image, rearange_image, unsqueeze_image_pooling
 
 
 def calc_num_layers(input_dim, kernel, S):

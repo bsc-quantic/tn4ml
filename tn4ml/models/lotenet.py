@@ -6,7 +6,7 @@ import math
 import numpy as np
 import torch
 from torch.func import vmap
-from tn4ml.util import squeeze_dimensions, unsqueezed_dimensions, squeeze_image, unsqueeze_image_pooling
+from tn4ml.util import squeeze_dimensions, squeeze_image, unsqueeze_image_pooling
 
 class loTeNet(torch.nn.Module):
 

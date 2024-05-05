@@ -289,3 +289,9 @@ $RECYCLE.BIN/
 *.pkl
 *.svg
 *.png
+
+# results of test scripts
+/examples/tests/*
+
+# datasets
+/docs/source/notebooks/datasets/*
