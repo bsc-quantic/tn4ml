@@ -86,7 +86,7 @@ class MLSMPO(torch.nn.Module):
         # calculate number of layers
         #self.n_layers = calc_num_layers(self.input_dim, self.kernel, self.S)
         #nL = np.log(self.input_dim[0])/np.log(self.kernel)
-        self.n_layers = 2
+        self.n_layers = 3
 
         for i in range(self.n_layers-1):
             print(f'N_layer = {i}')
@@ -147,7 +147,6 @@ class MLSMPO(torch.nn.Module):
                                 compress=compress,
                                 canonical_center=canonical_center,
                                 dtype=dtype)
-        print(layer_i.norm())
         print(f'#outputs = {len(list(layer_i.lower_inds))}')
         param, skeleton = qtn.pack(layer_i)
         param_dict = {}
@@ -187,11 +186,19 @@ class MLSMPO(torch.nn.Module):
 
         # MPS + MPS_with_output = vector
         output = mps_model.apply(mps_input)
-        # print('--------outputs------------')
-        # for i, t in enumerate(output.tensors):
-        #     print(f'-------- output number = {i} ---------------')
-        #     print(t.data)
-        output.normalize()
+        
+        # prune values close to 0
+        rel_e = torch.tensor(1e-6)
+        for i, tensor in enumerate(output.tensors):
+            # print(torch.mean(tensor.data))
+            # normalized_data = tensor.data/torch.mean(tensor.data)
+            pruned_data = torch.where(tensor.data < rel_e, rel_e, tensor.data)
+            pruned_data /= torch.norm(pruned_data)
+            tensor.modify(data = pruned_data)
+        #output.normalize()
+
+        #print('----------NORMALIZE-----------')
+        # print(output.arrays)
         # Iteratively contract the result with each subsequent tensor
         result = output[0]
         # Iteratively contract the result with each subsequent tensor
@@ -207,7 +214,6 @@ class MLSMPO(torch.nn.Module):
         result.drop_tags(result.tags)
         result.add_tag(['I0'])
         result = result.data.reshape((self.virtual_dim**n_outputs,))
-        #print(result)
         return result.to(device=self.device)
     
     def pass_final_layer(self, input_image, params, skeleton):
@@ -231,7 +237,15 @@ class MLSMPO(torch.nn.Module):
         
         # MPS + MPS_with_output = vector
         output = mps_model.apply(mps_input)^all
-        output.normalize()
+
+         # prune values close to 0
+        rel_e = torch.tensor(1e-6)
+        pruned_data = torch.where(output.data < rel_e, rel_e, output.data)
+        pruned_data /= torch.norm(pruned_data)
+        output.modify(data = pruned_data)
+
+        #output.normalize()
+        print(output.data.reshape((self.output_dim,)))
         return output.data.reshape((self.output_dim,)).to(device=self.device)
     
     def forward(self, x):
