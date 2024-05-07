@@ -226,8 +226,8 @@ class Model(qtn.TensorNetwork):
             -------
             float, :class:`jax.numpy.ndarray`
             """
-            l = loss_func(data, targets, *params)
-            g = grads_func(data, targets, *params)
+            l = loss_func(data, targets, None, *params)
+            g = grads_func(data, targets, None, *params)
             
             g = [jnp.sum(gi, axis=0) / data.shape[0] for gi in g]
             return jnp.sum(l)/data.shape[0], g
@@ -375,6 +375,7 @@ class Model(qtn.TensorNetwork):
             train_type: 0 for unsupervised, 1 for supervised, 2 for training with target TN
             """
             tn = self.copy()
+
             if self.sitetags is not None:
                 tn.select_tensors(self.sitetags)[0].modify(data=params[0])
             else:
@@ -444,8 +445,8 @@ class Model(qtn.TensorNetwork):
                     raise ValueError("Only Global Gradient Descent and DMRG Sweeping strategy is supported for now!")
                 
                 if self.train_type == 0:
-                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L))
-                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, None] + [None] * self.L))
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None] + [None]*self.L))
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 3 for i in range(self.L))), in_axes=[0, None, None] + [None] * self.L))
                 elif self.train_type == 1:
                     self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L))
                     self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, 0] + [None] * self.L))
@@ -614,6 +615,8 @@ class Model(qtn.TensorNetwork):
 
         if tn_target is not None:
             skeleton_target, params_target = qu.pack(tn_target)
+        else:
+            params_target = None
         
         if hasattr(self, 'batch_size'):
             if len(self.cache.keys()) == 0:
@@ -719,10 +722,10 @@ class Model(qtn.TensorNetwork):
                             else:
                                 # with target TN
                                 self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*len(params_target) + [None]*self.L))
-                            
-                        loss_curr = self.loss_func(x, y, *params)
+                        # fix to *params_target when you have target TN actually
+                        loss_curr = self.loss_func(x, y, params_target, *params)
                     else:
-                        loss_curr = self.cache["loss_compiled"](x, y, *params)
+                        loss_curr = self.cache["loss_compiled"](x, y, params_target, *params)
                 
                 loss_value += np.mean(loss_curr)
                 if return_list:
