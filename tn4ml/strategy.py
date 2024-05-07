@@ -1,6 +1,5 @@
 import abc
 import quimb.tensor as qtn
-from tn4ml.models.mps import MatrixProductState
 
 class Strategy:
     """Decides how the gradients are computed. i.e. computes the gradients of each tensor separately or only of one site.
@@ -172,7 +171,7 @@ class Sweeps(Strategy):
         if  self.two_way and sitel > siter:
             siter, sitel = sites
         
-        if isinstance(model, qtn.MatrixProductState) or isinstance(model, MatrixProductState): # TODO - fix! not working
+        if isinstance(model, qtn.MatrixProductState): # TODO - fix! not working
             site_ind_prefix = model.site_ind_id.rstrip("{}")
             vindl = [f'{site_ind_prefix}{sitel}'] + ([model.bond(sitel - 1, sitel)] if sitel > 0 else [])
             vindr = [f'{site_ind_prefix}{siter}'] + ([model.bond(siter, siter + 1)] if siter < model.nsites - 1 else [])
