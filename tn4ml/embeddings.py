@@ -235,6 +235,42 @@ class whatever_encoding(Embedding):
         x = (x+1)/2
         return x
 
+class trig_encoding_1D(Embedding):
+    def __init__(self, dim, **kwargs):
+        """Constructor
+
+        """        
+        super().__init__(**kwargs)
+        self._dim = dim
+        # self._std = std
+        # self._mean = mean
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    # @property
+    # def std(self) -> int:
+    #     return self._std
+    
+    # @property
+    # def mean(self) -> int:
+    #     return self._mean
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        # x = (x+1)/2
+        # std = torch.std(x)
+        # mean = torch.mean(x)
+        # # Avoid division by zero
+        # std = torch.clamp(std, min=1e-6)
+
+        # Perform zero-centering and normalization
+        y = []
+        for xi in x:
+            y.append(torch.cos(onp.pi * xi / 2))
+            y.append(torch.sin(onp.pi * xi / 2))
+        return torch.stack(y).view(-1)
+    
 class original_inverse(Embedding):
     """Feature map `[x, 1-x]` or `[1, x, 1-x]`
     where x = feature in range [0,1].
@@ -302,7 +338,8 @@ def embed(x: onp.ndarray, phi: Embedding, phi_multidim: Embedding = None, **mps_
     #         raise ValueError('Provide embedding function for multi-dimensional data.')
     # else:
     #     multi_dim = False
-    arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
+    #arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
+    arrays = [torch.reshape(phi(xi), (1, 1, phi.dim)) for xi in x]
     for i in [0, -1]:
         arrays[i] = arrays[i].reshape((1, phi.dim))
     # if pytorch:
