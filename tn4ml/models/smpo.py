@@ -604,11 +604,9 @@ def SMPO_initialize(L: int,
     if compress and shape_method == 'even':
         smpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
     
-    print(smpo.arrays[:5])
     if canonical_center == None:
         smpo.normalize()
     else:
         smpo.canonize(canonical_center)
         smpo.normalize(canonical_center)
-    print(smpo.arrays[:5])
     return smpo
