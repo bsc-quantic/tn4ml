@@ -86,7 +86,7 @@ class MLSMPO(torch.nn.Module):
         # calculate number of layers
         #self.n_layers = calc_num_layers(self.input_dim, self.kernel, self.S)
         #nL = np.log(self.input_dim[0])/np.log(self.kernel)
-        self.n_layers = 2
+        self.n_layers = 1
 
         for i in range(self.n_layers-1):
             print(f'N_layer = {i}')
@@ -140,9 +140,9 @@ class MLSMPO(torch.nn.Module):
                                 initializer=initializer,
                                 key=key,
                                 shape_method=shape_method,
-                                spacing=N_i,
+                                spacing=self.spacings[-1],
                                 bond_dim=self.bond_dim,
-                                phys_dim=(feature_dim, self.output_dim),
+                                phys_dim=(feature_dim*2, self.output_dim),
                                 cyclic=False,
                                 compress=compress,
                                 canonical_center=canonical_center,
@@ -226,7 +226,7 @@ class MLSMPO(torch.nn.Module):
 
         # embedded input image
         N_i, feature_dim = squeezed_image.shape
-        embedding = embeddings.whatever_encoding(dim=feature_dim)
+        embedding = embeddings.trig_encoding_1D(dim=feature_dim*2)
         mps_input = embeddings.embed(squeezed_image, embedding)
         mps_input.normalize()
         # print('MPS INPUT norm')
@@ -245,18 +245,14 @@ class MLSMPO(torch.nn.Module):
         # MPS + MPS_with_output = vector
         output = mps_model.apply(mps_input)
         # print('OUTPUT tensors 2nd layer')
-        output.normalize()
-        # print(output.arrays[:5])
-        output = output^all
-        # print('OUTPUT norm')
-        # print(output.norm())
 
          # prune values close to 0
         # rel_e = torch.tensor(1e-6)
         # pruned_data = torch.where(output.data < rel_e, rel_e, output.data)
         # pruned_data /= torch.norm(pruned_data)
         # output.modify(data = pruned_data)
-        return output.data.reshape((self.output_dim,)).to(device=self.device)
+        #return output.data.reshape((self.output_dim,)).to(device=self.device) - for classification
+        return torch.pow(output.H & output ^ all, 2)
     
     def forward(self, x):
         """

@@ -338,6 +338,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                     arrays[i] = a.do("reshape", arr, (*arr.shape, 1))
                 else:
                     arrays[i] = arr
+        
 
         shape = 'lrp'
         vec = MatrixProductState(arrays, shape=shape)
@@ -345,7 +346,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         # optionally compress
         if compress:
             vec.compress(**compress_opts)
-
+        #vec.pop_tensor(len(vec.tensors) - 1)
         return vec
 
     def apply_smpo(tn_op_1, tn_op_2, trace=True, compress=False, **compress_opts):
