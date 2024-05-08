@@ -86,7 +86,7 @@ class MLSMPO(torch.nn.Module):
         # calculate number of layers
         #self.n_layers = calc_num_layers(self.input_dim, self.kernel, self.S)
         #nL = np.log(self.input_dim[0])/np.log(self.kernel)
-        self.n_layers = 3
+        self.n_layers = 2
 
         for i in range(self.n_layers-1):
             print(f'N_layer = {i}')
@@ -147,6 +147,7 @@ class MLSMPO(torch.nn.Module):
                                 compress=compress,
                                 canonical_center=canonical_center,
                                 dtype=dtype)
+        print(layer_i.norm())
         print(f'#outputs = {len(list(layer_i.lower_inds))}')
         param, skeleton = qtn.pack(layer_i)
         param_dict = {}
@@ -170,35 +171,37 @@ class MLSMPO(torch.nn.Module):
         N_i, feature_dim = squeezed_image.shape
         embedding = embeddings.whatever_encoding(dim=feature_dim)
         mps_input = embeddings.embed(squeezed_image, embedding)
+        mps_input.normalize()
         # print('Embedded input image or layer ith image')
         # print(mps_input.arrays[:5])
-        mps_input.normalize()
+
         # return params to quimb
         params_quimb = {int(key.split('_')[1]): value for key, value in params.items()}
 
         # unpack model from params and skeleton
         mps_model = qtn.unpack(params_quimb, skeleton)
         mps_model.normalize()
-        # print(f'Number of tensors: {len(mps_model.tensors)}')
-        # print(f'MPS MODEL norm = {mps_model.norm()}')
+        # print('MPS MODEL tensors')
+        # print(mps_model.arrays[:5])
 
         n_outputs = len(list(mps_model.lower_inds))
 
         # MPS + MPS_with_output = vector
         output = mps_model.apply(mps_input)
-        
-        # prune values close to 0
-        rel_e = torch.tensor(1e-6)
-        for i, tensor in enumerate(output.tensors):
-            # print(torch.mean(tensor.data))
-            # normalized_data = tensor.data/torch.mean(tensor.data)
-            pruned_data = torch.where(tensor.data < rel_e, rel_e, tensor.data)
-            pruned_data /= torch.norm(pruned_data)
-            tensor.modify(data = pruned_data)
-        #output.normalize()
+        # print('OUTPUT tensors 1st layer')
+        # print(output.arrays[:5])
 
-        #print('----------NORMALIZE-----------')
-        # print(output.arrays)
+        # print('STOP')
+        # prune values close to 0
+        # rel_e = torch.tensor(1e-6)
+        # for i, tensor in enumerate(output.tensors):
+        #     # print(torch.mean(tensor.data))
+        #     # normalized_data = tensor.data/torch.mean(tensor.data)
+        #     pruned_data = torch.where(tensor.data < rel_e, rel_e, tensor.data)
+        #     pruned_data /= torch.norm(pruned_data)
+        #     tensor.modify(data = pruned_data)
+        output.normalize()
+
         # Iteratively contract the result with each subsequent tensor
         result = output[0]
         # Iteratively contract the result with each subsequent tensor
@@ -226,6 +229,8 @@ class MLSMPO(torch.nn.Module):
         embedding = embeddings.whatever_encoding(dim=feature_dim)
         mps_input = embeddings.embed(squeezed_image, embedding)
         mps_input.normalize()
+        # print('MPS INPUT norm')
+        # print(mps_input.norm())
         
         # return params to quimb
         params_quimb = dict()
@@ -234,18 +239,23 @@ class MLSMPO(torch.nn.Module):
         # unpack model from params and skeleton
         mps_model = qtn.unpack(params_quimb, skeleton)
         mps_model.normalize()
+        # print('MPS MODEL norm')
+        # print(mps_model.norm())
         
         # MPS + MPS_with_output = vector
-        output = mps_model.apply(mps_input)^all
+        output = mps_model.apply(mps_input)
+        # print('OUTPUT tensors 2nd layer')
+        output.normalize()
+        # print(output.arrays[:5])
+        output = output^all
+        # print('OUTPUT norm')
+        # print(output.norm())
 
          # prune values close to 0
-        rel_e = torch.tensor(1e-6)
-        pruned_data = torch.where(output.data < rel_e, rel_e, output.data)
-        pruned_data /= torch.norm(pruned_data)
-        output.modify(data = pruned_data)
-
-        #output.normalize()
-        print(output.data.reshape((self.output_dim,)))
+        # rel_e = torch.tensor(1e-6)
+        # pruned_data = torch.where(output.data < rel_e, rel_e, output.data)
+        # pruned_data /= torch.norm(pruned_data)
+        # output.modify(data = pruned_data)
         return output.data.reshape((self.output_dim,)).to(device=self.device)
     
     def forward(self, x):
