@@ -8,8 +8,9 @@ from jax.typing import ArrayLike
 from jax.nn.initializers import *
 from .util import gramschmidt_col, gramschmidt_row
 
-def zeros_init(dtype: Any = jnp.float_) -> Initializer:
-    """Builds an initializer that initializes tensors with zeros.
+def zeros_init(std: Any = 1e-9, 
+            dtype: Any = jnp.float_) -> Initializer:
+    """Builds an initializer that initializes tensors with zeros. Plus small noise.
 
     Examples
     --------
@@ -40,11 +41,12 @@ def zeros_init(dtype: Any = jnp.float_) -> Initializer:
             jnp.ndarray
                 Initialized tensor.
         """
-        return jax.nn.initializers.zeros(key, shape, dtype)
+        return jax.nn.initializers.zeros(key, shape, dtype) + std * random.normal(key, shape, dtype)
     return init
 
-def ones_init(dtype: Any = jnp.float_) -> Initializer:
-    """Builds an initializer that initializes tensors with ones.
+def ones_init(std: Any = 1e-9, 
+              dtype: Any = jnp.float_) -> Initializer:
+    """Builds an initializer that initializes tensors with ones. Plus small noise.
 
     Examples
     --------
@@ -75,7 +77,7 @@ def ones_init(dtype: Any = jnp.float_) -> Initializer:
             jnp.ndarray
                 Initialized tensor.
         """
-        return jax.nn.initializers.ones(key, shape, dtype)
+        return jax.nn.initializers.ones(key, shape, dtype) + std * random.normal(key, shape, dtype)
     return init
 
 def gramschmidt_init(dist: str,
