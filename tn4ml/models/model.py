@@ -448,8 +448,8 @@ class Model(qtn.TensorNetwork):
                     self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None] + [None]*self.L))
                     self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 3 for i in range(self.L))), in_axes=[0, None, None] + [None] * self.L))
                 elif self.train_type == 1:
-                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L))
-                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, 0] + [None] * self.L))
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None] + [None]*self.L))
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 3 for i in range(self.L))), in_axes=[0, 0, None] + [None] * self.L))
                 elif self.train_type == 2:
                     self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*len(params_target) + [None]*self.L))
                     self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 + len(params_target) for i in range(self.L))), in_axes=[0, None] + [None]*len(params_target) + [None]*self.L))
