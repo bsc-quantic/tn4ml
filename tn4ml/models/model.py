@@ -573,7 +573,7 @@ class Model(qtn.TensorNetwork):
                  targets: Optional[Collection] = None,
                  tn_target: Optional[qtn.TensorNetwork] = None,
                  batch_size: Optional[int] = None,
-                 embedding: Embedding = trigonometric(),
+                 embedding: Embedding = trigonometric_encoding_chain(dim=8),
                  evaluate_type: int = 0,
                  return_list: bool = False,
                  loss_function: Optional[Callable] = None,
