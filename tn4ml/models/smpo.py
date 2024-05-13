@@ -5,7 +5,7 @@ import autoray as a
 
 import quimb as qu
 import quimb.tensor as qtn
-from quimb.tensor.tensor_1d import MatrixProductState
+from quimb.tensor.tensor_1d import MatrixProductState, TensorNetwork1DOperator, TensorNetwork1DFlat
 
 from jax.nn.initializers import Initializer
 import jax.numpy as jnp
