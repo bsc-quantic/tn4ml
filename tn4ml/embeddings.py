@@ -5,6 +5,7 @@ import numpy as onp
 from autoray import numpy as np
 import jax.numpy as jnp
 from jax import lax
+import jax
 import quimb.tensor as qtn
 
 class Embedding:
@@ -309,6 +310,57 @@ class jax_arrays(Embedding):
             Embedding vector.
         """
         return jnp.array(x)
+    
+class trigonometric_encoding_chain(Embedding):
+    def __init__(self, dim, **kwargs):
+        """Constructor
+
+        """        
+        super().__init__(**kwargs)
+        self._dim = dim
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    def __call__(self, x: Number) -> jnp.ndarray:
+        y = []
+        for xi in x:
+            y.append(jnp.cos(onp.pi * xi / 2))
+            y.append(jnp.sin(onp.pi * xi / 2))
+        return jnp.array(y)
+
+class trigonometric_encoding_avg(Embedding):
+    def __init__(self, dim, **kwargs):
+        """Constructor
+
+        """        
+        super().__init__(**kwargs)
+        self._dim = dim
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    def __call__(self, x: Number) -> jnp.ndarray:
+        x_avg = onp.mean(x)
+        return trigonometric()(x_avg)
+
+class pixel_embedding(Embedding):
+    def __init__(self, dim, **kwargs):
+        """Constructor
+
+        """        
+        super().__init__(**kwargs)
+        self._dim = dim
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    def __call__(self, x: Number) -> jnp.ndarray:
+        return jnp.array(x)
+
 
 def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
     """Creates a product state from a vector of features `x`.
@@ -323,12 +375,14 @@ def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
     mps_opts: optional
         Additional arguments passed to MatrixProductState class.
     """
-    if x.ndim > 1:
-        if len(phi.input_dim) == 1:
-            raise ValueError('Provide embedding function for 2D data.')
+    # if x.ndim > 1:
+    #     if len(phi.input_dim) == 1:
+    #         raise ValueError('Provide embedding function for 2D data.')
 
     arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
     for i in [0, -1]:
         arrays[i] = arrays[i].reshape((1, phi.dim))
 
-    return qtn.MatrixProductState(arrays, **mps_opts)
+    mps = qtn.MatrixProductState(arrays, **mps_opts)
+    mps.normalize()
+    return mps
