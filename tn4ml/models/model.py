@@ -381,7 +381,7 @@ class Model(qtn.TensorNetwork):
             else:
                 for tensor, array in zip(tn.tensors, params):
                     tensor.modify(data=array)
-            
+
             if target_params is None:
                 tn_i = embed(data, embedding)
 
@@ -400,8 +400,8 @@ class Model(qtn.TensorNetwork):
                 #model = self.copy()
                 self.create_cache(loss_fn,
                                 embedding,
-                                (self.batch_size, inputs.shape[1]) if inputs is not None else None,
-                                (self.batch_size, targets.shape[1]) if targets is not None else None,
+                                (batch_size,) + inputs.shape[1:] if inputs is not None else None,
+                                (batch_size,) + targets.shape[1:] if targets is not None else None,
                                 params_target if tn_target is not None else None,
                                 dtype,
                                 targets.dtype if targets is not None else None)
@@ -650,12 +650,9 @@ class Model(qtn.TensorNetwork):
             else:
                 for tensor, array in zip(tn.tensors, params):
                     tensor.modify(data=array)
-            
             if target_params is None:
                 assert data is not None, "Input data must be provided!"
-
                 tn_i = embed(data, embedding)
-
                 if evaluate_type == 0:
                     return self.loss(tn, tn_i)
                 else:
@@ -681,7 +678,7 @@ class Model(qtn.TensorNetwork):
                 else:
                     x = jnp.array(batch_data)
                     y = None
-                
+
                 if isinstance(self.strategy, Sweeps):
                     if not hasattr(self, 'loss_func'):
                         if evaluate_type == 0:
