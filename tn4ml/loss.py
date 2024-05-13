@@ -41,6 +41,7 @@ def neg_log_likelihood(model: qtn.MatrixProductState, data: qtn.MatrixProductSta
         output = output^all
 
     elif len(model.tensors) == len(data.tensors):
+        # assuming that model and data has same names for physical indices
         output = (model.H & data)^all
 
     return - jax.lax.log(jax.lax.pow((model.H & data)^all, 2))
@@ -58,7 +59,7 @@ def transformed_squared_norm(model: SpacedMatrixProductOperator, data: qtn.Matri
     -------
     float
     """
-    assert type(model) == SpacedMatrixProductOperator
+    #assert type(model) == SpacedMatrixProductOperator
     if len(model.tensors) < len(data.tensors):
         inds_contract = []
         for i in range(len(data.tensors)):
