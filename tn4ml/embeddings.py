@@ -1,6 +1,7 @@
 import abc
 import itertools
 from numbers import Number
+from typing import Collection
 import numpy as onp
 from autoray import numpy as np
 import jax.numpy as jnp
@@ -155,6 +156,22 @@ class original_inverse(Embedding):
         else:
             raise ValueError('Invalid dimension')
         return vector / jnp.linalg.norm(vector)
+
+class original_inverse_avg(Embedding):
+    def __init__(self, dim, **kwargs):
+        """Constructor
+
+        """        
+        super().__init__(**kwargs)
+        self._dim = dim
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    def __call__(self, x: Collection) -> jnp.ndarray:
+        x_avg = onp.mean(x)
+        return original_inverse(p=self.dim)(x_avg)
     
 class basis_quantum_encoding(Embedding):
     """ Basis quantum encoding feature map.  
@@ -342,7 +359,7 @@ class trigonometric_encoding_avg(Embedding):
     def dim(self) -> int:
         return self._dim
 
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Collection) -> jnp.ndarray:
         x_avg = onp.mean(x)
         return trigonometric()(x_avg)
 
