@@ -1,6 +1,7 @@
 from typing import Any, Collection, Optional, Sequence, Tuple, Callable
 from tqdm import tqdm
 import funcy
+import math
 from time import time
 import numpy as np
 
@@ -375,7 +376,6 @@ class Model(qtn.TensorNetwork):
             train_type: 0 for unsupervised, 1 for supervised, 2 for training with target TN
             """
             tn = self.copy()
-
             if self.sitetags is not None:
                 tn.select_tensors(self.sitetags)[0].modify(data=params[0])
             else:
@@ -460,6 +460,7 @@ class Model(qtn.TensorNetwork):
                 params = self.arrays
                 self.step, self.opt_state = self.create_train_step(params=params, loss_func=self.loss_func, grads_func=self.grads_func)
         
+        finish = False
         start_train = time()
         with tqdm(total = epochs, desc = "epoch") as outerbar:
             for epoch in range(epochs):
@@ -475,7 +476,7 @@ class Model(qtn.TensorNetwork):
                             
                             params_i = self.select_tensors(self.sitetags)[0].data
                             params_i = jnp.expand_dims(params_i, axis=0) # add batch dimension
-                            
+
                             _, self.opt_states[s], loss_group = self.step(params_i, self.opt_states[s], batch_data, grad_clip_threshold=gradient_clip_threshold)
                             
                             self.strategy.posthook(self, sites)
@@ -489,6 +490,9 @@ class Model(qtn.TensorNetwork):
                     loss_batch += loss_curr
 
                     if normalize:
+                        if math.isclose(self.norm(), 0.0):
+                            finish = True
+                            break
                         self.normalize()
 
                     if canonize[0]:
@@ -499,6 +503,8 @@ class Model(qtn.TensorNetwork):
                 self.history['loss'].append(loss_epoch)
 
                 self.history['epoch_time'].append(time() - time_epoch)
+
+                if finish: break
 
                 # if for some reason you have a limited amount of time to train the model
                 if time_limit is not None and (time() - start_train + np.mean(self.history['epoch_time']) >= time_limit):
@@ -652,7 +658,9 @@ class Model(qtn.TensorNetwork):
                     tensor.modify(data=array)
             if target_params is None:
                 assert data is not None, "Input data must be provided!"
+
                 tn_i = embed(data, embedding)
+
                 if evaluate_type == 0:
                     return self.loss(tn, tn_i)
                 else:
