@@ -5,7 +5,7 @@ import autoray as a
 
 import quimb as qu
 import quimb.tensor as qtn
-from quimb.tensor.tensor_1d import TensorNetwork, TensorNetwork1DFlat, TensorNetwork1DOperator, MatrixProductState, MatrixProductOperator
+from quimb.tensor.tensor_1d import MatrixProductState, TensorNetwork1DOperator, TensorNetwork1DFlat
 
 from jax.nn.initializers import Initializer
 import jax.numpy as jnp
@@ -67,7 +67,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         Model.__init__(self)
 
         if isinstance(arrays, SpacedMatrixProductOperator):
-            TensorNetwork.__init__(self, arrays)
+            qtn.TensorNetwork.__init__(self, arrays)
             return
 
         arrays = tuple(arrays)
@@ -175,7 +175,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         last_down_ind = [lower_ind_id.format(self.L - 1)] if (output_inds and ((self.L-1) in output_inds)) or (self.spacing and ((self.L - 1) % self.spacing == 0)) else []
         inds += [(pbond, *cyc_bond, next(upper_inds), *last_down_ind)]
         tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
-        TensorNetwork.__init__(self, tensors, virtual=True, **tn_opts)
+        qtn.TensorNetwork.__init__(self, tensors, virtual=True, **tn_opts)
 
     def normalize(self, insert=None) -> None:
         """Function for normalizing tensors of :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
@@ -186,6 +186,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             Index of tensor divided by norm. *Default = None*. When `None` the norm division is distributed across all tensors.
         """
         norm = self.norm()
+
         if insert == None:
             for tensor in self.tensors:
                 tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
@@ -338,7 +339,6 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                     arrays[i] = a.do("reshape", arr, (*arr.shape, 1))
                 else:
                     arrays[i] = arr
-        
 
         shape = 'lrp'
         vec = MatrixProductState(arrays, shape=shape)
@@ -346,7 +346,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         # optionally compress
         if compress:
             vec.compress(**compress_opts)
-        #vec.pop_tensor(len(vec.tensors) - 1)
+
         return vec
 
     def apply_smpo(tn_op_1, tn_op_2, trace=True, compress=False, **compress_opts):
@@ -599,15 +599,18 @@ def SMPO_initialize(L: int,
     
     if insert and insert < L and shape_method == 'even':
         # not sure do I need shape_method = even here
+        # does insert have to be 0? TODO - check!
         tensors[insert] /= np.sqrt(min(bond_dim, phys_dim[0]))
     
     smpo = SpacedMatrixProductOperator(tensors, output_inds=output_inds, **kwargs)
+    
     if compress and shape_method == 'even':
         smpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
-    
+
     if canonical_center == None:
         smpo.normalize()
     else:
         smpo.canonize(canonical_center)
         smpo.normalize(canonical_center)
+    
     return smpo

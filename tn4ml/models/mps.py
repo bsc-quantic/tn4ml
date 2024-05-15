@@ -1,6 +1,7 @@
 from typing import Any
 import numpy as np
 import autoray as a
+import math
 
 from quimb import *
 import quimb.tensor as qtn
@@ -171,15 +172,17 @@ def MPS_initialize(L: int,
         tensors[insert] /= np.sqrt(phys_dim)
     
     mps = MatrixProductState(tensors, **kwargs)
-    
+
     if compress:
         if shape_method == 'even':
             mps.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
         else:
             raise ValueError('')
-
+        
     if canonical_center == None:
-        mps.normalize()
+        norm = mps.norm()
+        for tensor in mps.tensors:
+                tensor.modify(data=tensor.data / a.do("power", norm, 1 / L))
     else:
         mps.canonize(canonical_center)
         mps.normalize(insert = canonical_center)
