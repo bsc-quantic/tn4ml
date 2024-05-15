@@ -1,6 +1,7 @@
 from typing import Any
 import numpy as np
 import autoray as a
+import math
 
 from quimb import *
 import quimb.tensor as qtn
@@ -179,7 +180,9 @@ def MPS_initialize(L: int,
             raise ValueError('')
 
     if canonical_center == None:
-        mps.normalize()
+        norm = mps.norm()
+        for tensor in mps.tensors:
+                tensor.modify(data=tensor.data / a.do("power", norm, 1 / L))
     else:
         mps.canonize(canonical_center)
         mps.normalize(insert = canonical_center)
