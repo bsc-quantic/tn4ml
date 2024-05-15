@@ -392,7 +392,7 @@ class Model(qtn.TensorNetwork):
             else:
                 assert self.train_type == 2, "Train type must be 2 for this type of loss function!"
                 tn_target = qtn.unpack(skeleton_target, target_params)
-                return self.loss(tn, tn_target)
+                return self.loss(tn_target, tn)
 
         if cache:
             # Caching loss computation and gradients
@@ -668,7 +668,7 @@ class Model(qtn.TensorNetwork):
             else:
                 assert evaluate_type == 2, "Train type must be 2 for this type of loss function!"
                 tn_target = qtn.unpack(skeleton_target, target_params)
-                return self.loss(tn, tn_target)
+                return self.loss(tn_target, tn)
         
         if inputs is None:
             assert evaluate_type == 2, "If inputs are not provided, evaluation type must be 2!"
