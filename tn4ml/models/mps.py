@@ -172,13 +172,13 @@ def MPS_initialize(L: int,
         tensors[insert] /= np.sqrt(phys_dim)
     
     mps = MatrixProductState(tensors, **kwargs)
-    
+
     if compress:
         if shape_method == 'even':
             mps.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
         else:
             raise ValueError('')
-
+        
     if canonical_center == None:
         norm = mps.norm()
         for tensor in mps.tensors:

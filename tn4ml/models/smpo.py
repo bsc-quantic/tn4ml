@@ -67,7 +67,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         Model.__init__(self)
 
         if isinstance(arrays, SpacedMatrixProductOperator):
-            TensorNetwork.__init__(self, arrays)
+            qtn.TensorNetwork.__init__(self, arrays)
             return
 
         arrays = tuple(arrays)
@@ -175,7 +175,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         last_down_ind = [lower_ind_id.format(self.L - 1)] if (output_inds and ((self.L-1) in output_inds)) or (self.spacing and ((self.L - 1) % self.spacing == 0)) else []
         inds += [(pbond, *cyc_bond, next(upper_inds), *last_down_ind)]
         tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
-        TensorNetwork.__init__(self, tensors, virtual=True, **tn_opts)
+        qtn.TensorNetwork.__init__(self, tensors, virtual=True, **tn_opts)
 
     def normalize(self, insert=None) -> None:
         """Function for normalizing tensors of :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
@@ -186,6 +186,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             Index of tensor divided by norm. *Default = None*. When `None` the norm division is distributed across all tensors.
         """
         norm = self.norm()
+        
         if insert == None:
             for tensor in self.tensors:
                 tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
