@@ -269,7 +269,6 @@ class Model(qtn.TensorNetwork):
                     for i, data in enumerate(grads)}
             params = {i: jnp.array(data)
                     for i, data in enumerate(params)}
-            jax.debug.print("Norm before update: ", self.norm())
             
             updates, opt_state = self.optimizer.update(grads, opt_state)
             params = optax.apply_updates(params, updates)
@@ -280,8 +279,6 @@ class Model(qtn.TensorNetwork):
             # update TN inplace
             self.update_tensors(params)
             
-            jax.debug.print("Norm after update: ", self.norm())
-
             # for numerical stability
             #self.normalize()
 
@@ -494,11 +491,9 @@ class Model(qtn.TensorNetwork):
 
                     if normalize:
                         if math.isclose(self.norm(), 0.0):
-                            print('Finish')
                             finish = True
                             break
                         self.normalize()
-                        print("After normalize outside", self.norm())
 
                     if canonize[0]:
                         self.canonize(canonize[1])
