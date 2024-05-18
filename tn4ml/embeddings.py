@@ -75,6 +75,24 @@ class trigonometric(Embedding):
         """
         return 1 / jnp.sqrt(self.k) * jnp.array([f((onp.pi * x / 2**i)) for f, i in itertools.product([jnp.cos, jnp.sin], range(1, self.k + 1))])
 
+class trigonometric_chain(Embedding):
+    def __init__(self, dim, **kwargs):
+        """Constructor
+
+        """        
+        super().__init__(**kwargs)
+        self._dim = dim
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    def __call__(self, x: Number) -> jnp.ndarray:
+        y = []
+        for xi in x:
+            y.append(jnp.cos(onp.pi * xi / 2))
+            y.append(jnp.sin(onp.pi * xi / 2))
+        return jnp.array(y)
 
 class fourier(Embedding):
     """ Fourier feature map
@@ -156,25 +174,10 @@ class original_inverse(Embedding):
         else:
             raise ValueError('Invalid dimension')
         return vector / jnp.linalg.norm(vector)
-
-class original_inverse_avg(Embedding):
-    def __init__(self, dim, **kwargs):
-        """Constructor
-
-        """        
-        super().__init__(**kwargs)
-        self._dim = dim
-
-    @property
-    def dim(self) -> int:
-        return self._dim
-
-    def __call__(self, x: Collection) -> jnp.ndarray:
-        x_avg = onp.mean(x)
-        return original_inverse(p=self.dim)(x_avg)
     
-class basis_quantum_encoding(Embedding):
-    """ Basis quantum encoding feature map.  
+class quantum_basis(Embedding):
+    # fix that it works for any dimension
+    """ Basis quantum feature map.  
     The basis is a dictionary of quantum states.
     
     Attributes
@@ -292,7 +295,50 @@ class polynomial(Embedding):
             Embedding vector.
         """
         return jnp.array([x**i for i in range(self.degree + 1)])
+    
+class polynomial_chain(Embedding):
+    """ Polynomial feature map
+    
+    Attributes
+    ----------
+    degree : int
+        Degree of polynomial.
+    """
 
+    def __init__(self, degree: int, dim: int = None, **kwargs):
+        self.degree = degree
+        super().__init__(**kwargs)
+        self._dim = dim
+
+    @property
+    def dim(self) -> int:
+        """ Mapping dimension """
+        return self._dim
+
+    # @property
+    # def input_dim(self) -> int:
+    #     """ Dimensionality of input feature. 1 = number"""
+    #     return self.input_dim
+    
+    def __call__(self, x: Number) -> jnp.ndarray:
+        """Embedding function for polynomial.
+        
+        Parameters
+        ----------
+        x : Number
+            Input feature.
+        
+        Returns
+        -------
+        jnp.ndarray
+            Embedding vector.
+        """
+        array = [1.0]
+        for xi in x:
+            array.extend(jnp.array([xi**i for i in range(1, self.degree + 1)]))
+        array = jnp.array(array)
+        return array/jnp.linalg.norm(array) 
+ 
 class jax_arrays(Embedding):
     """Input arrays to JAX arrays.
     
@@ -327,8 +373,23 @@ class jax_arrays(Embedding):
             Embedding vector.
         """
         return jnp.array(x)
+
+class add_ones(Embedding):
+    def __init__(self, **kwargs):
+        """Constructor
+
+        """        
+        super().__init__(**kwargs)
+        self._dim = 2
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    def __call__(self, x: Number) -> jnp.ndarray:
+        return jnp.array([1.0, x])
     
-class trigonometric_encoding_chain(Embedding):
+class add_ones_chain(Embedding):
     def __init__(self, dim, **kwargs):
         """Constructor
 
@@ -343,40 +404,8 @@ class trigonometric_encoding_chain(Embedding):
     def __call__(self, x: Number) -> jnp.ndarray:
         y = []
         for xi in x:
-            y.append(jnp.cos(onp.pi * xi / 2))
-            y.append(jnp.sin(onp.pi * xi / 2))
+            y.extend(add_ones()(xi))
         return jnp.array(y)
-
-class trigonometric_encoding_avg(Embedding):
-    def __init__(self, dim, **kwargs):
-        """Constructor
-
-        """        
-        super().__init__(**kwargs)
-        self._dim = dim
-
-    @property
-    def dim(self) -> int:
-        return self._dim
-
-    def __call__(self, x: Collection) -> jnp.ndarray:
-        x_avg = onp.mean(x)
-        return trigonometric()(x_avg)
-
-class pixel_embedding(Embedding):
-    def __init__(self, dim, **kwargs):
-        """Constructor
-
-        """        
-        super().__init__(**kwargs)
-        self._dim = dim
-
-    @property
-    def dim(self) -> int:
-        return self._dim
-
-    def __call__(self, x: Number) -> jnp.ndarray:
-        return jnp.array(x)
 
 
 def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
@@ -401,5 +430,5 @@ def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
         arrays[i] = arrays[i].reshape((1, phi.dim))
 
     mps = qtn.MatrixProductState(arrays, **mps_opts)
-    mps.normalize()
+    #mps.normalize()
     return mps
