@@ -236,7 +236,7 @@ class Model(qtn.TensorNetwork):
             else:
                 return l, g
 
-        def train_step(params, opt_state, data=None, grad_clip_threshold=None):
+        def train_step(params, opt_state, data=None, grad_clip_threshold=None, devices=None):
             """ Performs one training step.
 
             Parameters
@@ -263,10 +263,15 @@ class Model(qtn.TensorNetwork):
                     data = jnp.array(data)
                     targets = None
 
-                loss, grads = value_and_grad(params, data, targets)
+                loss, grads = jax.pmap(value_and_grad, in_axes=(None, 0, 0 if targets else None), devices=devices)(params, data, targets)
             else:
                 loss, grads = value_and_grad(params)
             
+            # average loss and gradients across devices
+            loss = jnp.mean(loss)
+            grads = jnp.mean(grads, axis=0)
+            print(grads.shape)
+
             if grad_clip_threshold:
                 grads = gradient_clip(grads, grad_clip_threshold)
             
@@ -308,7 +313,8 @@ class Model(qtn.TensorNetwork):
             # callbacks: Optional[Sequence[Tuple[str, Callable]]] = None,
             gradient_clip_threshold: Optional[float] = None,
             cache: Optional[bool] = True,
-            dtype: Any = jnp.float_):
+            dtype: Any = jnp.float_,
+            devices: Optional[Sequence] = None):
         
         """Performs the training procedure of :class:`tn4ml.models.Model`.
 
@@ -499,8 +505,15 @@ class Model(qtn.TensorNetwork):
                                 loss_curr += loss_group
                             loss_curr /= (s+1)
                         else:
+
+                            n_devices = 2
+                            batch_size = batch_data.shape[0]
+                            per_device_batch_size = batch_size // n_devices
+
+                            batch_data = batch_data.reshape(n_devices, per_device_batch_size, -1)
+
                             params = self.arrays
-                            _, self.opt_state, loss_curr = self.step(params, self.opt_state, batch_data, grad_clip_threshold=gradient_clip_threshold)
+                            _, self.opt_state, loss_curr = self.step(params, self.opt_state, batch_data, grad_clip_threshold=gradient_clip_threshold, devices=devices)
 
                         loss_batch += loss_curr
 
