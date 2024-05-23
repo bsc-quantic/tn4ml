@@ -205,6 +205,26 @@ def error_quad(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState)
     """
     return jax.lax.pow((transformed_squared_norm(model, data) - 1.0), 2)
 
+def semi_supervised_loss(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, y_true: Number, **kwargs) -> Number:
+    """Loss function for semi-supervised learning.
+
+    Parameters
+    ----------
+    model : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
+        Spaced Matrix Product Operator
+    data: :class:`quimb.tensor.MatrixProductState`
+        Input Matrix Product State
+    y_true: :class:`Number`
+        Target class percentage.
+    Returns
+    -------
+    float
+    """
+    norm = error_logquad(model, data)
+    loss_value = y_true*(1/norm) + (1-y_true)*norm + 0.5*reg_log_norm_relu(model)
+    return loss_value[0]
+
+
 def softmax(z, position) -> Number:
     """ Softmax function.
 
@@ -361,8 +381,6 @@ def loss_wrapper_optax(optax_loss = None) -> Callable:
                 output = output.data.reshape((len(y_true), ))
                 
                 y_pred = jnp.log(output)
-                # normalize
-                y_pred = y_pred/jnp.linalg.norm(y_pred)
             else:
                 output = model.apply(data)
                 
@@ -376,11 +394,10 @@ def loss_wrapper_optax(optax_loss = None) -> Callable:
                     y_true = jnp.expand_dims(jnp.squeeze(y_true), axis=0)
 
         elif isinstance(model, MatrixProductState):
-            y_pred = model & data ^ all
+            y_pred = model & data ^ alL
         
         # normalize
         y_pred = y_pred/jnp.linalg.norm(y_pred)
-
         if y_true is not None:
             return optax_loss(y_pred, y_true, **kwargs)
         else:
