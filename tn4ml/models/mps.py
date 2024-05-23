@@ -63,6 +63,7 @@ def generate_shape(method: str,
                     phys_dim: int = 2,
                     cyclic: bool = False,
                     position: int = None,
+                    class_dim: int = None
                     ) -> tuple:
     """Returns a shape of tensor .
 
@@ -86,30 +87,56 @@ def generate_shape(method: str,
         tuple
     """
     
-    if method == 'even':
-        shape = (bond_dim, bond_dim, phys_dim)
-        if position == 1:
-            shape = (1, bond_dim, phys_dim)
-        if position == L:
-            shape = (bond_dim, 1, phys_dim)
-    else:
-        assert not cyclic
-        if position > L // 2:
-            j = (L + 1 - abs(2*position - L - 1)) // 2
+    if class_dim is None:
+        if method == 'even':
+            shape = (bond_dim, bond_dim, phys_dim)
+            if position == 1:
+                shape = (1, bond_dim, phys_dim)
+            if position == L:
+                shape = (bond_dim, 1, phys_dim)
         else:
-            j = position
-        
-        chir = min(bond_dim, phys_dim**j)
-        chil = min(bond_dim, phys_dim**(j-1))
+            assert not cyclic
+            if position > L // 2:
+                j = (L + 1 - abs(2*position - L - 1)) // 2
+            else:
+                j = position
+            
+            chir = min(bond_dim, phys_dim**j)
+            chil = min(bond_dim, phys_dim**(j-1))
 
-        if position > L // 2:
-            (chil, chir) = (chir, chil)
+            if position > L // 2:
+                (chil, chir) = (chir, chil)
 
-        if position == 1:
-            (chil, chir) = (chir, 1)
+            if position == 1:
+                (chil, chir) = (chir, 1)
 
-        shape = (chil, chir, phys_dim)
-    
+            shape = (chil, chir, phys_dim)
+    else:
+        if method == 'even':
+            shape = (bond_dim, bond_dim, phys_dim, class_dim)
+            if position == 1:
+                shape = (1, bond_dim, phys_dim, class_dim)
+            if position == L:
+                shape = (bond_dim, 1, phys_dim, class_dim)
+        else:
+            assert not cyclic
+            if position > L // 2:
+                j = (L + 1 - abs(2*position - L - 1)) // 2
+            else:
+                j = position
+
+            chir = min(bond_dim, phys_dim ** (j) * class_dim ** j)
+            chil = min(bond_dim, phys_dim ** (j-1) * class_dim ** (j-1))
+
+            if position > L // 2:
+                (chil, chir) = (chir, chil)
+
+            if position == 1:
+                shape = (chir, phys_dim, class_dim)
+            elif position == L:
+                shape = (chil, phys_dim, class_dim)
+            else:
+                shape = (chil, chir, phys_dim, class_dim)
     return shape
 
 def MPS_initialize(L: int,
@@ -123,6 +150,8 @@ def MPS_initialize(L: int,
             compress: bool = False,
             insert: int = None,
             canonical_center: int = None,
+            index_class: int = None,
+            class_dim: int = None,
             **kwargs):
     
     """Generates :class:`tn4ml.models.mps.MatrixProductState`.
@@ -162,7 +191,10 @@ def MPS_initialize(L: int,
     
     tensors = []
     for i in range(1, L+1):
-        shape = generate_shape(shape_method, L, bond_dim, phys_dim, cyclic, i)
+        if index_class==i and class_dim is not None:
+            shape = generate_shape(shape_method, L, bond_dim, phys_dim, cyclic, index_class, class_dim=class_dim)
+        else:
+            shape = generate_shape(shape_method, L, bond_dim, phys_dim, cyclic, i, None)
 
         tensor = initializer(key, shape, dtype)
         tensors.append(jnp.squeeze(tensor))
