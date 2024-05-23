@@ -211,7 +211,7 @@ class Model(qtn.TensorNetwork):
         }
         opt_state = self.optimizer.init(init_params)
 
-        def value_and_grad(params, data=None, targets = None):
+        def value_and_grad(params, data=None, targets=None):
             """ Calculates loss value and gradient.
 
             Parameters
@@ -222,7 +222,7 @@ class Model(qtn.TensorNetwork):
                 Input data.
             targets : sequence of :class:`jax.numpy.ndarray` or None
                 Target data (if training is supervised).
-
+            
             Returns
             -------
             float, :class:`jax.numpy.ndarray`
@@ -236,7 +236,7 @@ class Model(qtn.TensorNetwork):
             else:
                 return l, g
 
-        def train_step(params, opt_state, data=None, grad_clip_threshold=None, devices=None):
+        def train_step(params, opt_state, data=None, grad_clip_threshold=None):
             """ Performs one training step.
 
             Parameters
@@ -263,14 +263,9 @@ class Model(qtn.TensorNetwork):
                     data = jnp.array(data)
                     targets = None
 
-                loss, grads = jax.pmap(value_and_grad, in_axes=(None, 0, 0 if targets else None), devices=devices)(params, data, targets)
+                loss, grads = value_and_grad(params, data, targets)
             else:
                 loss, grads = value_and_grad(params)
-            
-            # average loss and gradients across devices
-            loss = jnp.mean(loss)
-            grads = jnp.mean(grads, axis=0)
-            print(grads.shape)
 
             if grad_clip_threshold:
                 grads = gradient_clip(grads, grad_clip_threshold)
@@ -313,8 +308,7 @@ class Model(qtn.TensorNetwork):
             # callbacks: Optional[Sequence[Tuple[str, Callable]]] = None,
             gradient_clip_threshold: Optional[float] = None,
             cache: Optional[bool] = True,
-            dtype: Any = jnp.float_,
-            devices: Optional[Sequence] = None):
+            dtype: Any = jnp.float_):
         
         """Performs the training procedure of :class:`tn4ml.models.Model`.
 
@@ -505,15 +499,8 @@ class Model(qtn.TensorNetwork):
                                 loss_curr += loss_group
                             loss_curr /= (s+1)
                         else:
-
-                            n_devices = 2
-                            batch_size = batch_data.shape[0]
-                            per_device_batch_size = batch_size // n_devices
-
-                            batch_data = batch_data.reshape(n_devices, per_device_batch_size, -1)
-
                             params = self.arrays
-                            _, self.opt_state, loss_curr = self.step(params, self.opt_state, batch_data, grad_clip_threshold=gradient_clip_threshold, devices=devices)
+                            _, self.opt_state, loss_curr = self.step(params, self.opt_state, batch_data, grad_clip_threshold=gradient_clip_threshold)
 
                         loss_batch += loss_curr
 
@@ -583,7 +570,7 @@ class Model(qtn.TensorNetwork):
         :class:`quimb.tensor.tensor_core.TensorNetwork`
             Output of the model.
         """
-        assert sample.ndim == 1, "Input data must be 1D array!"
+        #assert sample.ndim == 1, "Input data must be 1D array!"
         
         if len(np.squeeze(sample)) < self.L:
             raise ValueError(f"Input data must have at least {self.L} elements!")
@@ -671,6 +658,9 @@ class Model(qtn.TensorNetwork):
             else:
                 raise ValueError("Loss function not provided!")
         
+        if loss_function is not None:
+            self.loss = loss_function
+        
         loss_value = 0
         if return_list:
             loss = []
@@ -744,7 +734,7 @@ class Model(qtn.TensorNetwork):
                 else:
                     params = self.arrays
                     if len(self.cache.keys()) == 0 or (len(self.cache.keys()) > 0 and batch_size != self.batch_size):
-                        if not hasattr(self, 'loss_func'):
+                        if loss_function is not None or not hasattr(self, 'loss_func'):
                             if evaluate_type == 0:
                                 # unsupervised
                                 self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L))
@@ -834,7 +824,6 @@ def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:in
     tuple
         Batch of input and target data (if target data is provided)
     """
-        
     x_chunks = funcy.chunks(batch_size, jax.numpy.asarray(x, dtype=dtype))
     x_chunks = _check_chunks(list(x_chunks), batch_size)
 
