@@ -241,7 +241,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
     #         model.__dict__[key] = self.__dict__[key]
     #     return model
 
-    def apply_mps(tn_op, tn_vec, compress=False, **compress_opts):
+    def apply_mps(tn_op, tn_vec, normalize_on_contract=True, compress=False, **compress_opts):
         """Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator._apply_mps()` for :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
 
         Parameters
@@ -295,6 +295,8 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                     else:
                         result.contract_between(tags[j], tags[j + 1])
                         tags_to_drop.extend([tags[j]])
+                    if normalize_on_contract:
+                        result.normalize()
                 if i + 1 == len(tags):
                     # if last site of smpo has output_ind
                     break
@@ -307,6 +309,9 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         for t in result.tensors:
             if len(t.shape) == 1:
                 result.contract_ind(list(t.inds))
+                
+                if normalize_on_contract:
+                    result.normalize()
 
         sorted_tensors = sort_tensors(result)
         
@@ -384,7 +389,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         return tn
 
-    def apply(self, other, compress=False, **compress_opts):
+    def apply(self, other, normalize_on_contract=False, compress=False, **compress_opts):
         """Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator.apply`for :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
         Act with this SMPO on another SMPO or MPS, such that the resulting
         object has the same tensor network structure/indices as ``other``.
@@ -429,7 +434,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         """
 
         if isinstance(other, MatrixProductState):
-            return self.apply_mps(other, compress=compress, **compress_opts)
+            return self.apply_mps(other, normalize_on_contract=normalize_on_contract, compress=compress, **compress_opts)
         elif isinstance(other, SpacedMatrixProductOperator):
             return self.apply_smpo(other, compress=compress, **compress_opts)
         else:
@@ -603,7 +608,7 @@ def SMPO_initialize(L: int,
         tensors[insert] /= np.sqrt(min(bond_dim, phys_dim[0]))
     
     smpo = SpacedMatrixProductOperator(tensors, output_inds=output_inds, **kwargs)
-    
+
     if compress and shape_method == 'even':
         smpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
