@@ -156,7 +156,6 @@ class Model(qtn.TensorNetwork):
         -------
         None
         """
-        
         if self.strategy == 'global':
             params = self.arrays
             if input_shape is not None:
@@ -176,7 +175,6 @@ class Model(qtn.TensorNetwork):
                 loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L)).lower(dummy_input, None, *params)
                 grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, None] + [None] * self.L)).lower(dummy_input, None, *params)
             
-            # save compiled functions
             self.cache["loss_compiled"] = loss_ir.compile()
             self.cache["grads_compiled"] = grads_ir.compile()
             self.cache["hash"] = hash((embedding, self.strategy, self.loss, self.train_type, self.optimizer, self.shape))
@@ -374,9 +372,6 @@ class Model(qtn.TensorNetwork):
         
         self.sitetags = None # for sweeping strategy
         
-        # if tn_target is not None:
-        #     skeleton_target, params_target = qtn.pack(tn_target)
-        
         def loss_fn(data=None, targets=None, *params):
             """
             Loss function that adapts based on training type.
@@ -404,11 +399,14 @@ class Model(qtn.TensorNetwork):
         if cache:
             # Caching loss computation and gradients
             if not 'hash' in self.cache or self.cache["hash"] != hash((embedding, self.strategy, self.loss, self.train_type, self.optimizer, self.shape)):
-                #model = self.copy()
+                input_shape = inputs.shape[1:] if len(inputs.shape) > 2 else (inputs.shape[1],)
+                if targets is not None:
+                    target_shape = targets.shape[1:] if len(targets.shape) > 2 else (targets.shape[1],)
+
                 self.create_cache(loss_fn,
                                 embedding,
-                                (batch_size,) + inputs.shape[1:] if inputs is not None else None,
-                                (batch_size,) + targets.shape[1:] if targets is not None else None,
+                                (batch_size,) + input_shape if inputs is not None else None,
+                                (batch_size,) + target_shape if targets is not None else None,
                                 #params_target if tn_target is not None else None,
                                 dtype,
                                 targets.dtype if targets is not None else None)
@@ -742,9 +740,7 @@ class Model(qtn.TensorNetwork):
                                 # supervised
                                 self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L))
                             else:
-                                # with target TN
-                                self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L))
-                        # fix to *params_target when you have target TN actually
+                                raise ValueError("Specify type of evaluation: 0 = 'unsupervised' or 1 ='supervised'! If type is 2 then you cannot have input data!")
                         loss_curr = self.loss_func(x, y, *params)
                     else:
                         loss_curr = self.cache["loss_compiled"](x, y, *params)
@@ -770,7 +766,7 @@ class Model(qtn.TensorNetwork):
         params, skeleton = qtn.pack(self)
         return params, skeleton
 
-def load_model(model_name, dir_name='~'):
+def load_model(model_name, dir_name=None):
     """Loads the Model from pickle file.
 
     Parameters
@@ -784,7 +780,8 @@ def load_model(model_name, dir_name='~'):
     -------
     :class:`tn4ml.models.Model` or subclass
     """
-
+    if dir_name == None:
+        return qu.load_from_disk(f'{model_name}.pkl')
     return qu.load_from_disk(f'{dir_name}/{model_name}.pkl')
 
 def _check_chunks(chunked: Collection, batch_size: int = 2):
