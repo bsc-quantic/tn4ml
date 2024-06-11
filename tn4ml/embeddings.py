@@ -4,6 +4,7 @@ from numbers import Number
 from typing import Collection
 import numpy as onp
 from autoray import numpy as np
+import autoray as a
 import jax.numpy as jnp
 from jax import lax
 import jax
@@ -78,7 +79,6 @@ class trigonometric(Embedding):
 class trigonometric_chain(Embedding):
     def __init__(self, dim, **kwargs):
         """Constructor
-
         """        
         super().__init__(**kwargs)
         self._dim = dim
@@ -227,7 +227,7 @@ class gaussian_rbf(Embedding):
         Scaling factor - :eq:`\gamma=\frac{1}{2\sigma^2}`
     """
 
-    def __init__(self, centers: onp.ndarray , gamma: float, **kwargs):
+    def __init__(self, centers: onp.ndarray = None , gamma: float = None, **kwargs):
         self.centers = centers
         self.gamma = gamma
         super().__init__(**kwargs)
@@ -235,7 +235,7 @@ class gaussian_rbf(Embedding):
     @property
     def dim(self) -> int:
         """Mapping dimension"""
-        return len(self.centers)
+        return np.prod(self.centers.shape)
     
     @property
     def input_dim(self) -> int:
@@ -349,15 +349,11 @@ class jax_arrays(Embedding):
     """
     def __init__(self, dim: int = None, **kwargs):
         super().__init__(**kwargs)
-        self.dim = dim
+        self._dim = dim
 
     @property
     def dim(self) -> int:
-        return self.dim
-    
-    @property
-    def input_dim(self) -> int:
-        return self.dim
+        return self._dim
     
     def __call__(self, x: Number) -> jnp.ndarray:
         """Embedding function for JAX arrays.
@@ -401,10 +397,8 @@ class add_ones_chain(Embedding):
     def dim(self) -> int:
         return self._dim
 
-    def __call__(self, x: Number) -> jnp.ndarray:
-        y = []
-        for xi in x:
-            y.extend(add_ones()(xi))
+    def __call__(self, x: jnp.array) -> jnp.ndarray:
+        y = jnp.insert(x, 0, 1.0)
         return jnp.array(y)
 
 
@@ -421,14 +415,14 @@ def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
     mps_opts: optional
         Additional arguments passed to MatrixProductState class.
     """
-    # if x.ndim > 1:
-    #     if len(phi.input_dim) == 1:
-    #         raise ValueError('Provide embedding function for 2D data.')
-
     arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
     for i in [0, -1]:
         arrays[i] = arrays[i].reshape((1, phi.dim))
 
     mps = qtn.MatrixProductState(arrays, **mps_opts)
-    #mps.normalize()
+    
+    # normalize
+    norm = mps.norm()
+    for tensor in mps.tensors:
+        tensor.modify(data=tensor.data / a.do("power", norm, 1 / len(mps.tensors)))
     return mps
