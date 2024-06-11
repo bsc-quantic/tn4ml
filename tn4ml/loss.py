@@ -5,6 +5,7 @@ from typing import Callable, Optional, Callable
 import jax.numpy as jnp
 import jax
 import numpy as np
+import optax
 import quimb.tensor as qtn
 
 from .models.model import Model
@@ -70,6 +71,7 @@ def transformed_squared_norm(model: SpacedMatrixProductOperator, data: qtn.Matri
             mps.contract_ind(index)
     else:
         mps = model.apply(data)
+
     return jax.lax.pow(mps.H & mps ^ all, 2)
 
 def no_reg(x):
@@ -220,10 +222,35 @@ def semi_supervised_loss(model: SpacedMatrixProductOperator, data: qtn.MatrixPro
     -------
     float
     """
-    norm = error_logquad(model, data)
-    loss_value = y_true*(1/norm) + (1-y_true)*norm + 0.5*reg_log_norm_relu(model)
+    norm = error_logquad(model, data) + 0.3*reg_log_norm_relu(model)
+    loss_value = jax.lax.pow(y_true*(1/norm) + (1-y_true)*norm, 2)
     return loss_value[0]
 
+def semi_supervised_NLL(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, y_true: Optional[jnp.array] = None, **kwargs) -> Number:
+    """Loss function for semi-supervised learning.
+
+    Parameters
+    ----------
+    model : :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
+        Spaced Matrix Product Operator
+    data: :class:`quimb.tensor.MatrixProductState`
+        Input Matrix Product State
+    y_true: :class:`Number`
+        Target class percentage.
+    Returns
+    -------
+    float
+    """
+    mps = model.apply(data)
+    norm = jnp.array(mps.arrays).sum()
+    norm = jax.lax.pow(((jax.lax.log(norm) - 1.0)), 2)
+    
+    output = (model.H & data)^all
+    output = output.data.reshape((2,))
+    class_error = optax.softmax_cross_entropy_with_integer_labels(output, jnp.squeeze(y_true))
+
+    loss_value = class_error + output*(1/(norm)) + (1-output)*(norm) + 0.3*reg_log_norm_relu(model)
+    return loss_value
 
 def softmax(z, position) -> Number:
     """ Softmax function.
@@ -274,7 +301,7 @@ def cross_entropy_softmax(model: SpacedMatrixProductOperator, data: qtn.MatrixPr
             output = (model.H & data)^all
     else:
         raise ValueError('Number of tensors for input data MPS needs to be higher or equal number of tensors in model.')
-    
+
     output = output.data.reshape((len(targets), ))
     output = output/jnp.linalg.norm(output)
 
@@ -360,12 +387,6 @@ def loss_wrapper_optax(optax_loss = None) -> Callable:
         -------
         float
         """
-
-        # if not callable(getattr(model, "apply", None)):
-        #     raise AttributeError("Model should have 'apply' method.")
-
-        # if hasattr(model, 'lower_inds') and len(list(model.lower_inds)) > 1:
-        #     raise ValueError('Model has more than one output! Rethink your contraction path to contract to vector size = (n_classes,).')
         
         if isinstance(model, SpacedMatrixProductOperator):
             if len(model.tensors) < len(data.tensors):
@@ -394,10 +415,11 @@ def loss_wrapper_optax(optax_loss = None) -> Callable:
                     y_true = jnp.expand_dims(jnp.squeeze(y_true), axis=0)
 
         elif isinstance(model, MatrixProductState):
-            y_pred = model & data ^ alL
+            y_pred = model & data ^ all
         
         # normalize
         y_pred = y_pred/jnp.linalg.norm(y_pred)
+        
         if y_true is not None:
             return optax_loss(y_pred, y_true, **kwargs)
         else:
