@@ -603,8 +603,6 @@ def SMPO_initialize(L: int,
         tensors.append(jnp.squeeze(tensor))
     
     if insert and insert < L and shape_method == 'even':
-        # not sure do I need shape_method = even here
-        # does insert have to be 0? TODO - check!
         tensors[insert] /= np.sqrt(min(bond_dim, phys_dim[0]))
     
     smpo = SpacedMatrixProductOperator(tensors, output_inds=output_inds, **kwargs)
