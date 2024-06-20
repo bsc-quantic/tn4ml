@@ -607,7 +607,7 @@ def SMPO_initialize(L: int,
     
     smpo = SpacedMatrixProductOperator(tensors, output_inds=output_inds, **kwargs)
 
-    if compress and shape_method == 'even':
+    if compress:
         smpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
     if canonical_center == None:
