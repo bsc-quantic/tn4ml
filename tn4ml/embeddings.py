@@ -242,7 +242,7 @@ class gaussian_rbf(Embedding):
         """Dimensionality of input feature. 1 = number"""
         return 1
     
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         """Embedding function for Gaussian RBF.
         
         Parameters
@@ -316,7 +316,7 @@ class polynomial_chain(Embedding):
         return self._dim
 
     # @property
-    # def input_dim(self) -> int:
+    # def input_dim(self) -> int :
     #     """ Dimensionality of input feature. 1 = number"""
     #     return self.input_dim
     
@@ -337,7 +337,7 @@ class polynomial_chain(Embedding):
         for xi in x:
             array.extend(jnp.array([xi**i for i in range(1, self.degree + 1)]))
         array = jnp.array(array)
-        return array/jnp.linalg.norm(array) 
+        return array/jnp.linalg.norm(array)
  
 class jax_arrays(Embedding):
     """Input arrays to JAX arrays.
@@ -415,6 +415,7 @@ def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
     mps_opts: optional
         Additional arguments passed to MatrixProductState class.
     """
+    
     arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
     for i in [0, -1]:
         arrays[i] = arrays[i].reshape((1, phi.dim))
