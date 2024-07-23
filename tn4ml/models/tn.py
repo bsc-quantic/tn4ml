@@ -5,18 +5,18 @@ import autoray as a
 
 from quimb import *
 import quimb.tensor as qtn
-from quimb.tensor.tensor_core import TensorNetwork
 from jax.nn.initializers import Initializer
 import jax.numpy as jnp
 
 from .model import Model
+from ..initializers import *
 
-class ParametrizedTensorNetwork(Model, TensorNetwork):
+class TensorNetwork(Model, qtn.tensor_1d.TensorNetwork1DFlat):
     """A Trainable TensorNetwork class.
     See :class:`quimb.tensor.tensor_core.TensorNetwork` for explanation of other attributes and methods.
     """
-    _EXTRA_PROPS = ("_L")
-    def __init__(self, tensors, **kwargs):
+    _EXTRA_PROPS = ("_L", "_site_tag_id", "cyclic")
+    def __init__(self, tensors, site_tag_id:str="I{}", cyclic:bool=False, **kwargs):
         """Initializes :class:`tn4ml.models.tn.ParametrizedTensorNetwork`.
         
         Parameters
@@ -30,9 +30,11 @@ class ParametrizedTensorNetwork(Model, TensorNetwork):
             Model.__init__(self)
             return
         Model.__init__(self)
-        TensorNetwork.__init__(self, tensors, **kwargs)
+        qtn.tensor_1d.TensorNetwork1DFlat.__init__(self, tensors, **kwargs)
 
-        self.L = len(self.tensors)
+        self._L = len(self.tensors)
+        self.cyclic = cyclic
+        self._site_tag_id = site_tag_id
     
     # doesn't want to train because this function doesnt work - TODO fix this
     def copy(self, virtual: bool=False, deep: bool=False):
@@ -50,9 +52,47 @@ class ParametrizedTensorNetwork(Model, TensorNetwork):
         for key in self.__dict__.keys():
             model.__dict__[key] = self.__dict__[key]
         return model
+
+    def norm(self, **contract_opts) -> float:
+        """Calculates norm of :class:`tn4ml.models.tn.TensorNetwork`.
+
+        Parameters
+        ----------
+        contract_opts : Optional
+            Arguments passed to ``contract()``.
+
+        Returns
+        -------
+        float
+            Norm of :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`
+        """
+        norm = self.conj() & self
+        return norm.contract(**contract_opts) ** 0.5
     
-def trainable_wrapper(tn: qtn.TensorNetwork, **kwargs) -> ParametrizedTensorNetwork:
-    """ Creates a wrapper around qtn.TensorNetwork so it can be trainable.
+    def normalize(self, insert=None) -> None:
+        """Function for normalizing tensors of :class:`tn4ml.models.tn.TensorNetwork`.
+
+        Parameters
+        ----------
+        insert : int
+            Index of tensor divided by norm. *Default = None*. When `None` the norm division is distributed across all tensors.
+        """
+
+        if not self.tensors:
+            raise ValueError("The tensor network is empty.")
+        
+        norm = self.norm()
+        
+        if insert == None:
+            for tensor in self.tensors:
+                tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
+        else:
+            if not (0 <= insert < len(self.tensors)):
+                raise IndexError(f"Insert index {insert} is out of bounds for the tensor list.")
+            self.tensors[insert].modify(data=self.tensors[insert].data / norm)
+    
+def trainable_wrapper(tn: qtn.tensor_1d.TensorNetwork1DFlat, **kwargs) -> qtn.tensor_1d.TensorNetwork1DFlat:
+    """ Creates a wrapper around qtn.tensor_1d.TensorNetwork1DFlat so it can be trainable.
 
     Parameters
     ----------
@@ -61,12 +101,20 @@ def trainable_wrapper(tn: qtn.TensorNetwork, **kwargs) -> ParametrizedTensorNetw
 
     Returns
     -------
-    :class:`tn4ml.models.tn.ParametrizedTensorNetwork`
+    :class:`tn4ml.models.tn.TensorNetwork`
     """
     tensors = tn.tensors
-    return ParametrizedTensorNetwork(tensors, **kwargs)
+    return TensorNetwork(tensors, **kwargs)
 
-def TN_initialize(arrays: list = None, shapes: list = None, key: Any = None, initializer: Initializer = None, inds: Collection[Collection[str]] = None, tags_id: str = 'I{}', dtype: Any = jnp.float_, **kwargs) -> TensorNetwork:
+def TN_initialize(arrays: list = None,
+                  shapes: list = None, 
+                  key: Any = None,
+                  initializer: Initializer = None,
+                  inds: Collection[Collection[str]] = None,
+                  tags_id: str = 'I{}',
+                  cyclic: bool = False,
+                  dtype: Any = jnp.float_,
+                  **kwargs) -> TensorNetwork:
     """Initializes a TensorNetwork.
 
     Parameters
@@ -97,9 +145,14 @@ def TN_initialize(arrays: list = None, shapes: list = None, key: Any = None, ini
 
     Returns
     -------
-    :class:`tn4ml.models.tn.ParametrizedTensorNetwork`
+    :class:`tn4ml.models.tn.TensorNetwork`
     """
+
+    if arrays is None and shapes is None:
+        raise ValueError("Provide either arrays or shapes to create Tensor Network.")
     
+    L = len(arrays) if arrays is not None else len(shapes)
+
     if inds is None:
         raise ValueError("Provide indices for tensors - connectivity map between tensors.")
 
@@ -116,16 +169,20 @@ def TN_initialize(arrays: list = None, shapes: list = None, key: Any = None, ini
         if len(shapes) != len(inds):
             raise ValueError("Number of tensors and indices should be same.")
         
-        for i, shape in enumerate(shapes):
+        for i, shape in zip(range(1, L+1), shapes):
+            
             if initializer is not None:
-                array = np.asarray(initializer(key, shape, dtype))
+                array = initializer(key, shape, dtype)
             else:
-                array = np.asarray(np.random.normal(0, 1, shape), dtype)
+                array = np.asarray(np.random.normal(0., 1., shape), dtype)
             
             tensors.append(qtn.Tensor(array,
-                                      inds=inds[i],
-                                      tags=tags_id.format(i)))
-    else:
-        raise ValueError("Provide either arrays or shapes to create Tensor Network.")
+                                      inds=inds[i-1],
+                                      tags=tags_id.format(i-1)))
+    
+    tn = TensorNetwork(tensors, cyclic=cyclic, site_tag_id=tags_id, **kwargs)
 
-    return ParametrizedTensorNetwork(tensors)
+    # normalize
+    tn.normalize()
+
+    return tn
