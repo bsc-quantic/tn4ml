@@ -8,8 +8,8 @@ import numpy as np
 import optax
 import quimb.tensor as qtn
 
-from .models.model import Model
-from .embeddings import Embedding, embed
+from .models.model import Model, _batch_iterator
+from .embeddings import Embedding, embed, trigonometric
 from .models.smpo import SpacedMatrixProductOperator
 from .models.mps import MatrixProductState
 from .models.mpo import MatrixProductOperator
@@ -44,8 +44,10 @@ def neg_log_likelihood(model: qtn.MatrixProductState, data: qtn.MatrixProductSta
     elif len(model.tensors) == len(data.tensors):
         # assuming that model and data has same names for physical indices
         output = (model.H & data)^all
+    else:
+        raise ValueError('Number of tensors for input data MPS needs to be higher or equal number of tensors in model.')
 
-    return - jax.lax.log(jax.lax.pow((model.H & data)^all, 2))
+    return - jax.lax.log(jax.lax.pow(output, 2))
 
 def transformed_squared_norm(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState) -> Number:
     """Squared norm of transformed input data.
@@ -337,11 +339,34 @@ def MSE(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, target
         if hasattr(model, 'apply'):
             output = model.apply(data)^all
         else:
-            output = (model.H & data)^all
+            # model_copy = model.copy(); data_copy = data.copy()
+            output = model | data
+            for ind in data.outer_inds():
+                output.contract_ind(ind=ind)
+            
+            list_tensors = output.tensors
+            number_of_sites = len(list_tensors)
+            tags = list(qtn.tensor_core.get_tags(output))
+            tags_to_drop = []
+            for j in range(len(model.tensors)//2-1):
+                # output.contract_ind(list_tensors[j].bonds(list_tensors[j + 1]))
+                # for tag in list(list_tensors[j].tags):
+                #     tags_to_drop.extend([tag])
+                output.contract_between(tags[j], tags[j + 1])
+                tags_to_drop.extend([tags[j]])
+            output.drop_tags(tags_to_drop)
+            output.fuse_multibonds_()
+
+            tags_to_drop=[]
+            for j in range(len(model.tensors)-1, len(model.tensors)//2-1, -1):
+                output.contract_between(tags[j], tags[j - 1])
+                tags_to_drop.extend([tags[j]])
+            output.drop_tags(tags_to_drop)
+            #output = (model.H & data)^all
     else:
         raise ValueError('Number of tensors for input data MPS needs to be higher or equal number of tensors in model.')
     
-    output = output.data.reshape((len(targets), ))
+    output = output.tensors[0].data.reshape((len(targets), ))
     output = output/jnp.linalg.norm(output)
 
     return jnp.mean(jnp.square(output - targets))
@@ -397,7 +422,7 @@ def loss_wrapper_optax(optax_loss = None) -> Callable:
                 output = (model.H & data)
                 for index in inds_contract:
                     output.contract_ind(index)
-                
+
                 output = output^all
                 output = output.data.reshape((len(y_true), ))
                 
@@ -417,9 +442,15 @@ def loss_wrapper_optax(optax_loss = None) -> Callable:
         elif isinstance(model, MatrixProductState):
             y_pred = model & data ^ all
         
+        else:
+            y_pred = model & data ^ all
+            y_pred = jnp.expand_dims(jnp.squeeze(y_pred.data), axis=0)
+        
         # normalize
         y_pred = y_pred/jnp.linalg.norm(y_pred)
-        
+
+        #y_pred = jnp.expand_dims(y_pred, axis=0)
+
         if y_true is not None:
             return optax_loss(y_pred, y_true, **kwargs)
         else:
