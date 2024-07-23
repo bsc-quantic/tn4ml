@@ -8,7 +8,7 @@ from jax.typing import ArrayLike
 from jax.nn.initializers import *
 from .util import gramschmidt_col, gramschmidt_row
 
-def zeros_init(std: Any = 1e-9, 
+def zeros(std: Any = 1e-9, 
             dtype: Any = jnp.float_) -> Initializer:
     """Builds an initializer that initializes tensors with zeros. Plus small noise.
 
@@ -44,7 +44,7 @@ def zeros_init(std: Any = 1e-9,
         return jax.nn.initializers.zeros(key, shape, dtype) + std * random.normal(key, shape, dtype)
     return init
 
-def ones_init(std: Any = 1e-9, 
+def ones(std: Any = 1e-9, 
               dtype: Any = jnp.float_) -> Initializer:
     """Builds an initializer that initializes tensors with ones. Plus small noise.
 
@@ -80,10 +80,10 @@ def ones_init(std: Any = 1e-9,
         return jax.nn.initializers.ones(key, shape, dtype) + std * random.normal(key, shape, dtype)
     return init
 
-def gramschmidt_init(dist: str,
-                    scale: Any = 1e-2,
-                    dtype: Any = jnp.float_
-                    ) -> Initializer:
+def gramschmidt(dist: str,
+                scale: Any = 1e-2,
+                dtype: Any = jnp.float_
+                ) -> Initializer:
     """Builds an initializer that initializes tensors with Gram-Schmidt orthogonalization procedure.
     First, arrays are sampled from uniform or normal distribution (specified by `dist` argument)
 
@@ -139,7 +139,7 @@ def gramschmidt_init(dist: str,
         return arrays.reshape(shape)
     return init
 
-def identity_init(type: str,
+def identity(type: str,
                 std: Any = None,
                 dtype: Any = jnp.float_) -> Initializer:
     """Builds an initializer that initializes tensors with identity either on diagonal elements, or in bond dimensions.
@@ -208,15 +208,16 @@ def identity_init(type: str,
         else:
             raise ValueError('Defined only for diagonal and bond dimension identity intialization!')
 
-        # Add on a bit of random noise
+        # Add random noise
         if std:
             tensor += std * random.normal(key, shape, dtype)
         return tensor
     return init
 
-def noise_init(std: Any = 1e-9,
-                dtype: Any = jnp.float_
-                ) -> Initializer:
+def randn(std: Any = 1.0,
+        mean: Any = 0.0,
+        dtype: Any = jnp.float_
+        ) -> Initializer:
     """Builds an initializer that initializes tensor values with normal distribution and added noise.
 
     Parameters
@@ -229,11 +230,11 @@ def noise_init(std: Any = 1e-9,
     Examples
     --------
     >>> import jax, jax.numpy as jnp
-    >>> from tn4ml.initializers import noise_init
-    >>> initializer = noise_init(1e-8)
-    >>> initializer(jax.random.key(42), (2, 3), jnp.float32)
-    Array([[ 6.12265216e-09,  1.12258824e-08,  1.13733174e-08],
-       [-8.12732548e-09, -8.90404994e-09,  1.26231448e-09]], dtype=float32)
+    >>> from tn4ml.initializers import randn_init
+    >>> initializer = randn(1e-2)
+    >>> initializer(jax.random.key(42), (2, 2), jnp.float32)
+    Array([[ 0.00186935,  0.01065333],
+            [-0.01559313, -0.01535296]], dtype=float32)
     """
     def init(key: Any,
             shape: core.Shape,
@@ -256,10 +257,115 @@ def noise_init(std: Any = 1e-9,
         """
         dtype = dtypes.canonicalize_dtype(dtype)
 
-        if not std:
-            raise ValueError('Provide noise!')
-        return std * random.normal(key, shape, dtype)
+        tensor = random.normal(key, shape, dtype)
+        if std != 1.0:
+            tensor *= std
+            if mean != 0.0:
+                tensor += mean
+        return tensor
     return init
-   
 
+
+def unitary_matrix(key: Any,
+                   shape: core.Shape,
+                   dtype: Any = jnp.float_) -> jnp.ndarray:
+    """
+    - from @joserapa98/tensorkrowch
+    Generates random unitary matrix from the Haar measure of size n x n.
+    
+    Unitary matrix is created as described in this `paper
+    <https://arxiv.org/abs/math-ph/0609050v2>`_.
+
+    Parameters
+    ----------
+        key : Any
+            Random key.
+        shape : core.Shape
+            Shape of the tensor.
+        dtype : Any
+            Data type of the tensor.
+    
+    Returns
+    -------
+        jnp.ndarray
+            Random unitary matrix.
+    """
+    assert shape[0] == shape[1], "Matrix should be square!"
+
+    mat = jax.random.normal(key, shape, dtype)
+    q, r = jnp.linalg.qr(mat)
+    d = jnp.diagonal(r)
+    ph = d / jnp.abs(d)
+    q = q @ jnp.diag(ph)
+    return q
+
+def rand_unitary(dtype: Any = jnp.float_) -> Initializer:
+    """Builds an initializer that initializes tensor with stack of random unitary matrices.
+    
+    Parameters
+    ----------
+        dtype : Any (Optional). Default = `jnp.float_`.
+            The initializer's default dtype.
+    
+    Examples
+    --------
+    >>> import jax, jax.numpy as jnp
+    >>> from tn4ml.initializers import rand_unitary
+    >>> initializer = rand_unitary(1e-1)
+    >>> initializer(jax.random.key(42), (2, 2), jnp.float32)
+    Array([[ 0.11903083,  0.99289054],
+            [-0.99289054,  0.11903088]], dtype=float32)
+    >>> tensor = initializer(jax.random.key(42), (2, 2), jnp.float32)
+    >>> jnp.allclose(tensor @ tensor.T.conj(), jnp.eye(2), atol=1e-6)
+    True
+    
+    """
+    def init(key: Any,
+            shape: core.Shape,
+            dtype: Any = dtype) -> jnp.ndarray:
+        """
+        Initializes a tensor.
+        
+        Parameters
+        ----------
+            key : Any
+                Random key.
+            shape : core.Shape
+                Shape of the tensor.
+            dtype : Any
+                Data type of the tensor.
+        
+        Returns
+        -------
+            jnp.ndarray
+                Initialized tensor.
+        """
+        dtype = dtypes.canonicalize_dtype(dtype)
+        
+        size = max(shape[0], shape[1])
+        size_1 = min(shape[0], size)
+        size_2 = min(shape[1], size)
+        
+        if len(shape) == 3:
+            units = []
+            for _ in range(shape[2]):
+                tensor = unitary_matrix(key, (size, size), dtype)
+                tensor = tensor[:size_1, :size_2]
+                units.append(tensor)
+            tensor = jnp.stack(units, axis=2)
+        elif len(shape) == 4:
+            units = []
+            for _ in range(shape[-2]):
+                inner_units = []
+                for _ in range(shape[-1]):
+                    unitary = unitary_matrix(key, (size, size), dtype)
+                    unitary = unitary[:size_1, :size_2]
+                    inner_units.append(unitary)
+                inner_stack = jnp.stack(inner_units, axis=0)
+                units.append(inner_stack)
+            tensor = jnp.stack(units, axis=-3)
+        else:
+            raise ValueError("Only 3 and 4 rank tensors are supported!")
+        return tensor
+    return init
 
