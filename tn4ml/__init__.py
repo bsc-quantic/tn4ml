@@ -1,11 +1,12 @@
 import warnings
 
 from .initializers import (
-    ones_init,
-    zeros_init,
-    gramschmidt_init,
-    identity_init,
-    noise_init
+    ones,
+    zeros,
+    gramschmidt,
+    identity,
+    randn,
+    rand_unitary
 )
 from .embeddings import (
     Embedding,
@@ -17,7 +18,7 @@ from .embeddings import (
     embed
 )
 
-from .loss import (
+from .metrics import (
     neg_log_likelihood,
     transformed_squared_norm,
     no_reg,
@@ -29,7 +30,7 @@ from .loss import (
     softmax,
     MSE,
     loss_wrapper_optax,
-    combined_loss,
+    combined_loss
 )
 
 from .strategy import (
