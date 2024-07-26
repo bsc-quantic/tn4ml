@@ -298,3 +298,9 @@ examples/*
 
 # datasets
 /docs/source/notebooks/datasets/*
+
+# results
+/docs/source/scripts/results/*
+
+# scripts
+/docs/source/scripts/*
