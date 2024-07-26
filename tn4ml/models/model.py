@@ -148,11 +148,6 @@ class Model(qtn.TensorNetwork):
             output = self.apply(tn_sample)
         else:
             output = self & tn_sample
-            if sorted(tn_sample.outer_inds()) == sorted(self.outer_inds()):
-                for ind in tn_sample.outer_inds():
-                    output.contract_ind(ind=ind)
-            else:
-                raise ValueError("Outer indices of input data and model do not match!")
 
             if not return_tn:
                 output = output^all
