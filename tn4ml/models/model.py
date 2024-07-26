@@ -16,6 +16,17 @@ from ..embeddings import *
 from ..strategy import *
 from ..util import gradient_clip
 
+def compute_entropy(model, data, embedding):
+    data_embeded = embed(np.array(data), embedding)
+    mps = model.apply(data_embeded)
+    e = mps.entropy(len(mps.tensors)//2)
+    return e
+
+def compute_entropy_batch(model, data, embedding):
+    data = np.array(data)
+    entropy = compute_entropy(model, data[0], embedding)
+    return entropy
+
 class Model(qtn.TensorNetwork):
     """:class:`tn4ml.models.Model` class models training model of class :class:`quimb.tensor.tensor_core.TensorNetwork`.
 
@@ -40,7 +51,7 @@ class Model(qtn.TensorNetwork):
         self.opt_state : Any = None
         self.cache : dict = {}
 
-    def save(self, model_name, dir_name='~'):
+    def save(self, model_name: str, dir_name: str = '~', inds: Collection = None, tags_id: str = 'I{}'):
 
         """Saves :class:`tn4ml.models.Model` to pickle file.
 
@@ -53,7 +64,13 @@ class Model(qtn.TensorNetwork):
         """
         exec(compile('from ' + self.__class__.__module__ + ' import ' + self.__class__.__name__, '<string>', 'single'))
         arrays = tuple(map(lambda x: np.asarray(jax.device_get(x)), self.arrays))
-        model = type(self)(arrays)
+        if inds is not None:
+            tensors = []
+            for i, array in enumerate(arrays):
+                tensors.append(qtn.Tensor(array, inds=inds[i], tags=tags_id.format(i)))
+            model = type(self)(tensors)
+        else:
+            model = type(self)(arrays)
         qu.save_to_disk(model, f'{dir_name}/{model_name}.pkl')
     
     def nparams(self):
@@ -102,6 +119,87 @@ class Model(qtn.TensorNetwork):
                 self.optimizer = self.optimizer(learning_rate = self.learning_rate)
             else:
                 self.optimizer = optax.adam(learning_rate=self.learning_rate)
+
+    def predict(self, sample: Collection, embedding: Embedding = trigonometric(), return_tn: bool = False):
+        """Predicts the output of the model.
+        
+        Parameters
+        ----------
+        sample : :class:`numpy.ndarray`
+            Input data.
+        embedding : :class:`tn4ml.embeddings.Embedding`
+            Data embedding function.
+        return_tn : bool   
+            If True, returns tensor network, otherwise returns data. Useful when you want to vmap over predict function.
+        
+        Returns
+        -------
+        :class:`quimb.tensor.tensor_core.TensorNetwork`
+            Output of the model.
+        """
+        #assert sample.ndim == 1, "Input data must be 1D array!"
+        
+        if len(np.squeeze(sample)) < self.L:
+            raise ValueError(f"Input data must have at least {self.L} elements!")
+        
+        tn_sample = embed(sample, embedding)
+
+        if callable(getattr(self, "apply", None)):
+            output = self.apply(tn_sample)
+        else:
+            output = self & tn_sample
+            if sorted(tn_sample.outer_inds()) == sorted(self.outer_inds()):
+                for ind in tn_sample.outer_inds():
+                    output.contract_ind(ind=ind)
+            else:
+                raise ValueError("Outer indices of input data and model do not match!")
+
+            if not return_tn:
+                output = output^all
+        
+        if return_tn:
+            return output
+        else:
+            assert type(output) == qtn.Tensor, "Output must be a single tensor!"
+            return output.data
+    
+    def accuracy(self, data: jnp.ndarray, y_true: jnp.array, embedding: Embedding = trigonometric(), batch_size: int=64) -> Number:
+        """Accuracy function for supervised learning.
+        
+        Parameters
+        ----------
+        model : :class:`tn4ml.models.Model`
+            Tensor Network model.
+        data: :class:`numpy.ndarray`
+            Input data.
+        y_true: :class:`numpy.ndarray`
+            Target class vector.
+        embedding: :class:`tn4ml.embeddings.Embedding`
+            Data embedding function.
+        batch_size: int
+            Batch size for data processing.
+        
+        Returns
+        -------
+        float
+        """
+
+        correct_predictions = 0
+        num_samples = 0
+        for batch_data in _batch_iterator(data, y_true, batch_size=batch_size):
+            x, y = batch_data
+            x = jnp.array(x, dtype=jnp.float64)
+            y = jnp.array(y, dtype=jnp.float64)
+
+            y_pred = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None))(x, embedding, False)))
+            predicted = jnp.argmax(y_pred, axis=-1)
+            true = jnp.argmax(y, axis=-1)
+
+            correct_predictions += jnp.sum(predicted ==true).item()
+            num_samples += y_pred.shape[0]
+
+        accuracy = correct_predictions / num_samples
+        return accuracy
 
     def update_tensors(self, params):
 
@@ -202,7 +300,6 @@ class Model(qtn.TensorNetwork):
         opt_state : tuple
             State of optimizer at the initialization. 
         """
-
         init_params = {
             i: jnp.array(data)
             for i, data in enumerate(params)
@@ -306,6 +403,8 @@ class Model(qtn.TensorNetwork):
             # callbacks: Optional[Sequence[Tuple[str, Callable]]] = None,
             gradient_clip_threshold: Optional[float] = None,
             cache: Optional[bool] = True,
+            val_batch_size: Optional[int] = None,
+            display_val_acc: Optional[bool] = False,
             dtype: Any = jnp.float_):
         
         """Performs the training procedure of :class:`tn4ml.models.Model`.
@@ -340,7 +439,9 @@ class Model(qtn.TensorNetwork):
             Threshold for gradient clipping.
         cache : bool
             If True, cache compiled functions for loss and gradients.
-        
+        val_batch_size : int
+            Number of samples per validation batch.
+            
         Returns
         -------
         history: dict
@@ -368,7 +469,11 @@ class Model(qtn.TensorNetwork):
             self.history['epoch_time'] = []
             self.history['unfinished'] = False
             if val_inputs is not None:
+                if val_batch_size is None:
+                    raise ValueError("Validation batch size must be provided!")
                 self.history['val_loss'] = []
+                if display_val_acc:
+                    self.history['val_acc'] = []
         
         self.sitetags = None # for sweeping strategy
         
@@ -410,9 +515,10 @@ class Model(qtn.TensorNetwork):
                                 #params_target if tn_target is not None else None,
                                 dtype,
                                 targets.dtype if targets is not None else None)
-                
+
                 # initialize optimizer - only important to get opt_state
                 params = self.arrays
+
                 self.step, self.opt_state = self.create_train_step(params=params, loss_func=self.cache['loss_compiled'], grads_func=self.cache['grads_compiled'])
         else:
             # Train without caching
@@ -509,7 +615,10 @@ class Model(qtn.TensorNetwork):
                             self.normalize()
 
                         if canonize[0]:
-                            self.canonize(canonize[1])
+                            if type(self) == qtn.TensorNetwork:
+                                self.canonicalize(canonize[1])
+                            else:
+                                self.canonize(canonize[1])
 
                     loss_epoch = loss_batch/n_batches
 
@@ -526,8 +635,13 @@ class Model(qtn.TensorNetwork):
                     
                     # evaluate validation loss
                     if val_inputs is not None:
+                        assert val_batch_size is not None, "Validation batch size must be provided!"
+
                         loss_val_epoch = self.evaluate(val_inputs, val_targets, embedding=embedding, evaluate_type=self.train_type, dtype=dtype)
                         self.history['val_loss'].append(loss_val_epoch)
+                        if display_val_acc:
+                            accuracy_val_epoch = self.accuracy(val_inputs, val_targets, embedding=embedding, batch_size=val_batch_size)
+                            self.history['val_acc'].append(accuracy_val_epoch)
 
                         # early stopping
                         if earlystop:
@@ -544,51 +658,12 @@ class Model(qtn.TensorNetwork):
                 
                 outerbar.update()
                 if val_inputs is not None:
-                    outerbar.set_postfix({'loss': loss_epoch, 'val_loss': self.history['val_loss'][-1]})
+                    outerbar.set_postfix({'loss': loss_epoch, 'val_loss': self.history['val_loss'][-1], 'val_acc': self.history['val_acc'][-1]})
                 else:
                     outerbar.set_postfix({'loss': loss_epoch})
                 
 
         return self.history
-    
-    def predict(self, sample: Collection, embedding: Embedding = trigonometric(), return_tn: bool = False):
-        """Predicts the output of the model.
-        
-        Parameters
-        ----------
-        sample : :class:`numpy.ndarray`
-            Input data.
-        embedding : :class:`tn4ml.embeddings.Embedding`
-            Data embedding function.
-        return_tn : bool   
-            If True, returns tensor network, otherwise returns data. Useful when you want to vmap over predict function.
-        
-        Returns
-        -------
-        :class:`quimb.tensor.tensor_core.TensorNetwork`
-            Output of the model.
-        """
-        #assert sample.ndim == 1, "Input data must be 1D array!"
-        
-        if len(np.squeeze(sample)) < self.L:
-            raise ValueError(f"Input data must have at least {self.L} elements!")
-        
-        tn_sample = embed(sample, embedding)
-
-        if callable(getattr(self, "apply", None)):
-            output = self.apply(tn_sample)
-        else:
-            output = self & tn_sample
-
-            for ind in tn_sample.outer_inds():
-                output.contract_ind(ind=ind)
-            if not return_tn:
-                output = output^all
-        
-        if return_tn:
-            return output
-        else:
-            return output.arrays
 
     def evaluate(self, 
                  inputs: Collection = None,
