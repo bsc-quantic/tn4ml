@@ -341,7 +341,7 @@ def MPS_initialize(L: int,
                     
                 if not (callable(initializer) and 'rand_unitary' in initializer.__qualname__):
                     if insert and insert < L and shape_method == 'even':
-                        tensors[insert] /= np.sqrt(phys_dim)
+                        tensors[insert] /= jnp.sqrt(phys_dim)
             
             mps = MatrixProductState(tensors, **kwargs)
 

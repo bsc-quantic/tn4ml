@@ -11,6 +11,7 @@ from jax.nn.initializers import Initializer
 import jax.numpy as jnp
 
 from .model import Model
+from ..initializers import *
 from ..util import return_digits
 
 def sort_tensors(tn: qtn.TensorNetwork) -> tuple:
@@ -527,6 +528,9 @@ def SMPO_initialize(L: int,
             bond_dim: int = 4,
             phys_dim: Tuple[int, int] = (2, 2),
             output_inds: Collection = [],
+            add_identity: bool = False,
+            add_to_output: bool = False,
+            boundary: str = 'obc',
             cyclic: bool = False,
             compress: bool = False,
             insert: int = None,
@@ -577,6 +581,18 @@ def SMPO_initialize(L: int,
 
     if spacing == 1:
         raise ValueError("Spacing must be > 1, otherwise is Matrix Product Operator.")
+    
+    if initializer is not None and callable(initializer) and 'rand_unitary' in initializer.__qualname__:
+        if add_identity:
+            raise ValueError("rand_unitary initializer does not support add_identity.")
+        if compress:
+            raise ValueError("rand_unitary initializer does not support compress.")
+        if insert:
+            raise ValueError("rand_unitary initializer does not support insert.")
+        if canonical_center:
+            raise ValueError("rand_unitary initializer does not support canonization.")
+        if boundary == 'obc':
+                boundary = None
 
     if output_inds:
         hasoutput = []
@@ -599,7 +615,48 @@ def SMPO_initialize(L: int,
                 out_index+=1
 
         shape = generate_shape(shape_method, L, has_out, bond_dim, phys_dim, cyclic, i, spacing)
+        
         tensor = initializer(key, shape, dtype)
+
+        if add_identity:
+            if len(tensor.shape) == 3:
+                copy_tensor = jnp.copy(tensor)
+                copy_tensor.at[:, :, 0].set(jnp.eye(tensor.shape[0],
+                                                tensor.shape[1],
+                                                dtype=dtype))
+                tensor = copy_tensor
+            elif len(tensor.shape) == 4: # output node
+                if add_to_output:
+                    copy_tensor = jnp.copy(tensor)
+                    identity = jnp.eye(tensor.shape[0],
+                                    tensor.shape[1],
+                                    dtype=dtype)
+                    identity = jnp.expand_dims(identity, axis=2)
+                    identity = jnp.broadcast_to(identity, (copy_tensor.shape[0], copy_tensor.shape[1], copy_tensor.shape[3]))
+                    copy_tensor.at[:, :, 0, :].set(identity)
+                    tensor = copy_tensor
+        
+        if boundary == 'obc':
+            aux_tensor = jnp.zeros(tensor.shape, dtype=dtype)
+            if len(tensor.shape) == 3:
+                if i == 1:
+                    # Left node
+                    aux_tensor = aux_tensor.at[:,0,:].set(tensor[:,0,:])
+                    tensor = aux_tensor
+                elif i == L:
+                    # Right node
+                    aux_tensor = aux_tensor.at[0,:,:].set(tensor[0,:,:])
+                    tensor = aux_tensor
+            elif len(tensor.shape) == 4:
+                if i == 1:
+                    # Left node
+                    aux_tensor = aux_tensor.at[:,0,:,:].set(tensor[:,0,:,:])
+                    tensor = aux_tensor
+                elif i == L:
+                    # Right node
+                    aux_tensor = aux_tensor.at[0,:,:,:].set(tensor[0,:,:,:])
+                    tensor = aux_tensor
+
         tensors.append(jnp.squeeze(tensor))
     
     if insert and insert < L and shape_method == 'even':
