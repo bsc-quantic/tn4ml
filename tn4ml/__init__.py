@@ -12,7 +12,7 @@ from .embeddings import (
     Embedding,
     trigonometric,
     fourier,
-    original_inverse,
+    linear_complement_map,
     gaussian_rbf,
     jax_arrays,
     embed

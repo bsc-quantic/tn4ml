@@ -132,7 +132,7 @@ class fourier(Embedding):
         return 1 / self.p * jnp.array([np.abs(sum((np.exp(1j * 2 * onp.pi * k * ((self.p - 1) * x - j) / self.p) for k in range(self.p)))) for j in range(self.p)])
     
 
-class original_inverse(Embedding):
+class linear_complement_map(Embedding):
     """Feature map `[x, 1-x]` or `[1, x, 1-x]`
     where x = feature in range [0,1].
 
