@@ -1,13 +1,12 @@
 import abc
 import itertools
 from numbers import Number
-from typing import Collection
+from typing import Collection, Any
 import numpy as onp
 from autoray import numpy as np
 import autoray as a
 import jax.numpy as jnp
 from jax import lax
-import jax
 import quimb.tensor as qtn
 
 class Embedding:
@@ -75,24 +74,6 @@ class trigonometric(Embedding):
             Embedding vector.
         """
         return 1 / jnp.sqrt(self.k) * jnp.array([f((onp.pi * x / 2**i)) for f, i in itertools.product([jnp.cos, jnp.sin], range(1, self.k + 1))])
-
-class trigonometric_chain(Embedding):
-    def __init__(self, dim, **kwargs):
-        """Constructor
-        """        
-        super().__init__(**kwargs)
-        self._dim = dim
-
-    @property
-    def dim(self) -> int:
-        return self._dim
-
-    def __call__(self, x: Number) -> jnp.ndarray:
-        y = []
-        for xi in x:
-            y.append(jnp.cos(onp.pi * xi / 2))
-            y.append(jnp.sin(onp.pi * xi / 2))
-        return jnp.array(y)
 
 class fourier(Embedding):
     """ Fourier feature map
@@ -295,49 +276,6 @@ class polynomial(Embedding):
             Embedding vector.
         """
         return jnp.array([x**i for i in range(self.degree + 1)])
-    
-class polynomial_chain(Embedding):
-    """ Polynomial feature map
-    
-    Attributes
-    ----------
-    degree : int
-        Degree of polynomial.
-    """
-
-    def __init__(self, degree: int, dim: int = None, **kwargs):
-        self.degree = degree
-        super().__init__(**kwargs)
-        self._dim = dim
-
-    @property
-    def dim(self) -> int:
-        """ Mapping dimension """
-        return self._dim
-
-    # @property
-    # def input_dim(self) -> int :
-    #     """ Dimensionality of input feature. 1 = number"""
-    #     return self.input_dim
-    
-    def __call__(self, x: Number) -> jnp.ndarray:
-        """Embedding function for polynomial.
-        
-        Parameters
-        ----------
-        x : Number
-            Input feature.
-        
-        Returns
-        -------
-        jnp.ndarray
-            Embedding vector.
-        """
-        array = [1.0]
-        for xi in x:
-            array.extend(jnp.array([xi**i for i in range(1, self.degree + 1)]))
-        array = jnp.array(array)
-        return array/jnp.linalg.norm(array)
  
 class jax_arrays(Embedding):
     """Input arrays to JAX arrays.
@@ -355,7 +293,7 @@ class jax_arrays(Embedding):
     def dim(self) -> int:
         return self._dim
     
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Any) -> jnp.ndarray:
         """Embedding function for JAX arrays.
         
         Parameters
@@ -384,26 +322,10 @@ class add_ones(Embedding):
 
     def __call__(self, x: Number) -> jnp.ndarray:
         return jnp.array([1.0, x])
-    
-class add_ones_chain(Embedding):
-    def __init__(self, dim, **kwargs):
-        """Constructor
-
-        """        
-        super().__init__(**kwargs)
-        self._dim = dim
-
-    @property
-    def dim(self) -> int:
-        return self._dim
-
-    def __call__(self, x: jnp.array) -> jnp.ndarray:
-        y = jnp.insert(x, 0, 1.0)
-        return jnp.array(y)
 
 
 def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
-    """Creates a product state from a vector of features `x`.
+    """Creates a product state from a vector of features `x` or passes arrays directly to matrix product state.
     Works only if features are separated and not correlated (this check you need to do yourself).
 
     Parameters
@@ -416,10 +338,18 @@ def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
         Additional arguments passed to MatrixProductState class.
     """
     
-    arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
-    for i in [0, -1]:
-        arrays[i] = arrays[i].reshape((1, phi.dim))
-
+    if isinstance(x[0], list) or isinstance(x[0], jnp.ndarray) or isinstance(x[0], np.ndarray) or isinstance(x[0], tuple):
+        if phi.__class__.__name__ == 'jax_arrays':
+            # pass arrays directly to matrix product state
+            arrays = [phi(xi) for xi in x]
+        else:
+            raise ValueError('If you want to pass arrays directly to matrix product state, use jax_arrays embedding.')
+    else:
+        # create a product state
+        arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
+        for i in [0, -1]:
+            arrays[i] = arrays[i].reshape((1, phi.dim))
+            
     mps = qtn.MatrixProductState(arrays, **mps_opts)
     
     # normalize
