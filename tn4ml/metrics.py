@@ -1,3 +1,5 @@
+# Examples of loss functions for supervised and unsupervised learning.
+
 from numbers import Number
 from typing import Callable, Optional, Callable
 
@@ -62,7 +64,6 @@ def transformed_squared_norm(model: SpacedMatrixProductOperator, data: qtn.Matri
     -------
     float
     """
-    #assert type(model) == SpacedMatrixProductOperator
     if len(model.tensors) < len(data.tensors):
         inds_contract = []
         for i in range(len(data.tensors)):
@@ -339,19 +340,13 @@ def MSE(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, target
         if hasattr(model, 'apply'):
             output = model.apply(data)^all
         else:
-            # model_copy = model.copy(); data_copy = data.copy()
             output = model | data
             for ind in data.outer_inds():
                 output.contract_ind(ind=ind)
             
-            list_tensors = output.tensors
-            number_of_sites = len(list_tensors)
             tags = list(qtn.tensor_core.get_tags(output))
             tags_to_drop = []
             for j in range(len(model.tensors)//2-1):
-                # output.contract_ind(list_tensors[j].bonds(list_tensors[j + 1]))
-                # for tag in list(list_tensors[j].tags):
-                #     tags_to_drop.extend([tag])
                 output.contract_between(tags[j], tags[j + 1])
                 tags_to_drop.extend([tags[j]])
             output.drop_tags(tags_to_drop)
@@ -362,7 +357,6 @@ def MSE(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, target
                 output.contract_between(tags[j], tags[j - 1])
                 tags_to_drop.extend([tags[j]])
             output.drop_tags(tags_to_drop)
-            #output = (model.H & data)^all
     else:
         raise ValueError('Number of tensors for input data MPS needs to be higher or equal number of tensors in model.')
     
