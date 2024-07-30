@@ -216,14 +216,22 @@ def identity(type: str,
 
 def randn(std: Any = 1.0,
         mean: Any = 0.0,
+        noise_std: Any = None,
+        noise_mean: Any = None,
         dtype: Any = jnp.float_
         ) -> Initializer:
-    """Builds an initializer that initializes tensor values with normal distribution and added noise.
+    """Builds an initializer that initializes tensor values with normal distribution.
 
     Parameters
     ----------
-        std : Any (Optional). Default = `1e-9`.
+        std : Any (Optional). Default = `1.0`.
             Additional noise
+        mean : Any (Optional). Default = `0.0`.
+            Mean of the normal distribution.
+        noise_std : Any (Optional). Default = `None`.
+            The standard deviation of the noise distribution (normal).
+        noise_mean : Any (Optional). Default = `None`.
+            The mean of the noise distribution (normal).
         dtype : Any (Optional). Default = `jnp.float_`.
             The initializer's default dtype.
 
@@ -258,10 +266,12 @@ def randn(std: Any = 1.0,
         dtype = dtypes.canonicalize_dtype(dtype)
 
         tensor = random.normal(key, shape, dtype)
-        if std != 1.0:
-            tensor *= std
-            if mean != 0.0:
-                tensor += mean
+        tensor = mean + tensor*std
+
+        if noise_std and noise_mean:
+            noise = random.normal(key, shape, dtype)
+            tensor += noise_mean + noise*noise_std
+
         return tensor
     return init
 
