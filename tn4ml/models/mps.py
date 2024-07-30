@@ -35,20 +35,7 @@ class MatrixProductState(Model, qtn.MatrixProductState):
         
         Model.__init__(self)
         qtn.MatrixProductState.__init__(self, arrays, **kwargs)
-    
-    # def copy(self):
-    #     """Copies the model.
         
-    #     Returns
-    #     -------
-    #     Model of the same type.
-    #     """
-
-    #     model = type(self)(self.arrays)
-    #     for key in self.__dict__.keys():
-    #         model.__dict__[key] = self.__dict__[key]
-    #     return model
-    
 def trainable_wrapper(mps: qtn.MatrixProductState, **kwargs) -> MatrixProductState:
     """ Creates a wrapper around qtn.MatrixProductState so it can be trainable.
 
@@ -90,6 +77,10 @@ def generate_shape(method: str,
         Flag for indicating if MatrixProductState this tensor is part of is cyclic. *Default=False*.
     position : int
         Position of tensor in MatrixProductState.
+    class_index : int
+        Index of tensor that is the output node. For classification tasks only.
+    class_dim : int
+        Dimension of output node, or number of classes for classification.
     Returns
     -------
         tuple
@@ -133,7 +124,7 @@ def generate_ind(L: int, shape: tuple, position: int, cyclic: bool = False, clas
     cyclic : bool
         Flag for indicating if MatrixProductState this tensor is part of is cyclic. *Default=False*.
     class_index : int
-        Index of tensor that is the output node.
+        Index of tensor that is the output node (that is having index for number of classes). For classification tasks only.
     
     Returns
     -------
@@ -168,10 +159,10 @@ def MPS_initialize(L: int,
                 phys_dim: int = 2,
                 cyclic: bool = False,
                 add_identity: bool = False,
+                add_to_output: bool = False,
                 boundary: str = 'obc',
                 class_index: int = None,
                 class_dim: int = None,
-                add_to_output: bool = False,
                 tags_id: str = 'I{}',
                 compress: bool = False,
                 insert: int = None,
@@ -198,6 +189,16 @@ def MPS_initialize(L: int,
             Dimension of physical index for individual tensor.
         cyclic : bool
             Flag for indicating if MatrixProductState is cyclic. *Default=False*.
+        add_identity : bool
+            Flag to add identity to tensors diagonal elements.
+        add_to_output : bool
+            Flag for adding identity to diagonal elements of tensors with output indices. *Default=False*.
+        boundary : str
+            Boundary condition of MatrixProductState. *Default = 'obc'*. obc = open boundary condition. pbc = periodic boundary condition.
+        class_index : int
+            Index of tensor that is the output node for class. For classification tasks only.
+        class_dim : int
+            Dimension of output node, or number of classes for classification.
         compress : bool
             Flag to truncate bond dimensions.
         insert : int
@@ -317,12 +318,12 @@ def MPS_initialize(L: int,
 
                     if callable(initializer) and 'rand_unitary' not in initializer.__qualname__:
                         if add_identity:
-                            if len(array.shape) == 3:
+                            if len(tensor.shape) == 3:
                                 copy_tensor = jnp.copy(tensor)
-                                copy_tensor.at[:, :, 0].add(jnp.eye(array.shape[0],
-                                                        array.shape[1],
+                                copy_tensor.at[:, :, 0].add(jnp.eye(tensor.shape[0],
+                                                        tensor.shape[1],
                                                         dtype=dtype))
-                                array = copy_tensor
+                                tensor = copy_tensor
                             else:
                                 raise ValueError("There was an error in generating shape. They should be 3D")
                             

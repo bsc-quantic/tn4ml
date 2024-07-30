@@ -559,6 +559,12 @@ def SMPO_initialize(L: int,
         Dimension of physical indices for individual tensor - *up* and *down*.
     output_inds : array of int
         Indexes of tensors which have output indices. From 0 to n. If spacing is not even.
+    add_identity : bool
+        Flag for adding identity to tensor diagonal elements. *Default=False*.
+    add_to_output : bool
+        Flag for adding identity to diagonal elements of tensors with output indices. *Default=False*.
+    boundary : str
+        Boundary condition. *Default='obc'*. obc = open boundary conditions, pbc = periodic boundary conditions.
     cyclic : bool
         Flag for indicating if SpacedMatrixProductOperator is cyclic. *Default=False*.
     compress : bool
@@ -667,7 +673,7 @@ def SMPO_initialize(L: int,
     if compress:
         smpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
-    if canonical_center == None:
+    if canonical_center is None:
         smpo.normalize()
     else:
         smpo.canonize(canonical_center)
