@@ -131,6 +131,8 @@ def MPO_initialize(L: int,
             shape_method: str = 'even',
             bond_dim: int = 4,
             phys_dim: Tuple[int, int] = (2, 2),
+            add_identity: bool = False,
+            boundary: str = 'obc',
             cyclic: bool = False,
             compress: bool = False,
             insert: int = None,
@@ -155,6 +157,11 @@ def MPO_initialize(L: int,
         Dimension of virtual indices between tensors. *Default = 4*.
     phys_dim :  tuple(int, int)
         Dimension of physical indices for individual tensor - *up* and *down*.
+    add_identity : bool
+        Flag for adding identity to tensor diagonal elements. *Default = False*.
+    boundary : str
+        Boundary conditions for the MatrixProductOperator. *Default = 'obc'*.
+        obc = open boundary conditions. pbc = periodic boundary conditions.
     cyclic : bool
         Flag for indicating if MatrixProductState is cyclic. *Default=False*.
     compress : bool
@@ -175,13 +182,49 @@ def MPO_initialize(L: int,
     tensors = []
     for i in range(1, L+1):
         shape = generate_shape(shape_method, L, bond_dim, phys_dim, cyclic, i)
-
+        
         tensor = initializer(key, shape, dtype)
-        tensors.append(jnp.squeeze(tensor))
+
+        if add_identity:
+            if len(tensor.shape) == 3:
+                copy_tensor = jnp.copy(tensor)
+                copy_tensor.at[:, :, 0].set(jnp.eye(tensor.shape[0],
+                                                tensor.shape[1],
+                                                dtype=dtype))
+                tensor = copy_tensor
+            elif len(tensor.shape) == 4: # output node
+                copy_tensor = jnp.copy(tensor)
+                identity = jnp.eye(tensor.shape[0],
+                                tensor.shape[1],
+                                dtype=dtype)
+                identity = jnp.expand_dims(identity, axis=2)
+                identity = jnp.broadcast_to(identity, (copy_tensor.shape[0], copy_tensor.shape[1], copy_tensor.shape[3]))
+                copy_tensor.at[:, :, 0, :].set(identity)
+                tensor = copy_tensor
+        
+        if boundary == 'obc':
+            aux_tensor = jnp.zeros(tensor.shape, dtype=dtype)
+            if len(tensor.shape) == 3:
+                if i == 1:
+                    # Left node
+                    aux_tensor = aux_tensor.at[:,0,:].set(tensor[:,0,:])
+                    tensor = aux_tensor
+                elif i == L:
+                    # Right node
+                    aux_tensor = aux_tensor.at[0,:,:].set(tensor[0,:,:])
+                    tensor = aux_tensor
+            elif len(tensor.shape) == 4:
+                if i == 1:
+                    # Left node
+                    aux_tensor = aux_tensor.at[:,0,:,:].set(tensor[:,0,:,:])
+                    tensor = aux_tensor
+                elif i == L:
+                    # Right node
+                    aux_tensor = aux_tensor.at[0,:,:,:].set(tensor[0,:,:,:])
+                    tensor = aux_tensor
+        tensors.append(tensor)
 
     if insert and insert < L and shape_method == 'even':
-        # does insert have to be 0? TODO - check!
-        # TODO check is it min(bond_dim, np.prod(phys_dim)) maybe better
         tensors[insert] /= np.sqrt(min(bond_dim, phys_dim[0]))
     
     mpo = MatrixProductOperator(tensors, **kwargs)
