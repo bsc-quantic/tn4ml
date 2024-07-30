@@ -36,7 +36,11 @@ class TensorNetwork(Model, qtn.tensor_1d.TensorNetwork1DFlat):
         self.cyclic = cyclic
         self._site_tag_id = site_tag_id
     
-    # doesn't want to train because this function doesnt work - TODO fix this
+    def canonize(self, where, cur_orthog='calc', info=None, bra=None, inplace=False):
+        """Canonizes the tensor network.
+        """
+        self.canonicalize(where, cur_orthog=cur_orthog, info=info, bra=bra, inplace=inplace)
+
     def copy(self, virtual: bool=False, deep: bool=False):
         """Copies the model.
         
