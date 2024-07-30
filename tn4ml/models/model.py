@@ -137,8 +137,7 @@ class Model(qtn.TensorNetwork):
         :class:`quimb.tensor.tensor_core.TensorNetwork`
             Output of the model.
         """
-        #assert sample.ndim == 1, "Input data must be 1D array!"
-        
+
         if len(np.squeeze(sample)) < self.L:
             raise ValueError(f"Input data must have at least {self.L} elements!")
         
@@ -436,6 +435,8 @@ class Model(qtn.TensorNetwork):
             If True, cache compiled functions for loss and gradients.
         val_batch_size : int
             Number of samples per validation batch.
+        display_val_acc : bool
+            If True, displays validation accuracy.
             
         Returns
         -------
@@ -476,6 +477,8 @@ class Model(qtn.TensorNetwork):
             """
             Loss function that adapts based on training type.
             train_type: 0 for unsupervised, 1 for supervised, 2 for training with target TN
+
+            #note: train_type = 2 is not fully functional yet
             """
             tn = self.copy()
             if self.sitetags is not None:
@@ -493,7 +496,6 @@ class Model(qtn.TensorNetwork):
                     return self.loss(tn, tn_i, targets)
             else:
                 assert self.train_type == 2, "Train type must be 2 for this type of loss function!"
-                #tn_target = qtn.unpack(skeleton_target, target_params)
                 return self.loss(tn, tn_target)
 
         if cache:
@@ -610,10 +612,7 @@ class Model(qtn.TensorNetwork):
                             self.normalize()
 
                         if canonize[0]:
-                            if type(self) == qtn.TensorNetwork:
-                                self.canonicalize(canonize[1])
-                            else:
-                                self.canonize(canonize[1])
+                            self.canonize(canonize[1])
 
                     loss_epoch = loss_batch/n_batches
 
@@ -704,11 +703,6 @@ class Model(qtn.TensorNetwork):
         if targets is not None:
             if targets.ndim == 1:
                 targets = np.expand_dims(targets, axis=-1)
-
-        # if tn_target is not None:
-        #     skeleton_target, params_target = qtn.pack(tn_target)
-        # else:
-        #     params_target = None
         
         if hasattr(self, 'batch_size'):
             if len(self.cache.keys()) == 0:
@@ -755,17 +749,9 @@ class Model(qtn.TensorNetwork):
                     return self.loss(tn, tn_i, targets)
             else:
                 assert evaluate_type == 2, "Train type must be 2 for this type of loss function!"
-                #tn_target = qtn.unpack(skeleton_target, target_params)
                 return self.loss(tn, tn_target)
         
-        if inputs is None:
-            assert evaluate_type == 2, "If inputs are not provided, evaluation type must be 2!"
-            assert tn_target is not None, "If inputs are not provided, target tensor network must be provided!"
-
-            self.loss_func = jax.jit(loss_fn)
-            loss_value = self.loss_func(None, None, *params)
-            return loss_value
-        else:
+        if inputs is not None:
             for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype):
                 if len(batch_data) == 2:
                     x, y = batch_data
@@ -822,7 +808,14 @@ class Model(qtn.TensorNetwork):
             if return_list:
                 return np.asarray(loss)
             
-            return loss_value / (len(inputs)//self.batch_size)
+            loss_value = loss_value / (len(inputs)//self.batch_size)
+        else:
+            assert evaluate_type == 2, "If inputs are not provided, evaluation type must be 2!"
+            assert tn_target is not None, "If inputs are not provided, target tensor network must be provided!"
+
+            self.loss_func = jax.jit(loss_fn)
+            loss_value = self.loss_func(None, None, *params)
+        return loss_value
     
     def convert_to_pytree(self):
         """Converts tensor network to pytree structure and returns its skeleon.
