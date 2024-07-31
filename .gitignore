@@ -288,7 +288,6 @@ $RECYCLE.BIN/
 *.whl
 *.pkl
 *.svg
-*.png
 
 # examples
 examples/*
@@ -307,10 +306,3 @@ examples/*
 
 # some non-functional notebooks atm
 /docs/source/notebooks/wip/*
-
-# images
-/docs/source/notebooks/images/mnist_models.png
-/docs/source/notebooks/images/mps_models.png
-/docs/source/notebooks/images/mps_params.png
-/docs/source/notebooks/images/one-hot.png
-/docs/source/notebooks/images/zig-zag.png
