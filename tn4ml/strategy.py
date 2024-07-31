@@ -49,7 +49,27 @@ class Strategy:
         pass
 
 class Sweeps(Strategy):
-    """DMRG-like local optimization."""
+    """
+    The sweeping DMRG (Density Matrix Renormalization Group) technique is an algorithm used to efficiently find the ground state of large quantum systems. 
+    But in general in Machine Learning, it is used to optimize the parameters of a tensor network model.
+    It works by iteratively optimizing the parameters, focusing on local regions and gradually improving the accuracy of the solution.
+
+    Sweeping Process:
+
+    - Left-to-Right Sweep:
+       Contract two tensors into one, find the gradient of the loss function with respect to that contracted tensor, 
+       update the parameter of concatenated tensor, and then split the tensor back into two.
+       Swipe from first to last tensor in the tensor network.
+    - Right-to-Left Sweep:
+        Same process as left-to-right sweep but in the opposite direction.
+    
+    Iterative Refinement:
+        Repeat the left-to-right and right-to-left sweeps multiple times.
+        Each iteration (or sweep) improves the overall accuracy of the optimization.
+    
+    Convergence:
+        The process continues until the changes in the parameters become negligible.
+    """
 
     def __init__(self, grouping: int = 2, two_way=True, split_opts={"cutoff": 0.}, **kwargs):
 

@@ -435,14 +435,12 @@ def loss_wrapper_optax(optax_loss = None) -> Callable:
 
         elif isinstance(model, MatrixProductState):
             y_pred = model & data ^ all
-        
         else:
             y_pred = model & data ^ all
             y_pred = jnp.expand_dims(jnp.squeeze(y_pred.data), axis=0)
         
         # normalize
         y_pred = y_pred/jnp.linalg.norm(y_pred)
-
         #y_pred = jnp.expand_dims(y_pred, axis=0)
 
         if y_true is not None:
