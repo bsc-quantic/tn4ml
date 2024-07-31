@@ -1,4 +1,4 @@
-<img src="docs/source/notebooks/images/tn4ml_logo.pdf" alt="logo">
+<img src="docs/source/notebooks/images/tn4ml_logo.png" alt="logo" width="300" height="200">
 
 # Tensor Networks for Machine Learning
 
