@@ -73,7 +73,7 @@ class Model(qtn.TensorNetwork):
             model = type(self)(tensors)
         else:
             model = type(self)(arrays)
-        qu.save_to_disk(self, f'{dir_name}/{model_name}.pkl')
+        qu.save_to_disk(model, f'{dir_name}/{model_name}.pkl')
     
     def nparams(self):
         """Returns number of parameters of the model.
