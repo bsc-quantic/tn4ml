@@ -51,7 +51,7 @@ class Model(qtn.TensorNetwork):
         self.opt_state : Any = None
         self.cache : dict = {}
 
-    def save(self, model_name: str, dir_name: str = '~', inds: Collection = None, tags_id: str = 'I{}'):
+    def save(self, model_name: str, dir_name: str = '~', tn: bool = False):
 
         """Saves :class:`tn4ml.models.Model` to pickle file.
 
@@ -61,17 +61,19 @@ class Model(qtn.TensorNetwork):
             Name of Model.
         dir_name: str
             Directory for saving Model.
+        tn : bool
+            If True, model object is TensorNetwork because it .
         """
         exec(compile('from ' + self.__class__.__module__ + ' import ' + self.__class__.__name__, '<string>', 'single'))
         arrays = tuple(map(lambda x: np.asarray(jax.device_get(x)), self.arrays))
-        if inds is not None:
+        if tn:
             tensors = []
             for i, array in enumerate(arrays):
-                tensors.append(qtn.Tensor(array, inds=inds[i], tags=tags_id.format(i)))
+                tensors.append(qtn.Tensor(array, inds=self.tensors[i].inds, tags=self._site_tag_id.format(i)))
             model = type(self)(tensors)
         else:
             model = type(self)(arrays)
-        qu.save_to_disk(model, f'{dir_name}/{model_name}.pkl')
+        qu.save_to_disk(self, f'{dir_name}/{model_name}.pkl')
     
     def nparams(self):
         """Returns number of parameters of the model.
