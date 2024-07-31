@@ -15,6 +15,9 @@ pip install .
 
 This will install the package and its dependencies.
 
+## Documentation
+Work in progress. Soon.
+
 ## Example notebooks
 There are working examples of **supervised learning** (classification), and **unsupervised learning** (anomaly detection), both on MNIST images.<br>
 
