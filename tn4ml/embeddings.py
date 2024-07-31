@@ -325,7 +325,7 @@ class add_ones(Embedding):
 
 
 def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
-    """Creates a product state from a vector of features `x` or passes arrays directly to matrix product state.
+    """Creates a product state from a vector of features `x`.
     Works only if features are separated and not correlated (this check you need to do yourself).
 
     Parameters
@@ -337,19 +337,10 @@ def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
     mps_opts: optional
         Additional arguments passed to MatrixProductState class.
     """
-    
-    if isinstance(x[0], list) or isinstance(x[0], jnp.ndarray) or isinstance(x[0], np.ndarray) or isinstance(x[0], tuple):
-        if phi.__class__.__name__ == 'jax_arrays':
-            # pass arrays directly to matrix product state
-            arrays = [phi(xi) for xi in x]
-        else:
-            raise ValueError('If you want to pass arrays directly to matrix product state, use jax_arrays embedding.')
-    else:
-        # create a product state
-        arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
-        for i in [0, -1]:
-            arrays[i] = arrays[i].reshape((1, phi.dim))
-            
+    arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
+    for i in [0, -1]:
+        arrays[i] = arrays[i].reshape((1, phi.dim))
+
     mps = qtn.MatrixProductState(arrays, **mps_opts)
     
     # normalize
