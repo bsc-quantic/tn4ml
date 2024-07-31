@@ -288,4 +288,21 @@ $RECYCLE.BIN/
 *.whl
 *.pkl
 *.svg
-*.png
+
+# examples
+examples/*
+
+# trainings
+/docs/source/notebooks/tests/*
+
+# datasets
+/docs/source/notebooks/datasets/*
+
+# results
+/docs/source/scripts/results/*
+
+# scripts
+/docs/source/scripts/*
+
+# some non-functional notebooks atm
+/docs/source/notebooks/wip/*

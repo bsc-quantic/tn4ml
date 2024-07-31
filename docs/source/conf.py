@@ -17,9 +17,9 @@ sys.path.insert(0, os.path.abspath('../../'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'tn4ml'
-copyright = '2022, Barcelona Supercomputing Center - Centro Nacional de Supercomputación'
-author = 'Sergio Sánchez Ramírez, Ema Puljak, Sergi Masor Llima, Jofre Valles Muns'
-release = '0.1'
+copyright = '2024, Barcelona Supercomputing Center - Centro Nacional de Supercomputación'
+author = 'Ema Puljak, Sergio Sánchez Ramírez, Sergi Masor Llima, Jofre Vallès-Muns'
+release = '1.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -28,9 +28,25 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
-    "nbsphinx"
+    "sphinx.ext.mathjax",
+    "nbsphinx",
+    "sphinx_gallery.load_style",
+    "myst_parser"
 ]
 
+# -- Options for autodoc ----------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#configuration
+
+# Automatically extract typehints when specified and place them in
+# descriptions of the relevant function/method.
+autodoc_typehints = "description"
+
+# Don't show class signature with the class' name.
+autodoc_class_signature = "separated"
+
+# nbsphinx_thumbnails = {
+#     'gallery/thumbnail-from-conf-py': 'gallery/a-local-file.png',
+# }
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
 napoleon_include_init_with_doc = True
@@ -46,8 +62,11 @@ exclude_patterns = ['build', 'Thumbs.db', '.DS_Store', 'test', '.ipynb_checkpoin
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
+html_permalinks_icon = '<span>#</span>'
+html_theme = 'sphinx_book_theme'
+html_title = 'tn4ml'
+
+#html_static_path = ['_static']
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/', None),

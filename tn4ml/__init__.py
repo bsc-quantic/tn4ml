@@ -1,21 +1,36 @@
 import warnings
 
+from .initializers import (
+    ones,
+    zeros,
+    gramschmidt,
+    identity,
+    randn,
+    rand_unitary
+)
 from .embeddings import (
     Embedding,
     trigonometric,
     fourier,
-    physics_embedding,
+    linear_complement_map,
+    gaussian_rbf,
+    jax_arrays,
     embed
 )
 
-from .loss import (
+from .metrics import (
+    neg_log_likelihood,
+    transformed_squared_norm,
     no_reg,
-    reg_norm_logrelu,
+    reg_log_norm,
+    reg_log_norm_relu,
     reg_norm_quad,
     error_logquad,
     error_quad,
-    error_cross_entropy,
-    loss_fn,
+    softmax,
+    MSE,
+    loss_wrapper_optax,
+    combined_loss
 )
 
 from .strategy import (
@@ -25,7 +40,9 @@ from .strategy import (
 )
 
 from .util import (
-    EarlyStopping,
-    ExponentialDecay,
-    ExponentialGrowth
+    gramschmidt_row,
+    gramschmidt_col,
+    return_digits,
+    zigzag_order,
+    integer_to_one_hot
 )

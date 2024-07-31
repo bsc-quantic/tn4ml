@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Tensor Network for Anomaly Detection
+Tensor Networks for Machine Learning
 ====================================
 
 .. toctree::
@@ -19,10 +19,17 @@ Tensor Network for Anomaly Detection
    :caption: Modules
 
    tn4ml.models
-   tn4ml
+   initializers
+   embeddings
+   loss
+   strategy
 
-.. toctree::
-   :maxdepth: 2
+.. nbgallery::
    :caption: Examples
+   :name: example-gallery
 
-   notebooks/testing.ipynb
+   notebooks/first_steps_MNIST.ipynb
+   notebooks/AD_mps.ipynb
+   notebooks/AD_smpo.ipynb
+   notebooks/AD_smpo_sweeps.ipynb
+   notebooks/stripes_classification.ipynb
