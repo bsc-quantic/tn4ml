@@ -1,4 +1,4 @@
-<img src="docs/source/notebooks/images/tn4ml_logo.pdf" alt="logo" width="300" height="200">
+<img src="docs/source/notebooks/images/tn4ml_logo.pdf" alt="logo">
 
 # Tensor Networks for Machine Learning
 
@@ -16,8 +16,8 @@ pip install .
 This will install the package and its dependencies.
 
 ## Example notebooks
-There are working examples of supervised learning (classification), and unsupervised learning (anomaly detection), both on MNIST images.<br>
+There are working examples of **supervised learning** (classification), and **unsupervised learning** (anomaly detection), both on MNIST images.<br>
 
-[Training TN for Classification](docs/source/notebooks/mnist_classification.ipynb)
+[Training TN for Classification](docs/source/notebooks/mnist_classification.ipynb)<br>
 [Training TN for Anomaly Detection](docs/source/notebooks/mnist_ad.ipynb)
 
