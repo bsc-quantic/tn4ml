@@ -391,9 +391,9 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         return tn
 
     def apply(self, other, normalize_on_contract=False, compress=False, **compress_opts):
-        """Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator.apply`for :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
+        """Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator.apply` for :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
         Act with this SMPO on another SMPO or MPS, such that the resulting
-        object has the same tensor network structure/indices as ``other``.
+        object has the same tensor network structure/indices as `other`.
         For an MPS:
 
                    |  S  |  S  |  S  |  S  |  S  |
@@ -405,7 +405,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             out:   y=y=y=y=y=y=y=y=y=y=y=y=y=y=y=y
         
         For an SMPO:
-
+        
                    | | | | | | | | | | | | | | | | <- self.upper_ind_id
             self:  A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A
                    |  S  |  S  |  S  |  S  |  S  | <- lower_ind_id
@@ -416,9 +416,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             out:   C=C=C=C=C=C=C=C=C=C=C=C=C=C=C=C=C=C
                    | | | | | | | | | | | | | | | | | |   <- other.lower_ind_id
 
-        The resulting TN will have the same structure/indices as ``other``, but
-        probably with larger bonds (depending on compression).
-
+        The resulting TN will have the same structure/indices as `other`, but probably with larger bonds (depending on compression).
 
         Parameters
         ----------
@@ -543,7 +541,7 @@ def SMPO_initialize(L: int,
     ----------
     L : int
         Number of tensors.
-    initializer : :class:`jax.nn.initializers.Initializer``
+    initializer : :class:`jax.nn.initializers.Initializer`
         Type of tensor initialization function.
     key : Any
         Argument key is a PRNG key (e.g. from jax.random.key()), used to generate random numbers to initialize the array.

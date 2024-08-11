@@ -37,7 +37,10 @@ class Embedding:
         pass
 
 class trigonometric(Embedding):
-    """ Trigonometric feature map
+    """ Trigonometric feature map.
+    .. math:
+
+        \\phi(x_\\textit{j}) = \\left[ cos(\\frac{\\pi}{2}x_\\textit{j}), sin(\\frac{\pi}{2}x_\\textit{j}) \\right]
     
     Attributes
     ----------
@@ -76,7 +79,10 @@ class trigonometric(Embedding):
         return 1 / jnp.sqrt(self.k) * jnp.array([f((onp.pi * x / 2**i)) for f, i in itertools.product([jnp.cos, jnp.sin], range(1, self.k + 1))])
 
 class fourier(Embedding):
-    """ Fourier feature map
+    """ Fourier feature map.
+    .. math:
+
+        \\phi(x_\\textit{j}) = \\frac{1}{\\sqrt{k}}\\left[ cos(\\frac{\\pi x_\\textit{j}}{2}), sin(\\frac{\\pi x_\\textit{j}}{2}), ..., cos(\\frac{\\pi x_\\textit{j}}{2^k}), sin(\\frac{\\pi x_\\textit{j}}{2^k})\\right]
     
     Attributes
     ----------
@@ -205,7 +211,10 @@ class gaussian_rbf(Embedding):
     centers:  :class:`numpy.ndarray`
         Gaussian centers.
     gamma: float
-        Scaling factor - :eq:`\gamma=\frac{1}{2\sigma^2}`
+        Scaling factor
+        .. math:
+
+            \\gamma=\\frac{1}{2\\sigma^2}
     """
 
     def __init__(self, centers: onp.ndarray = None , gamma: float = None, **kwargs):

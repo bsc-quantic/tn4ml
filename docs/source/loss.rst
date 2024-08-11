@@ -1,6 +1,6 @@
-Loss functions
+Metrics
 --------------
 
-.. automodule:: tn4ml.loss
+.. automodule:: tn4ml.metrics
    :members:
    :undoc-members:

@@ -17,12 +17,14 @@ from ..strategy import *
 from ..util import gradient_clip
 
 def compute_entropy(model, data, embedding):
+    """ NOT USED YET """
     data_embeded = embed(np.array(data), embedding)
     mps = model.apply(data_embeded)
     e = mps.entropy(len(mps.tensors)//2)
     return e
 
 def compute_entropy_batch(model, data, embedding):
+    """ NOT USED YET """
     data = np.array(data)
     entropy = compute_entropy(model, data[0], embedding)
     return entropy
@@ -33,15 +35,25 @@ class Model(qtn.TensorNetwork):
     Attributes
     ----------
     loss : `Callable`, or `None`
-        Loss function. See :mod:`tn4ml.loss` for examples.
+        Loss function. See :mod:`tn4ml.metrics` for examples.
     strategy : :class:`tn4ml.strategy.Strategy`
         Strategy for computing gradients.
     optimizer : str
         Type of optimizer matching names of optimizers from optax.
+    learning_rate : float
+        Learning rate for optimizer.
+    train_type : int
+        Type of training: 0 = 'unsupervised' or 1 ='supervised', 2 = 'target TN' (not fully working atm).
+    gradient_transforms : sequence
+        Sequence of gradient transformations.
+    opt_state : Any
+        State of optimizer.
+    cache : dict
+        Cache for compiled functions to calculate loss and gradients.
     """
 
     def __init__(self):
-        """Constructor method for :class:`tn4ml.models.Model` class."""
+        """ Constructor method for :class:`tn4ml.models.Model` class."""
         self.loss: Callable = None
         self.strategy : Any = 'global'
         self.optimizer : optax.GradientTransformation = optax.adam
@@ -52,8 +64,7 @@ class Model(qtn.TensorNetwork):
         self.cache : dict = {}
 
     def save(self, model_name: str, dir_name: str = '~', tn: bool = False):
-
-        """Saves :class:`tn4ml.models.Model` to pickle file.
+        """ Saves :class:`tn4ml.models.Model` to pickle file.
 
         Parameters
         ----------
@@ -76,7 +87,7 @@ class Model(qtn.TensorNetwork):
         qu.save_to_disk(model, f'{dir_name}/{model_name}.pkl')
     
     def nparams(self):
-        """Returns number of parameters of the model.
+        """ Returns number of parameters of the model.
         
         Returns
         -------
@@ -86,7 +97,7 @@ class Model(qtn.TensorNetwork):
 
     def configure(self, **kwargs):
 
-        """Configures :class:`tn4ml.models.Model` for training setting the arguments.
+        """ Configures :class:`tn4ml.models.Model` for training setting the arguments.
 
         Parameters
         ----------
@@ -123,7 +134,7 @@ class Model(qtn.TensorNetwork):
                 self.optimizer = optax.adam(learning_rate=self.learning_rate)
 
     def predict(self, sample: Collection, embedding: Embedding = trigonometric(), return_tn: bool = False):
-        """Predicts the output of the model.
+        """ Predicts the output of the model.
         
         Parameters
         ----------
@@ -160,7 +171,7 @@ class Model(qtn.TensorNetwork):
             return output.data
     
     def accuracy(self, data: jnp.ndarray, y_true: jnp.array, embedding: Embedding = trigonometric(), batch_size: int=64) -> Number:
-        """Accuracy function for supervised learning.
+        """ Calculates accuracy for supervised learning.
         
         Parameters
         ----------
@@ -198,8 +209,7 @@ class Model(qtn.TensorNetwork):
         return accuracy
 
     def update_tensors(self, params):
-
-        """Updates tensors of the model with new parameters.
+        """ Updates tensors of the model with new parameters.
         
         Parameters
         ----------
@@ -226,10 +236,9 @@ class Model(qtn.TensorNetwork):
                     embedding: Optional[Embedding] = trigonometric(),
                     input_shape: Optional[tuple] = None,
                     target_shape: Optional[tuple] = None,
-                    # target_params: Optional[Collection] = None,
                     inputs_dtype: Any = jnp.float_,
                     targets_dtype: Any = None):
-        """Creates cache for compiled functions to calculate loss and gradients.
+        """ Creates cache for compiled functions to calculate loss and gradients.
         
         Parameters
         ----------
@@ -277,17 +286,17 @@ class Model(qtn.TensorNetwork):
         
     def create_train_step(self, params, loss_func, grads_func):
 
-        """Creates function for calculating value and gradients of loss, and function for one step in training procedure.
+        """ Creates function for calculating value and gradients of loss, and function for one step in training procedure.
         Initializes the optimizer and creates optimizer state.
 
         Parameters
         ----------
         params : sequence of :class:`jax.numpy.ndarray`
             Parameters of the model.
-        cache_loss : sequence or dict
-            Cache of compiled functions to calculate loss value.
-        cache_grad : sequence or dict
-            Cache of compiled functions to calculate gradient of loss function.
+        loss_func : function
+            Loss function.
+        grads_func : function
+            Function for calculating gradients of loss.
         
         Returns
         -------
@@ -476,8 +485,7 @@ class Model(qtn.TensorNetwork):
         self.sitetags = None # for sweeping strategy
         
         def loss_fn(data=None, targets=None, *params):
-            """
-            Loss function that adapts based on training type.
+            """ Loss function that adapts based on training type.
             train_type: 0 for unsupervised, 1 for supervised, 2 for training with target TN
 
             #note: train_type = 2 is not fully functional yet
@@ -672,7 +680,7 @@ class Model(qtn.TensorNetwork):
                  loss_function: Optional[Callable] = None,
                  dtype: Any = jnp.float_):
         
-        """Evaluates the model on the data.
+        """ Evaluates the model on the data.
 
         Parameters
         ----------
@@ -680,7 +688,7 @@ class Model(qtn.TensorNetwork):
             Data used for evaluation.
         targets: sequence of :class:`numpy.ndarray`
             Targets for evaluation (if evaluation is supervised).
-        tn_target: :class:`quimb.tensor.tensor_core.TensorNetwork` or any specialized TN class from `quimb
+        tn_target: :class:`quimb.tensor.tensor_core.TensorNetwork` or any specialized TN class from `quimb`
             Target tensor network for evaluation.
         batch_size : int, or default `None`
             Number of samples per evaluation.
@@ -820,19 +828,19 @@ class Model(qtn.TensorNetwork):
         return loss_value
     
     def convert_to_pytree(self):
-        """Converts tensor network to pytree structure and returns its skeleon.
-        Reference to :function:`quimb.tensor.pack`.
+        """ Converts tensor network to pytree structure and returns its skeleon.
+        Reference to :func:`quimb.tensor.pack`.
         
         Returns
         -------
         pytree (dict)
-        skeleton (Tensor, TensorNetwork, or similar) – A copy of obj with all references to the original data removed.
+        skeleton (Tensor, TensorNetwork, or similar) - A copy of obj with all references to the original data removed.
         """
         params, skeleton = qtn.pack(self)
         return params, skeleton
 
 def load_model(model_name, dir_name=None):
-    """Loads the Model from pickle file.
+    """ Loads the Model from pickle file.
 
     Parameters
     ----------
@@ -850,7 +858,7 @@ def load_model(model_name, dir_name=None):
     return qu.load_from_disk(f'{dir_name}/{model_name}.pkl')
 
 def _check_chunks(chunked: Collection, batch_size: int = 2):
-    """Checks if the last chunk has lower size then batch size.
+    """ Checks if the last chunk has lower size then batch size.
     
     Parameters
     ----------
@@ -868,7 +876,7 @@ def _check_chunks(chunked: Collection, batch_size: int = 2):
     return chunked
 
 def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:int = 2, dtype: Any = jnp.float_):
-    """Iterates over batches of data.
+    """ Iterates over batches of data.
     
     Parameters
     ----------

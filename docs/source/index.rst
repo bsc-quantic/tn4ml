@@ -28,8 +28,5 @@ Tensor Networks for Machine Learning
    :caption: Examples
    :name: example-gallery
 
-   notebooks/first_steps_MNIST.ipynb
-   notebooks/AD_mps.ipynb
-   notebooks/AD_smpo.ipynb
-   notebooks/AD_smpo_sweeps.ipynb
-   notebooks/stripes_classification.ipynb
+   notebooks/mnist_classification.ipynb
+   notebooks/mnist_ad.ipynb
