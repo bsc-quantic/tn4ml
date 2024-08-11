@@ -7,6 +7,8 @@ Embeddings
 Trigonometric
 ^^^^^^^^^^^^^
 .. autoclass:: tn4ml.embeddings.trigonometric
+   :members:
+   :undoc-members:
    :noindex:
 
 Fourier
@@ -15,9 +17,9 @@ Fourier
    :members:
    :undoc-members:
 
-Original - Inverse
+Linear Complement
 ^^^^^^^^^^^^^^^^^^
-.. autoclass:: tn4ml.embeddings.original_inverse
+.. autoclass:: tn4ml.embeddings.linear_complement_map
    :members:
    :undoc-members:
 
@@ -33,11 +35,13 @@ Polynomial
    :members:
    :undoc-members:
 
-Jax Arrays
+Add Ones
 ^^^^^^^^^^
-.. autoclass:: tn4ml.embeddings.jax_arrays
+.. autoclass:: tn4ml.embeddings.add_ones
    :members:
    :undoc-members:
    :noindex:
 
+Embed Function
+^^^^^^^^^^^^^^
 .. autofunction:: tn4ml.embeddings.embed

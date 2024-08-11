@@ -22,4 +22,9 @@ Model
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. autoclass:: tn4ml.models.tn.TensorNetwork
+   :members:
+   :undoc-members:
+   :show-inheritance:
    

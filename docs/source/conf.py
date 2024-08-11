@@ -31,7 +31,9 @@ extensions = [
     "sphinx.ext.mathjax",
     "nbsphinx",
     "sphinx_gallery.load_style",
-    "myst_parser"
+    "myst_parser",
+    "sphinx_copybutton",
+    "sphinx.ext.mathjax"
 ]
 
 # -- Options for autodoc ----------------------------------------------------
@@ -53,6 +55,9 @@ napoleon_include_init_with_doc = True
 autodoc_member_order = 'bysource'
 nbsphinx_allow_errors = True
 nbsphinx_execute = 'never'
+copybutton_prompt_text = r">>> |\.\.\. "  # Regex to match the prompts
+copybutton_only_copy_prompt_lines = False  # Copy all code lines, not just the ones with prompts
+copybutton_remove_prompts = True  # Remove the prompts before copying
 
 templates_path = ['_templates']
 exclude_patterns = ['build', 'Thumbs.db', '.DS_Store', 'test', '.ipynb_checkpoints']
@@ -66,7 +71,7 @@ html_permalinks_icon = '<span>#</span>'
 html_theme = 'sphinx_book_theme'
 html_title = 'tn4ml'
 
-#html_static_path = ['_static']
+html_static_path = ['../_static']
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/', None),
