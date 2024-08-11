@@ -15,6 +15,7 @@ from .embeddings import (
     linear_complement_map,
     gaussian_rbf,
     jax_arrays,
+    add_ones,
     embed
 )
 
