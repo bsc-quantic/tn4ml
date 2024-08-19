@@ -38,9 +38,8 @@ class Embedding:
 
 class trigonometric(Embedding):
     """ Trigonometric feature map.
-    .. math:
-
-        \\phi(x_\\textit{j}) = \\left[ cos(\\frac{\\pi}{2}x_\\textit{j}), sin(\\frac{\pi}{2}x_\\textit{j}) \\right]
+    
+    :math:`\\phi(x_\\textit{j}) = \\left[ cos(\\frac{\\pi}{2}x_\\textit{j}), sin(\\frac{\pi}{2}x_\\textit{j}) \\right]`
     
     Attributes
     ----------
@@ -80,9 +79,7 @@ class trigonometric(Embedding):
 
 class fourier(Embedding):
     """ Fourier feature map.
-    .. math:
-
-        \\phi(x_\\textit{j}) = \\frac{1}{\\sqrt{k}}\\left[ cos(\\frac{\\pi x_\\textit{j}}{2}), sin(\\frac{\\pi x_\\textit{j}}{2}), ..., cos(\\frac{\\pi x_\\textit{j}}{2^k}), sin(\\frac{\\pi x_\\textit{j}}{2^k})\\right]
+    :math:`\\phi(x_\\textit{j}) = \\frac{1}{\\sqrt{k}}\\left[ cos(\\frac{\\pi x_\\textit{j}}{2}), sin(\\frac{\\pi x_\\textit{j}}{2}), ..., cos(\\frac{\\pi x_\\textit{j}}{2^k}), sin(\\frac{\\pi x_\\textit{j}}{2^k})\\right]`
     
     Attributes
     ----------
@@ -120,7 +117,7 @@ class fourier(Embedding):
     
 
 class linear_complement_map(Embedding):
-    """Feature map `[x, 1-x]` or `[1, x, 1-x]`
+    """Feature map :math:`[x, 1-x]` or :math:`[1, x, 1-x]`
     where x = feature in range [0,1].
 
     Attributes
@@ -212,9 +209,7 @@ class gaussian_rbf(Embedding):
         Gaussian centers.
     gamma: float
         Scaling factor
-        .. math:
-
-            \\gamma=\\frac{1}{2\\sigma^2}
+        :math:`\\gamma=\\frac{1}{2\\sigma^2}`
     """
 
     def __init__(self, centers: onp.ndarray = None , gamma: float = None, **kwargs):

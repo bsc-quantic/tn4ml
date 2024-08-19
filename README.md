@@ -1,5 +1,8 @@
 <img src="docs/_static/tn4ml_logo.png" alt="logo" width="500" height="200">
 
+![Static Badge](https://img.shields.io/badge/tests-passing-blue)
+![Static Badge](https://img.shields.io/badge/docs-passing-green)
+
 # Tensor Networks for Machine Learning
 
 **tn4ml** is a Python library that handles tensor networks for machine learning applications. It is built on top of **Quimb**, for Tensor Network objects, and **JAX**, for optimization pipeline.<br>

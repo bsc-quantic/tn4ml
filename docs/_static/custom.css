@@ -1,0 +1,11 @@
+/* Default logo for light theme */
+img.logo {
+    content: url("_static/logo_light.png");
+}
+
+/* Logo for dark theme */
+@media (prefers-color-scheme: dark) {
+    img.logo {
+        content: url("_static/logo_dark.png");
+    }
+}

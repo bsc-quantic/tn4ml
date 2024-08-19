@@ -62,7 +62,9 @@ copybutton_remove_prompts = True  # Remove the prompts before copying
 templates_path = ['_templates']
 exclude_patterns = ['build', 'Thumbs.db', '.DS_Store', 'test', '.ipynb_checkpoints']
 
-
+mathjax3_config = {
+    'TeX': {'equationNumbers': {'autoNumber': 'AMS', 'useLabelIds': True}},
+}
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
@@ -70,7 +72,7 @@ exclude_patterns = ['build', 'Thumbs.db', '.DS_Store', 'test', '.ipynb_checkpoin
 html_permalinks_icon = '<span>#</span>'
 html_theme = 'sphinx_book_theme'
 html_title = 'tn4ml'
-
+html_logo = "../_static/logo.png"
 html_static_path = ['../_static']
 
 intersphinx_mapping = {
