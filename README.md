@@ -26,4 +26,4 @@ There are working examples of **supervised learning** (classification), and **un
 [Training TN for Anomaly Detection](docs/source/notebooks/mnist_ad.ipynb)
 
 ## License
-MIT license - check it out [here](license)
+MIT license - check it out [here](LICENSE)
