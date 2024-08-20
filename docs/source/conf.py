@@ -10,8 +10,8 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-import sys
-sys.path.insert(0, os.path.abspath('../../'))
+# import sys
+# sys.path.insert(0, os.path.abspath('../../'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -45,6 +45,9 @@ autodoc_class_signature = "separated"
 
 # nbsphinx_thumbnails = {
 #     'gallery/thumbnail-from-conf-py': 'gallery/a-local-file.png',
+
+master_doc = 'index'
+
 # }
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
