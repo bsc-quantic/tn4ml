@@ -17,7 +17,7 @@ pip install .
 This will install the package and its dependencies.
 
 ## Documentation
-Work in progress. Soon.
+Visit [tn4ml.readthedocs.io](https://tn4ml.readthedocs.io/en/latest/)
 
 ## Example notebooks
 There are working examples of **supervised learning** (classification), and **unsupervised learning** (anomaly detection), both on MNIST images.<br>
