@@ -46,11 +46,11 @@ extensions = [
 ]
 
 # path to the examples scripts
-sphinx_gallery_conf = {
-    'examples_dirs': ['examples'],   # path to your example scripts
-    'gallery_dirs': ['auto_examples'],  # path to where to save gallery generated output
-    'filename_pattern': r'\.ipynb$'
-}
+# sphinx_gallery_conf = {
+#     'examples_dirs': ['examples'],   # path to your example scripts
+#     'gallery_dirs': ['auto_examples'],  # path to where to save gallery generated output
+#     'filename_pattern': r'\.ipynb$'
+# }
 
 # Automatically extract typehints when specified and place them in
 # descriptions of the relevant function/method.

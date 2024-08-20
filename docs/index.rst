@@ -24,7 +24,10 @@ Tensor Networks for Machine Learning
    source/metrics
    source/strategy
 
-.. toctree::
+.. nbgallery::
    :caption: Examples
+   :name: example-gallery
 
-   auto_examples/index
+   examples/mnist_classification.ipynb
+   examples/mnist_ad.ipynb
+   examples/mnist_ad_sweeps.ipynb
