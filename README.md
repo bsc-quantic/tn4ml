@@ -22,8 +22,9 @@ Work in progress. Soon.
 ## Example notebooks
 There are working examples of **supervised learning** (classification), and **unsupervised learning** (anomaly detection), both on MNIST images.<br>
 
-[Training TN for Classification](docs/source/notebooks/mnist_classification.ipynb)<br>
-[Training TN for Anomaly Detection](docs/source/notebooks/mnist_ad.ipynb)
+[TN for Classification](docs/source/notebooks/mnist_classification.ipynb)<br>
+[TN for Anomaly Detection](docs/source/notebooks/mnist_ad.ipynb)<br>
+[TN for Anomaly Detection with DMRG-like method](docs/source/notebooks/mnist_ad_sweeps.ipynb)
 
 ## License
 MIT license - check it out [here](LICENSE)
