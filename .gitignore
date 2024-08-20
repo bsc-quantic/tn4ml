@@ -289,9 +289,6 @@ $RECYCLE.BIN/
 *.pkl
 *.svg
 
-# examples
-examples/*
-
 # trainings
 /docs/source/notebooks/tests/*
 
