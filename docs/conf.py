@@ -42,7 +42,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "nbsphinx",
     "sphinx_copybutton",
-    "sphinx_gallery.gen_gallery",
+    # "sphinx_gallery.gen_gallery",
 ]
 
 # path to the examples scripts
