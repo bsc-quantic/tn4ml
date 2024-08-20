@@ -306,6 +306,3 @@ examples/*
 
 # some non-functional notebooks atm
 /docs/source/notebooks/wip/*
-
-# images
-/docs/source/notebooks/mnist.pdf

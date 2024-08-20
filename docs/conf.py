@@ -41,10 +41,14 @@ extensions = [
     "sphinx.ext.mathjax",
     "nbsphinx",
     "sphinx_copybutton",
+    "sphinx_gallery.gen_gallery",
 ]
 
-# -- Options for autodoc ----------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#configuration
+# path to the examples scripts
+sphinx_gallery_conf = {
+    'examples_dirs': 'source/notebooks',   # path to your example scripts
+    'gallery_dirs': 'auto_examples',  # path to where to save gallery generated output
+}
 
 # Automatically extract typehints when specified and place them in
 # descriptions of the relevant function/method.
