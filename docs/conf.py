@@ -30,10 +30,8 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.mathjax",
     "nbsphinx",
-    "sphinx_gallery.load_style",
     "myst_parser",
     "sphinx_copybutton",
-    "sphinx.ext.mathjax"
 ]
 
 # -- Options for autodoc ----------------------------------------------------
