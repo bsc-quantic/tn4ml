@@ -23,11 +23,3 @@ Tensor Networks for Machine Learning
    source/embeddings
    source/metrics
    source/strategy
-
-.. nbgallery::
-   :caption: Examples
-   :name: example-gallery
-
-   source/notebooks/mnist_classification.ipynb
-   source/notebooks/mnist_ad.ipynb
-   source/notebooks/mnist_ad_sweeps.ipynb

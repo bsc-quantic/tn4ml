@@ -46,7 +46,7 @@ extensions = [
 
 # path to the examples scripts
 sphinx_gallery_conf = {
-    'examples_dirs': 'source/notebooks',   # path to your example scripts
+    'examples_dirs': '../examples',   # path to your example scripts
     'gallery_dirs': 'auto_examples',  # path to where to save gallery generated output
 }
 
@@ -59,9 +59,6 @@ autodoc_class_signature = "separated"
 
 # nbsphinx_thumbnails = {
 #     'gallery/thumbnail-from-conf-py': 'gallery/a-local-file.png',
-
-master_doc = 'index'
-
 # }
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
