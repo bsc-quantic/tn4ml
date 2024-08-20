@@ -1,6 +1,3 @@
-Examples
-========
-
 .. toctree::
    :maxdepth: 2
    mnist_classification.ipynb

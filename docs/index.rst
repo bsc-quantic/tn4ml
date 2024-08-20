@@ -25,6 +25,6 @@ Tensor Networks for Machine Learning
    source/strategy
 
 .. toctree::
-   :maxdepth: 1
+   :caption: Examples
 
-   auto_examples/index 
+   auto_examples/index
