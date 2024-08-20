@@ -21,7 +21,7 @@ Tensor Networks for Machine Learning
    tn4ml.models
    initializers
    embeddings
-   loss
+   metrics
    strategy
 
 .. nbgallery::
@@ -30,3 +30,4 @@ Tensor Networks for Machine Learning
 
    notebooks/mnist_classification.ipynb
    notebooks/mnist_ad.ipynb
+   notebooks/mnist_ad_sweeps.ipynb
