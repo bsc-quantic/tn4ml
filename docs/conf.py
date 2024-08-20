@@ -30,7 +30,6 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.mathjax",
     "nbsphinx",
-    "myst_parser",
     "sphinx_copybutton",
 ]
 
