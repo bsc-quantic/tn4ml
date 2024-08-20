@@ -23,3 +23,9 @@ Tensor Networks for Machine Learning
    source/embeddings
    source/metrics
    source/strategy
+
+.. toctree::
+   :caption: Examples
+   :maxdepth: 1
+
+   auto_examples/index 
