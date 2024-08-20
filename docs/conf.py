@@ -59,9 +59,11 @@ autodoc_typehints = "description"
 # Don't show class signature with the class' name.
 autodoc_class_signature = "separated"
 
-# nbsphinx_thumbnails = {
-#     'gallery/thumbnail-from-conf-py': 'gallery/a-local-file.png',
-# }
+nbsphinx_thumbnails = {
+    'examples/mnist_classification': '_static/class.png',
+    'examples/mnist_ad': '_static/ad.png',
+    'examples/mnist_ad_sweeps': '_static/ad_sweeps.png',
+}
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
 napoleon_include_init_with_doc = True
