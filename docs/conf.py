@@ -72,8 +72,8 @@ mathjax3_config = {
 html_permalinks_icon = '<span>#</span>'
 html_theme = 'sphinx_book_theme'
 html_title = 'tn4ml'
-html_logo = "../_static/logo.png"
-html_static_path = ['../_static']
+html_logo = "_static/logo.png"
+html_static_path = ['_static']
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/', None),
