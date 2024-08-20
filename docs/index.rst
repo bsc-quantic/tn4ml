@@ -28,6 +28,6 @@ Tensor Networks for Machine Learning
    :caption: Examples
    :name: example-gallery
 
-   notebooks/mnist_classification.ipynb
-   notebooks/mnist_ad.ipynb
-   notebooks/mnist_ad_sweeps.ipynb
+   source/notebooks/mnist_classification.ipynb
+   source/notebooks/mnist_ad.ipynb
+   source/notebooks/mnist_ad_sweeps.ipynb
