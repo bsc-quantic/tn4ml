@@ -32,7 +32,7 @@ setup(
         "dask",
         "funcy",
         "numpy",
-        "opt_einsum>=3.3.0",
+        "opt_einsum",
         "quimb>=1.4.1",
         "jaxlib",
         "jax",
