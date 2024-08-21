@@ -3,21 +3,38 @@ Installation
 
 First create a virtualenv using `pyenv` or `conda`. 
 
-Install directly from the git repository using,
+**Install using** `pip`:
 
-``pip install git+https://github.com/bsc-quantic/tn4ml```
+.. code-block:: bash
 
-Or clone the repository and navigate to the root directory. Then install this package using,
+    pip install tn4ml
 
-``pip install .``
+**Install directly from the git repository**:
 
-To install the package in development mode, use,
+.. code-block:: bash
 
-``pip install -e .``
+    pip install git+https://github.com/bsc-quantic/tn4ml.git```
 
-For tests, install the package with the test dependencies using,
+**Install by cloning the repository and navigate to the root directory of the repository and run**:
 
-``pip install .[test]``
+.. code-block:: bash
 
-and run the tests using
-``pytest``
+    pip install .
+
+**Or install the package in development mode**:
+
+.. code-block:: bash
+
+    pip install -e .
+
+**For tests, install the package with the test dependencies**:
+
+.. code-block:: bash
+
+    pip install .[test]
+
+**Run the tests**:
+
+.. code-block:: bash
+
+    pytest
