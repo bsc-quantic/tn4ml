@@ -9,13 +9,26 @@ It supports different **embedding** functions, **initialization** techniques, an
 
 ## Installation
 
-First create a virtualenv using `pyenv` or `conda`. Then install this package using,
+First create a virtualenv using `pyenv` or `conda`. Then install the package and its dependencies.
+<br>
+
+**With** `pip`:
 ```bash
-pip install .
+pip install tn4ml
 ```
+<br>
 
-This will install the package and its dependencies.
+or **directly from github**:
+```bash
+pip install -U git+https://github.com/bsc-quantic/tn4ml.git
+```
+<br>
 
+If you want to test and edit the code, you can clone local version of the package and install.
+```bash
+git clone https://github.com/bsc-quantic/tn4ml.git
+pip install -e tn4ml/
+```
 ## Documentation
 Visit [tn4ml.readthedocs.io](https://tn4ml.readthedocs.io/en/latest/)
 
