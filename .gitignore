@@ -302,4 +302,4 @@ $RECYCLE.BIN/
 /docs/source/scripts/*
 
 # some non-functional notebooks atm
-/docs/source/notebooks/wip/*
+/docs/source/notebooks/*
