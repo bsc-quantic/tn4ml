@@ -13,7 +13,7 @@ First create a virtualenv using `pyenv` or `conda`.
 
 .. code-block:: bash
 
-    pip install git+https://github.com/bsc-quantic/tn4ml.git```
+    pip install git+https://github.com/bsc-quantic/tn4ml.git
 
 **Install by cloning the repository and navigate to the root directory of the repository and run**:
 
