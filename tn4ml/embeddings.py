@@ -17,8 +17,12 @@ class Embedding:
         dype: :class:`numpy.dype`
             Data Type
     """
-    def __init__(self, dtype=onp.float32):
-        self.dtype = dtype
+    def __init__(self, dtype=jnp.float32, input_type='data'):
+        self._dtype = dtype
+        self._input_type = input_type
+
+        if input_type not in ['data', 'mps']:
+            raise ValueError(f"Invalid input type: {input_type}")
 
     @property
     @abc.abstractmethod
@@ -31,6 +35,14 @@ class Embedding:
     def input_dim(self) -> int:
         """ Dimensionality of input feature. 1 = number, 2 = vector """
         pass
+
+    @property
+    def dtype(self) -> Any:
+        return self._dtype
+    
+    @property
+    def input_type(self) -> str:
+        return self._input_type
 
     @abc.abstractmethod
     def __call__(self, x: Number) -> jnp.ndarray:
@@ -289,13 +301,13 @@ class jax_arrays(Embedding):
     dim: int
         Dimension of input 
     """
-    def __init__(self, dim: int = None, **kwargs):
+    def __init__(self, dtype: Any = jnp.float32, **kwargs):
         super().__init__(**kwargs)
-        self._dim = dim
+        self._dtype = dtype
 
     @property
-    def dim(self) -> int:
-        return self._dim
+    def dtype(self) -> Any:
+        return self._dtype
     
     def __call__(self, x: Any) -> jnp.ndarray:
         """Embedding function for JAX arrays.
@@ -310,7 +322,7 @@ class jax_arrays(Embedding):
         jnp.ndarray
             Embedding vector.
         """
-        return jnp.array(x)
+        return jnp.asarray(x, dtype=self._dtype)
 
 class add_ones(Embedding):
     def __init__(self, **kwargs):
@@ -341,9 +353,13 @@ def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
     mps_opts: optional
         Additional arguments passed to MatrixProductState class.
     """
-    arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
-    for i in [0, -1]:
-        arrays[i] = arrays[i].reshape((1, phi.dim))
+
+    if phi.input_type == 'data':
+        arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
+        for i in [0, -1]:
+            arrays[i] = arrays[i].reshape((1, phi.dim))
+    else:
+        arrays = [phi(xi) for xi in x]
 
     mps = qtn.MatrixProductState(arrays, **mps_opts)
     
