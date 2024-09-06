@@ -321,7 +321,7 @@ def rand_unitary(dtype: Any = jnp.float_) -> Initializer:
     --------
     >>> import jax, jax.numpy as jnp
     >>> from tn4ml.initializers import rand_unitary
-    >>> initializer = rand_unitary(1e-1)
+    >>> initializer = rand_unitary()
     >>> initializer(jax.random.key(42), (2, 2), jnp.float32)
     Array([[ 0.11903083,  0.99289054],
             [-0.99289054,  0.11903088]], dtype=float32)
@@ -352,7 +352,7 @@ def rand_unitary(dtype: Any = jnp.float_) -> Initializer:
         """
         dtype = dtypes.canonicalize_dtype(dtype)
         
-        size = max(shape[0], shape[1])
+        size = max(shape[0], shape[1], shape[2])
         size_1 = min(shape[0], size)
         size_2 = min(shape[1], size)
         
@@ -371,9 +371,9 @@ def rand_unitary(dtype: Any = jnp.float_) -> Initializer:
                     unitary = unitary_matrix(key, (size, size), dtype)
                     unitary = unitary[:size_1, :size_2]
                     inner_units.append(unitary)
-                inner_stack = jnp.stack(inner_units, axis=0)
+                inner_stack = jnp.stack(inner_units, axis=-1)
                 units.append(inner_stack)
-            tensor = jnp.stack(units, axis=-3)
+            tensor = jnp.stack(units, axis=-1)
         else:
             raise ValueError("Only 3 and 4 rank tensors are supported!")
         return tensor

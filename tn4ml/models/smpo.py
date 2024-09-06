@@ -619,7 +619,7 @@ def SMPO_initialize(L: int,
                 out_index+=1
 
         shape = generate_shape(shape_method, L, has_out, bond_dim, phys_dim, cyclic, i, spacing)
-        
+
         tensor = initializer(key, shape, dtype)
 
         if add_identity:
