@@ -17,12 +17,8 @@ class Embedding:
         dype: :class:`numpy.dype`
             Data Type
     """
-    def __init__(self, dtype=jnp.float32, input_type='data'):
+    def __init__(self, dtype=jnp.float32):
         self._dtype = dtype
-        self._input_type = input_type
-
-        if input_type not in ['data', 'mps']:
-            raise ValueError(f"Invalid input type: {input_type}")
 
     @property
     @abc.abstractmethod
@@ -39,10 +35,6 @@ class Embedding:
     @property
     def dtype(self) -> Any:
         return self._dtype
-    
-    @property
-    def input_type(self) -> str:
-        return self._input_type
 
     @abc.abstractmethod
     def __call__(self, x: Number) -> jnp.ndarray:
@@ -354,13 +346,9 @@ def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
         Additional arguments passed to MatrixProductState class.
     """
 
-    if phi.input_type == 'data':
-        arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
-        for i in [0, -1]:
-            arrays[i] = arrays[i].reshape((1, phi.dim))
-    else:
-        arrays = [phi(xi) for xi in x]
-
+    arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
+    for i in [0, -1]:
+        arrays[i] = arrays[i].reshape((1, phi.dim))
     mps = qtn.MatrixProductState(arrays, **mps_opts)
     
     # normalize
