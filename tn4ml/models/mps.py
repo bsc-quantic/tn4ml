@@ -252,7 +252,7 @@ def MPS_initialize(L: int,
                 for i in range(1, L+1):
                     shape = generate_shape(shape_method, L, bond_dim, phys_dim, cyclic, i, class_index, class_dim)
                     ind = generate_ind(L, shape, i, cyclic, class_index)
-
+                    
                     if callable(initializer) and 'rand_unitary' in initializer.__qualname__:
                         if i < class_index or i > class_index:
                             array = initializer(key, shape, dtype)
@@ -298,7 +298,7 @@ def MPS_initialize(L: int,
                     tensors.append(qtn.Tensor(array,
                                     inds=ind,
                                     tags=tags_id.format(i-1)))
-            
+
             mps = TensorNetwork(tensors, cyclic=cyclic, site_tag_id=tags_id, **kwargs)
 
             # normalize
@@ -343,7 +343,7 @@ def MPS_initialize(L: int,
                 if not (callable(initializer) and 'rand_unitary' in initializer.__qualname__):
                     if insert and insert < L and shape_method == 'even':
                         tensors[insert] /= jnp.sqrt(phys_dim)
-            
+
             mps = MatrixProductState(tensors, **kwargs)
 
             if compress:
