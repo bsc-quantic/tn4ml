@@ -372,17 +372,12 @@ def loss_wrapper_optax(optax_loss = None) -> Callable:
     
     Parameters
     ----------
-    model : :class:`tn4ml.models.model.Model`
-        Tensor Network model.
-    data: :class:`quimb.tensor.MatrixProductState`
-        Input Matrix Product State
-    y_true: :class:`numpy.ndarray`
-        Target class vector. Example = [1 0 0 0] for n_classes = 4.
-    kwargs : dict
-        Additional arguments for optax loss function.
+    optax_loss : function
+        Optax loss function. Example: optax.softmax_cross_entropy_with_logits.
+    
     Returns
     -------
-    float
+    function
     """
 
     assert optax_loss != None
