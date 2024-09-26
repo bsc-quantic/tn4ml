@@ -1,7 +1,7 @@
 import abc
 import itertools
 from numbers import Number
-from typing import Collection, Any
+from typing import Collection, Any, Union
 import numpy as onp
 from autoray import numpy as np
 import autoray as a
@@ -30,6 +30,39 @@ class Embedding:
     @abc.abstractmethod
     def input_dim(self) -> int:
         """ Dimensionality of input feature. 1 = number, 2 = vector """
+        pass
+
+    @abc.abstractmethod
+    def __call__(self, x: Number) -> jnp.ndarray:
+        pass
+
+class ComplexEmbedding:
+    """Complex data embedding (feature map) class where each feature has its own choosen embedding.
+
+    Attributes
+    ----------
+        dype: :class:`numpy.dype`
+            Data Type
+    """
+    def __init__(self, dtype=onp.complex64):
+        self.dtype = dtype
+
+    @property
+    @abc.abstractmethod
+    def dims(self) -> int:
+        """ Mapping dimensions per feature """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def input_dims(self) -> jnp.ndarray:
+        """ Dimensionality of each input feature. 1 = number, 2 = vector """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def embeddings(self) -> Collection[Embedding]:
+        """ Embeddings for each feature """
         pass
 
     @abc.abstractmethod
@@ -328,7 +361,7 @@ class add_ones(Embedding):
         return jnp.array([1.0, x])
 
 
-def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
+def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding], **mps_opts):
     """Creates a product state from a vector of features `x`.
     Works only if features are separated and not correlated (this check you need to do yourself).
 
@@ -341,9 +374,18 @@ def embed(x: onp.ndarray, phi: Embedding = trigonometric(), **mps_opts):
     mps_opts: optional
         Additional arguments passed to MatrixProductState class.
     """
-    arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
-    for i in [0, -1]:
-        arrays[i] = arrays[i].reshape((1, phi.dim))
+
+    if not issubclass(type(phi), ComplexEmbedding) and not issubclass(type(phi), Embedding):
+        raise TypeError('Invalid embedding type')
+    
+    if issubclass(type(phi), Embedding):
+        arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
+        for i in [0, -1]:
+            arrays[i] = arrays[i].reshape((1, phi.dim))
+    else:
+        arrays = [phi.embeddings[i](xi).reshape((1, 1, phi.dims[i])) for i, xi in enumerate(x)]
+        for i in [0, -1]:
+            arrays[i] = arrays[i].reshape((1, phi.dims[i]))
 
     mps = qtn.MatrixProductState(arrays, **mps_opts)
     
