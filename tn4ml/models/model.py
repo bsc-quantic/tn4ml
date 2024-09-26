@@ -11,6 +11,7 @@ import autoray
 import optax
 import jax
 from flax.training.early_stopping import EarlyStopping
+import flax.linen as nn
 
 from ..embeddings import *
 from ..strategy import *
@@ -62,6 +63,7 @@ class Model(qtn.TensorNetwork):
         self.gradient_transforms : Sequence = None
         self.opt_state : Any = None
         self.cache : dict = {}
+        self.history : dict = {}
 
     def save(self, model_name: str, dir_name: str = '~', tn: bool = False):
         """ Saves :class:`tn4ml.models.Model` to pickle file.
@@ -73,10 +75,10 @@ class Model(qtn.TensorNetwork):
         dir_name: str
             Directory for saving Model.
         tn : bool
-            If True, model object is TensorNetwork because it .
+            If True, model object is TensorNetwork.
         """
         exec(compile('from ' + self.__class__.__module__ + ' import ' + self.__class__.__name__, '<string>', 'single'))
-        arrays = tuple(map(lambda x: np.asarray(jax.device_get(x)), self.arrays))
+        arrays = tuple(map(lambda x: np.array(jax.device_get(x)), self.arrays))
         if tn:
             tensors = []
             for i, array in enumerate(arrays):
@@ -163,12 +165,13 @@ class Model(qtn.TensorNetwork):
 
             if not return_tn:
                 output = output^all
-        
         if return_tn:
             return output
         else:
-            assert type(output) == qtn.Tensor, "Output must be a single tensor!"
-            return output.data
+            #assert type(output) == qtn.Tensor, "Output must be a single tensor!"
+            output = output^all
+            #return output.data
+            return output
     
     def accuracy(self, data: jnp.ndarray, y_true: jnp.array, embedding: Embedding = trigonometric(), batch_size: int=64) -> Number:
         """ Calculates accuracy for supervised learning.
@@ -470,17 +473,15 @@ class Model(qtn.TensorNetwork):
         if inputs is not None:
             n_batches = (len(inputs)//self.batch_size)
 
-        if not hasattr(self, 'history'):
-            self.history = dict()
-            self.history['loss'] = []
-            self.history['epoch_time'] = []
-            self.history['unfinished'] = False
-            if val_inputs is not None:
-                if val_batch_size is None:
-                    raise ValueError("Validation batch size must be provided!")
-                self.history['val_loss'] = []
-                if display_val_acc:
-                    self.history['val_acc'] = []
+        self.history['loss'] = []
+        self.history['epoch_time'] = []
+        self.history['unfinished'] = False
+        if val_inputs is not None:
+            if val_batch_size is None:
+                raise ValueError("Validation batch size must be provided!")
+            self.history['val_loss'] = []
+            if display_val_acc:
+                self.history['val_acc'] = []
         
         self.sitetags = None # for sweeping strategy
         
@@ -488,7 +489,6 @@ class Model(qtn.TensorNetwork):
             """ Loss function that adapts based on training type.
             train_type: 0 for unsupervised, 1 for supervised, 2 for training with target TN
 
-            #note: train_type = 2 is not fully functional yet
             """
             tn = self.copy()
             if self.sitetags is not None:
@@ -593,6 +593,7 @@ class Model(qtn.TensorNetwork):
                 else:
                     loss_batch = 0
                     for batch_data in _batch_iterator(inputs, targets, self.batch_size, dtype=dtype):
+                        
                         if isinstance(self.strategy, Sweeps):
                             loss_curr = 0
                             for s, sites in enumerate(self.strategy.iterate_sites(self)):
@@ -905,4 +906,4 @@ def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:in
             yield x_chunk, y_chunk
     else:
         for x_chunk in x_chunks:
-            yield x_chunk    
+            yield x_chunk
