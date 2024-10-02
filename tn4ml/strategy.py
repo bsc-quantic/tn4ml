@@ -186,7 +186,7 @@ class Sweeps(Strategy):
         if self.renormalize:
             tensor.normalize(inplace=True)
 
-        # split tensor with DMRG
+        # split tensor into two
         sitel, siter = sites
         if  self.two_way and sitel > siter:
             siter, sitel = sites
