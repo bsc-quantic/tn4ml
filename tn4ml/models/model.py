@@ -63,7 +63,6 @@ class Model(qtn.TensorNetwork):
         self.gradient_transforms : Sequence = None
         self.opt_state : Any = None
         self.cache : dict = {}
-        self.history : dict = {}
 
     def save(self, model_name: str, dir_name: str = '~', tn: bool = False):
         """ Saves :class:`tn4ml.models.Model` to pickle file.
@@ -473,15 +472,17 @@ class Model(qtn.TensorNetwork):
         if inputs is not None:
             n_batches = (len(inputs)//self.batch_size)
 
-        self.history['loss'] = []
-        self.history['epoch_time'] = []
-        self.history['unfinished'] = False
-        if val_inputs is not None:
-            if val_batch_size is None:
-                raise ValueError("Validation batch size must be provided!")
-            self.history['val_loss'] = []
-            if display_val_acc:
-                self.history['val_acc'] = []
+        if not hasattr(self, 'history'):
+            self.history = dict()
+            self.history['loss'] = []
+            self.history['epoch_time'] = []
+            self.history['unfinished'] = False
+            if val_inputs is not None:
+                if val_batch_size is None:
+                    raise ValueError("Validation batch size must be provided!")
+                self.history['val_loss'] = []
+                if display_val_acc:
+                    self.history['val_acc'] = []
         
         self.sitetags = None # for sweeping strategy
         
@@ -583,7 +584,7 @@ class Model(qtn.TensorNetwork):
         with tqdm(total = epochs, desc = "epoch") as outerbar:
             for epoch in range(epochs):
                 time_epoch = time()
-
+                
                 if self.train_type == 2:
                     params = self.arrays
                     _, self.opt_state, loss_epoch = self.step(params, self.opt_state, None, grad_clip_threshold=gradient_clip_threshold)
@@ -895,11 +896,11 @@ def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:in
     tuple
         Batch of input and target data (if target data is provided)
     """
-    x_chunks = funcy.chunks(batch_size, jax.numpy.asarray(x, dtype=dtype))
+    x_chunks = funcy.chunks(batch_size, x)
     x_chunks = _check_chunks(list(x_chunks), batch_size)
 
     if y is not None:
-        y_chunks = funcy.chunks(batch_size, jax.numpy.asarray(y)) # dont change dtype
+        y_chunks = funcy.chunks(batch_size, y) # dont change dtype
         y_chunks = _check_chunks(list(y_chunks), batch_size)
 
         for x_chunk, y_chunk in zip(x_chunks, y_chunks):
