@@ -362,7 +362,7 @@ def rand_unitary(dtype: Any = jnp.float_) -> Initializer:
                 tensor = unitary_matrix(key, (size, size), dtype)
                 tensor = tensor[:size_1, :size_2]
                 units.append(tensor)
-            tensor = jnp.stack(units, axis=2)
+            tensor = jnp.stack(units, axis=-1)
         elif len(shape) == 4:
             units = []
             for _ in range(shape[-2]):
