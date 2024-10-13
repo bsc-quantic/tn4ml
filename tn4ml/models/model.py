@@ -154,7 +154,7 @@ class Model(qtn.TensorNetwork):
 
         if len(np.squeeze(sample)) < self.L:
             raise ValueError(f"Input data must have at least {self.L} elements!")
-        
+
         tn_sample = embed(sample, embedding)
 
         if callable(getattr(self, "apply", None)):
@@ -164,13 +164,12 @@ class Model(qtn.TensorNetwork):
 
             if not return_tn:
                 output = output^all
+
         if return_tn:
             return output
         else:
             #assert type(output) == qtn.Tensor, "Output must be a single tensor!"
-            output = output^all
-            #return output.data
-            return output
+            return output.H&output^all
     
     def accuracy(self, data: jnp.ndarray, y_true: jnp.array, embedding: Embedding = trigonometric(), batch_size: int=64) -> Number:
         """ Calculates accuracy for supervised learning.
@@ -896,11 +895,11 @@ def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:in
     tuple
         Batch of input and target data (if target data is provided)
     """
-    x_chunks = funcy.chunks(batch_size, x)
+    x_chunks = funcy.chunks(batch_size, jax.numpy.asarray(x, dtype=dtype))
     x_chunks = _check_chunks(list(x_chunks), batch_size)
 
     if y is not None:
-        y_chunks = funcy.chunks(batch_size, y) # dont change dtype
+        y_chunks = funcy.chunks(batch_size, jax.numpy.asarray(y)) # dont change dtype
         y_chunks = _check_chunks(list(y_chunks), batch_size)
 
         for x_chunk, y_chunk in zip(x_chunks, y_chunks):
