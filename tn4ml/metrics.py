@@ -16,7 +16,7 @@ from .models.smpo import SpacedMatrixProductOperator
 from .models.mps import MatrixProductState
 from .models.mpo import MatrixProductOperator
 
-def neg_log_likelihood(model: qtn.MatrixProductState, data: qtn.MatrixProductState) -> Number:
+def NegLogLikelihood(model: qtn.MatrixProductState, data: qtn.MatrixProductState) -> Number:
     """Negative Log-Likelihood loss.
 
     Parameters
@@ -51,7 +51,7 @@ def neg_log_likelihood(model: qtn.MatrixProductState, data: qtn.MatrixProductSta
 
     return - jax.lax.log(jax.lax.pow(output, 2))
 
-def transformed_squared_norm(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState) -> Number:
+def TransformedSquaredNorm(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState) -> Number:
     """Squared norm of transformed input data.
 
     Parameters
@@ -77,10 +77,10 @@ def transformed_squared_norm(model: SpacedMatrixProductOperator, data: qtn.Matri
 
     return jax.lax.pow(mps.H & mps ^ all, 2)
 
-def no_reg(x):
+def NoReg(x):
     return 0
 
-def reg_log_norm(model) -> Number:
+def LogFrobNorm(model) -> Number:
     """Regularization cost - log(Frobenius-norm of `model`)
 
     Parameters
@@ -104,8 +104,8 @@ def reg_log_norm(model) -> Number:
         norm = model.norm()
     return jax.lax.log(norm)
 
-def reg_log_norm_pow(model) -> Number:
-    """Regularization cost - log(Frobenius-norm of `model`)
+def LogPowFrobNorm(model) -> Number:
+    """Regularization cost - log(squared(Frobenius-norm of `model`))
 
     Parameters
     ----------
@@ -128,7 +128,7 @@ def reg_log_norm_pow(model) -> Number:
         norm = model.norm()
     return jax.lax.log(jax.lax.pow(norm, 2))
 
-def reg_log_norm_relu(model) -> Number:
+def LogReLUFrobNorm(model) -> Number:
     """Regularization cost using ReLU of the log of the Frobenius-norm of `model`.
 
     Parameters
@@ -154,7 +154,7 @@ def reg_log_norm_relu(model) -> Number:
 
     return jax.lax.max(0.0, jax.lax.log(norm))
 
-def reg_norm_quad(model) -> Number:
+def QuadFrobNorm(model) -> Number:
     """Regularization cost using the quadratic formula centered in 1 of the Frobenius-norm of `model`.
 
     Parameters
@@ -180,7 +180,7 @@ def reg_norm_quad(model) -> Number:
 
     return jax.lax.pow(jax.lax.log(norm) - 1.0, 2)
 
-def error_logquad(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState) -> Number:
+def LogQuadNorm(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState) -> Number:
     """Example of error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
 
     Parameters
@@ -193,9 +193,9 @@ def error_logquad(model: SpacedMatrixProductOperator, data: qtn.MatrixProductSta
     -------
     float
     """
-    return jax.lax.pow((jax.lax.log(transformed_squared_norm(model, data)) - 1.0), 2)
+    return jax.lax.pow((jax.lax.log(TransformedSquaredNorm(model, data)) - 1.0), 2)
 
-def error_quad(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState) -> Number:
+def QuadNorm(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState) -> Number:
     """Example of error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
 
     Parameters
@@ -208,9 +208,9 @@ def error_quad(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState)
     -------
     float
     """
-    return jax.lax.pow((transformed_squared_norm(model, data) - 1.0), 2)
+    return jax.lax.pow((TransformedSquaredNorm(model, data) - 1.0), 2)
 
-def semi_supervised_loss(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, y_true: Number, **kwargs) -> Number:
+def SemiSupervisedLoss(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, y_true: Number, **kwargs) -> Number:
     """Loss function for semi-supervised learning.
 
     Parameters
@@ -225,11 +225,11 @@ def semi_supervised_loss(model: SpacedMatrixProductOperator, data: qtn.MatrixPro
     -------
     float
     """
-    norm = error_logquad(model, data) + 0.3*reg_log_norm_relu(model)
+    norm = LogQuadNorm(model, data) + 0.3*LogReLUFrobNorm(model)
     loss_value = jax.lax.pow(y_true*(1/norm) + (1-y_true)*norm, 2)
     return loss_value[0]
 
-def semi_supervised_NLL(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, y_true: Optional[jnp.array] = None, **kwargs) -> Number:
+def SemiSupervisedNLL(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, y_true: Optional[jnp.array] = None, **kwargs) -> Number:
     """Loss function for semi-supervised learning.
 
     Parameters
@@ -252,10 +252,10 @@ def semi_supervised_NLL(model: SpacedMatrixProductOperator, data: qtn.MatrixProd
     output = output.data.reshape((2,))
     class_error = optax.softmax_cross_entropy_with_integer_labels(output, jnp.squeeze(y_true))
 
-    loss_value = class_error + output*(1/(norm)) + (1-output)*(norm) + 0.3*reg_log_norm_relu(model)
+    loss_value = class_error + output*(1/(norm)) + (1-output)*(norm) + 0.3*LogReLUFrobNorm(model)
     return loss_value
 
-def softmax(z, position) -> Number:
+def Softmax(z, position) -> Number:
     """ Softmax function.
 
     Parameters
@@ -270,7 +270,7 @@ def softmax(z, position) -> Number:
     """
     return jnp.exp(z[position]) / jnp.sum(jnp.exp(z))
 
-def cross_entropy_softmax(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, targets: jnp.array) -> Number:
+def CrossEntropySoftmax(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, targets: jnp.array) -> Number:
     """Cross-entropy loss function for supervised learning.
     
     Parameters
@@ -310,7 +310,7 @@ def cross_entropy_softmax(model: SpacedMatrixProductOperator, data: qtn.MatrixPr
 
     return - jnp.log(softmax(output, jnp.argmax(targets)))
 
-def MSE(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, targets: jnp.array) -> Number:
+def MeanSquaredError(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, targets: jnp.array) -> Number:
     """Mean Squared Error loss function for supervised learning.
     
     Parameters
@@ -365,7 +365,7 @@ def MSE(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState, target
 
     return jnp.mean(jnp.square(output - targets))
 
-def loss_wrapper_optax(optax_loss = None) -> Callable:
+def OptaxWrapper(optax_loss = None) -> Callable:
     """Wrapper around optax loss functions for supervised learning. Make sure you got all inputs to loss function correct.
     Refer to documentation for each loss to https://optax.readthedocs.io/en/latest/api/losses.html .
     Make sure SMPO has only one output with dimension = number of classes.
@@ -449,7 +449,7 @@ def loss_wrapper_optax(optax_loss = None) -> Callable:
             return optax_loss(y_pred, **kwargs)
     return loss_optax
 
-def combined_loss(model: Model, data: np.ndarray = None, error: Callable = error_logquad, reg: Callable = no_reg, embedding: Optional[Embedding] = None) -> Number:
+def CombinedLoss(model: Model, data: np.ndarray = None, error: Callable = LogQuadNorm, reg: Callable = NoReg, embedding: Optional[Embedding] = None) -> Number:
     """Example of Loss function with calculation of error on input data and regularization.
 
     Parameters
