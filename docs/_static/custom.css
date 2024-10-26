@@ -9,3 +9,11 @@ img.logo {
         content: url("_static/logo_dark.png");
     }
 }
+
+a.source-link {
+    font-size: 0; /* Hide the [source] text */
+}
+a.source-link:after {
+    content: "github"; /* Your desired label */
+    font-size: 1rem;
+}

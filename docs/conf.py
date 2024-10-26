@@ -16,17 +16,21 @@ import tn4ml  # Replace with your package name
 def linkcode_resolve(domain, info):
     if domain != 'py' or not info['module']:
         return None
-    filename = info['module'].replace('.', '/')
-    module = __import__(info['module'], fromlist=[''])
-    obj = getattr(module, info['fullname'].split('.')[0], None)
-    if obj is None:
-        return None
+
+    # Get the module path and construct the file path
+    module_path = info['module'].replace('.', '/')
     try:
+        module = __import__(info['module'], fromlist=[''])
+        obj = module
+        for part in info['fullname'].split('.'):
+            obj = getattr(obj, part)
         filepath = inspect.getsourcefile(obj)
         if filepath:
+            # Convert the local file path to a relative path within the package
+            relative_path = os.path.relpath(filepath, start=os.path.dirname(os.path.abspath(module_path)))
             lineno = inspect.getsourcelines(obj)[1]
-            # Format the URL to match your GitHub repository structure
-            return f"https://github.com/bsc-quantic/tn4ml/blob/master/{filename}.py#L{lineno}"
+            # Format the GitHub URL for nested files
+            return f"https://github.com/bsc-quantic/tn4ml/blob/master/{relative_path}#L{lineno}"
     except Exception:
         pass
     return None

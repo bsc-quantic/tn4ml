@@ -391,30 +391,27 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         return tn
 
     def apply(self, other, normalize_on_contract=False, compress=False, **compress_opts):
-        """Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator.apply` for :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
+        """
+        Version of :func:`quimb.tensor.tensor_1d.MatrixProductOperator.apply` for :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
         Act with this SMPO on another SMPO or MPS, such that the resulting
         object has the same tensor network structure/indices as `other`.
         For an MPS:
 
-                   |  S  |  S  |  S  |  S  |  S  |
-            self:  A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A  where S = spacing
-                   | | | | | | | | | | | | | | | |
-            other: x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x
-                            $\downarrow$
-                   |  S  |  S  |  S  |  S  |  S  |   <- other.site_ind_id
-            out:   y=y=y=y=y=y=y=y=y=y=y=y=y=y=y=y
+            .. image:: ../_static/smpo_mps.png
+                    :width: 500px
+                    :height: 250px
+                    :scale: 80 %
+                    :alt: Contraction of SMPO with MPS
+                    :align: center
         
         For an SMPO:
         
-                   | | | | | | | | | | | | | | | | <- self.upper_ind_id
-            self:  A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A
-                   |  S  |  S  |  S  |  S  |  S  | <- lower_ind_id
-            other: B-B-B-B-B-B-B-B-B-B-B-B-B-B-B-B
-                   | | | | | | | | | | | | | | | | <- other.upper_ind_id
-                            $\downarrow$
-                   | | | | | | | | | | | | | | | | | |   <- other.upper_ind_id
-            out:   C=C=C=C=C=C=C=C=C=C=C=C=C=C=C=C=C=C
-                   | | | | | | | | | | | | | | | | | |   <- other.lower_ind_id
+            .. image:: ../_static/smpo_smpo.png
+                    :width: 500px
+                    :height: 250px
+                    :scale: 80 %
+                    :alt: Contraction of SMPO with SMPO
+                    :align: center
 
         The resulting TN will have the same structure/indices as `other`, but probably with larger bonds (depending on compression).
 
