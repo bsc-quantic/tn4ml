@@ -10,7 +10,26 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+import inspect
+import tn4ml  # Replace with your package name
 
+def linkcode_resolve(domain, info):
+    if domain != 'py' or not info['module']:
+        return None
+    filename = info['module'].replace('.', '/')
+    module = __import__(info['module'], fromlist=[''])
+    obj = getattr(module, info['fullname'].split('.')[0], None)
+    if obj is None:
+        return None
+    try:
+        filepath = inspect.getsourcefile(obj)
+        if filepath:
+            lineno = inspect.getsourcelines(obj)[1]
+            # Format the URL to match your GitHub repository structure
+            return f"https://github.com/bsc-quantic/tn4ml/blob/master/{filename}.py#L{lineno}"
+    except Exception:
+        pass
+    return None
 
 # Define the canonical URL if you are using a custom domain on Read the Docs
 html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
@@ -42,6 +61,8 @@ extensions = [
     "sphinx.ext.mathjax",
     "nbsphinx",
     "sphinx_copybutton",
+    'sphinx.ext.viewcode',
+    'sphinx.ext.linkcode'  # For custom links to source code
     # "sphinx_gallery.gen_gallery",
 ]
 

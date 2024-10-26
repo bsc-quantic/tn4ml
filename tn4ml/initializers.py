@@ -280,7 +280,7 @@ def unitary_matrix(key: Any,
                    shape: core.Shape,
                    dtype: Any = jnp.float_) -> jnp.ndarray:
     """
-    - from @joserapa98/tensorkrowch
+    - from @joserapa98/tensorkrowch -
     Generates random unitary matrix from the Haar measure of size n x n.
     
     Unitary matrix is created as described in this `paper
