@@ -10,7 +10,34 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+import inspect
+import tn4ml  # Replace with your package name
 
+def linkcode_resolve(domain, info):
+    if domain != 'py' or not info['module']:
+        return None
+
+    try:
+        # Ensure the filename reflects the path after `tn4ml`
+        module_path = info['module'].split('tn4ml.', 1)[-1]  # Keep everything after 'tn4ml.'
+        filename = module_path.replace('.', '/')
+        
+        # Import the module and get the target object
+        module = __import__(info['module'], fromlist=[''])
+        obj = module
+        for part in info['fullname'].split('.'):
+            obj = getattr(obj, part)
+        
+        # Retrieve the line number for the specific function or class
+        lineno = inspect.getsourcelines(obj)[1]
+
+        if filename == "models":
+            filename = f"models/model"
+        
+        # Format the GitHub URL
+        return f"https://github.com/bsc-quantic/tn4ml/blob/master/tn4ml/{filename}.py#L{lineno}"
+    except Exception:
+        return None
 
 # Define the canonical URL if you are using a custom domain on Read the Docs
 html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
@@ -30,7 +57,7 @@ if os.environ.get("READTHEDOCS", "") == "True":
 project = 'tn4ml'
 copyright = '2024, Barcelona Supercomputing Center - Centro Nacional de Supercomputación'
 author = 'Ema Puljak, Sergio Sánchez Ramírez, Sergi Masor Llima, Jofre Vallès-Muns'
-release = '1.0'
+release = '1.0.2'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -42,6 +69,8 @@ extensions = [
     "sphinx.ext.mathjax",
     "nbsphinx",
     "sphinx_copybutton",
+    'sphinx.ext.viewcode',
+    'sphinx.ext.linkcode'  # For custom links to source code
     # "sphinx_gallery.gen_gallery",
 ]
 
@@ -89,6 +118,7 @@ html_theme = 'sphinx_book_theme'
 html_title = 'tn4ml'
 html_logo = "_static/logo.png"
 html_static_path = ['_static']
+html_css_files = ['custom.css']
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/', None),

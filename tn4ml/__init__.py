@@ -20,18 +20,22 @@ from .embeddings import (
 )
 
 from .metrics import (
-    neg_log_likelihood,
-    transformed_squared_norm,
-    no_reg,
-    reg_log_norm,
-    reg_log_norm_relu,
-    reg_norm_quad,
-    error_logquad,
-    error_quad,
-    softmax,
-    MSE,
-    loss_wrapper_optax,
-    combined_loss
+    NegLogLikelihood,
+    MeanSquaredError,
+    TransformedSquaredNorm,
+    NoReg,
+    LogFrobNorm,
+    LogPowFrobNorm,
+    LogReLUFrobNorm,
+    QuadFrobNorm,
+    LogQuadNorm,
+    QuadNorm,
+    SemiSupervisedLoss,
+    SemiSupervisedNLL,
+    Softmax,
+    CrossEntropySoftmax,
+    OptaxWrapper,
+    CombinedLoss
 )
 
 from .strategy import (

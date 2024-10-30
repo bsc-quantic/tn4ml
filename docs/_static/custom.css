@@ -9,3 +9,21 @@ img.logo {
         content: url("_static/logo_dark.png");
     }
 }
+
+/* Target internal source link only in main content */
+.sig-object a.reference.internal .pre {
+    font-size: 0;
+}
+.sig-object a.reference.internal .pre:after {
+    content: "[source]";
+    font-size: 1rem;
+}
+
+/* Target external GitHub link only in main content */
+.sig-object a.reference.external .pre {
+    font-size: 0;
+}
+.sig-object a.reference.external .pre:after {
+    content: "[github]";
+    font-size: 1rem;
+}
