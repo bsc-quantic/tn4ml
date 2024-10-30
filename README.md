@@ -12,7 +12,7 @@ It supports different **embedding** functions, **initialization** techniques, an
 First create a virtualenv using `pyenv` or `conda`. Then install the package and its dependencies.
 <br>
 
-**With** `pip`:
+**With** `pip` (tag 1.0.2):
 ```bash
 pip install tn4ml
 ```
