@@ -163,13 +163,13 @@ class Model(qtn.TensorNetwork):
             output = self & tn_sample
 
             if not return_tn:
-                output = output^all
+                output = output.contract(all, optimize='auto-hq')
 
         if return_tn:
             return output
         else:
             #assert type(output) == qtn.Tensor, "Output must be a single tensor!"
-            return output.H&output^all
+            return output.H&output.contract(all, optimize='auto-hq')
     
     def accuracy(self, data: jnp.ndarray, y_true: jnp.array, embedding: Embedding = trigonometric(), batch_size: int=64) -> Number:
         """ Calculates accuracy for supervised learning.
