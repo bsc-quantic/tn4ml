@@ -164,7 +164,6 @@ class Model(qtn.TensorNetwork):
 
             if not return_tn:
                 output = output^all
-                output = output.squeeze()
                 return output.data
 
         if return_tn:
