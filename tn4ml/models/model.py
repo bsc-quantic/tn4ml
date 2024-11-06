@@ -12,6 +12,7 @@ import optax
 import jax
 from flax.training.early_stopping import EarlyStopping
 import flax.linen as nn
+import jax_dataloader as jdl
 
 from ..embeddings import *
 from ..strategy import *
@@ -165,11 +166,13 @@ class Model(qtn.TensorNetwork):
         if return_tn:
             return output
         else:
-            output = output.contract(all, optimize='auto-hq')
-            output = output.squeeze()
-            return output.data
+            output = output^all
+            
+            if type(output) == qtn.Tensor:
+                return output.data
+            return output
     
-    def accuracy(self, data: jnp.ndarray, y_true: jnp.array, embedding: Embedding = trigonometric(), batch_size: int=64) -> Number:
+    def accuracy(self, data: Union[jnp.ndarray, jdl.DataLoader], y_true: jnp.array = None, embedding: Embedding = trigonometric(), batch_size: int=64) -> Number:
         """ Calculates accuracy for supervised learning.
         
         Parameters
@@ -190,9 +193,23 @@ class Model(qtn.TensorNetwork):
         float
         """
 
+        if y_true is None:
+                raise ValueError("For unsupervised learning you must provide target data!")
+        
+        if not isinstance(data, jdl.DataLoader):
+            
+            data = jdl.ArrayDataset(data, y_true)
+            dataloader = jdl.DataLoader(
+                data, # Data to load
+                backend='jax', # Use 'jax' backend for loading data
+                batch_size=batch_size, # Batch size 
+                shuffle=False, # Shuffle the dataloader every iteration or not
+                drop_last=False, # Drop the last batch or not
+            )
+
         correct_predictions = 0
         num_samples = 0
-        for batch_data in _batch_iterator(data, y_true, batch_size=batch_size):
+        for batch_data in dataloader:
             x, y = batch_data
             x = jnp.array(x, dtype=jnp.float64)
             y = jnp.array(y, dtype=jnp.float64)
@@ -355,11 +372,11 @@ class Model(qtn.TensorNetwork):
             """
 
             if data is not None:
-                if len(data) == 2:
+                if type(data) == tuple and len(data) == 2:
                     data, targets = data
                     data, targets = jnp.array(data), jnp.array(targets)
                 else:
-                    data = jnp.array(data)
+                    data = jnp.array(data[0])
                     targets = None
 
                 loss, grads = value_and_grad(params, data, targets)
@@ -453,7 +470,7 @@ class Model(qtn.TensorNetwork):
         history: dict
             Records training loss and metric values.
         """
-        
+
         if cache and not self.strategy == 'global':
             raise ValueError("Caching is only supported for global gradient descent strategy!")
 
@@ -463,6 +480,25 @@ class Model(qtn.TensorNetwork):
         if targets is not None:
             if targets.ndim == 1:
                 targets = np.expand_dims(targets, axis=-1)
+        
+        if val_targets is not None:
+            if val_targets.ndim == 1:
+                val_targets = np.expand_dims(val_targets, axis=-1)
+
+        if inputs is not None and not isinstance(inputs, jdl.DataLoader):
+            if targets is not None:
+                array = jdl.ArrayDataset(inputs, targets)
+            else:
+                array = jdl.ArrayDataset(inputs)
+
+            jdl.manual_seed(1234) # Set the global seed to 1234 for reproducibility
+            dataloader = jdl.DataLoader(
+                array, # Data to load
+                backend='jax', # Use 'jax' backend for loading data
+                batch_size=batch_size, # Batch size 
+                shuffle=True, # Shuffle the dataloader every iteration or not
+                drop_last=False, # Drop the last batch or not
+            )
 
         self.batch_size = batch_size
 
@@ -489,15 +525,15 @@ class Model(qtn.TensorNetwork):
 
             """
             tn = self.copy()
+
             if self.sitetags is not None:
                 tn.select_tensors(self.sitetags)[0].modify(data=params[0])
             else:
                 for tensor, array in zip(tn.tensors, params):
                     tensor.modify(data=array)
-
+            
             if tn_target is None:
                 tn_i = embed(data, embedding)
-
                 if self.train_type == 0:
                     return self.loss(tn, tn_i)
                 else:
@@ -590,8 +626,8 @@ class Model(qtn.TensorNetwork):
                     self.history['epoch_time'].append(time() - time_epoch)
                 else:
                     loss_batch = 0
-                    for batch_data in _batch_iterator(inputs, targets, self.batch_size, dtype=dtype):
-                        
+                    for batch_data in dataloader:
+
                         if isinstance(self.strategy, Sweeps):
                             loss_curr = 0
                             for s, sites in enumerate(self.strategy.iterate_sites(self)):
@@ -638,12 +674,11 @@ class Model(qtn.TensorNetwork):
                     
                     # evaluate validation loss
                     if val_inputs is not None:
-                        assert val_batch_size is not None, "Validation batch size must be provided!"
 
-                        loss_val_epoch = self.evaluate(val_inputs, val_targets, embedding=embedding, evaluate_type=self.train_type, dtype=dtype)
+                        loss_val_epoch = self.evaluate(inputs=val_inputs, targets=val_targets, batch_size=val_batch_size, embedding=embedding, evaluate_type=self.train_type, dtype=dtype, loss_function=self.loss)
                         self.history['val_loss'].append(loss_val_epoch)
                         if display_val_acc:
-                            accuracy_val_epoch = self.accuracy(val_inputs, val_targets, embedding=embedding, batch_size=val_batch_size)
+                            accuracy_val_epoch = self.accuracy(val_inputs, val_targets, batch_size=val_batch_size, embedding=embedding)
                             self.history['val_acc'].append(accuracy_val_epoch)
 
                         # early stopping
@@ -668,6 +703,7 @@ class Model(qtn.TensorNetwork):
 
         return self.history
 
+    # fix
     def evaluate(self, 
                  inputs: Collection = None,
                  targets: Optional[Collection] = None,
@@ -709,10 +745,6 @@ class Model(qtn.TensorNetwork):
         if evaluate_type not in [0, 1, 2]:
             raise ValueError("Specify type of evaluation: 0 = 'unsupervised' or 1 ='supervised' or 2 = 'with target TN'!")
 
-        if targets is not None:
-            if targets.ndim == 1:
-                targets = np.expand_dims(targets, axis=-1)
-        
         if hasattr(self, 'batch_size'):
             if len(self.cache.keys()) == 0:
                 if len(inputs) < self.batch_size:
@@ -723,16 +755,28 @@ class Model(qtn.TensorNetwork):
         if not hasattr(self, 'batch_size') and len(self.cache.keys()) == 0:
             self.batch_size = batch_size
         
-        if not hasattr(self, 'loss') or self.loss is None:
-            if loss_function is not None:
-                self.loss = loss_function
+        if inputs is not None:            
+            if targets is not None:
+                val_array = jdl.ArrayDataset(inputs, targets)
             else:
-                raise ValueError("Loss function not provided!")
+                val_array = jdl.ArrayDataset(inputs)
+            
+            jdl.manual_seed(1234)
+            dataloader = jdl.DataLoader(
+                val_array,
+                backend='jax',
+                batch_size=batch_size,
+                shuffle=False,
+                drop_last=True,
+            )
         
-        if loss_function is not None:
-            self.loss = loss_function
+        # if not hasattr(self, 'loss') or self.loss is None:
+        #     if loss_function is not None:
+        #         self.loss = loss_function
+        #     else:
+        #         raise ValueError("Loss function not provided!")
         
-        loss_value = 0
+
         if return_list:
             loss = []
 
@@ -742,31 +786,34 @@ class Model(qtn.TensorNetwork):
             train_type: 0 for unsupervised, 1 for supervised, 2 for training with target TN
             """
             tn = self.copy()
+
             if hasattr(self, 'sitetags') and self.sitetags is not None:
                 tn.select_tensors(self.sitetags)[0].modify(data=params[0])
             else:
                 for tensor, array in zip(tn.tensors, params):
                     tensor.modify(data=array)
+            
             if tn_target is None:
-                assert data is not None, "Input data must be provided!"
 
                 tn_i = embed(data, embedding)
 
                 if evaluate_type == 0:
-                    return self.loss(tn, tn_i)
+                    return loss_function(tn, tn_i)
                 else:
-                    return self.loss(tn, tn_i, targets)
+                    return loss_function(tn, tn_i, targets)
             else:
                 assert evaluate_type == 2, "Train type must be 2 for this type of loss function!"
-                return self.loss(tn, tn_target)
+                return loss_function(tn, tn_target)
         
         if inputs is not None:
-            for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype):
-                if len(batch_data) == 2:
+            loss_value = 0
+            #for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype):
+            for batch_data in dataloader:
+                if type(batch_data) == tuple and len(batch_data) == 2:
                     x, y = batch_data
                     x, y = jnp.array(x), jnp.array(y)
                 else:
-                    x = jnp.array(batch_data)
+                    x = jnp.array(batch_data[0])
                     y = None
 
                 if isinstance(self.strategy, Sweeps):
@@ -797,6 +844,7 @@ class Model(qtn.TensorNetwork):
                 else:
                     params = self.arrays
                     if len(self.cache.keys()) == 0 or (len(self.cache.keys()) > 0 and batch_size != self.batch_size):
+
                         if loss_function is not None or not hasattr(self, 'loss_func'):
                             if evaluate_type == 0:
                                 # unsupervised
@@ -806,18 +854,20 @@ class Model(qtn.TensorNetwork):
                                 self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L))
                             else:
                                 raise ValueError("Specify type of evaluation: 0 = 'unsupervised' or 1 ='supervised'! If type is 2 then you cannot have input data!")
+                        
                         loss_curr = self.loss_func(x, y, *params)
                     else:
                         loss_curr = self.cache["loss_compiled"](x, y, *params)
                 
                 loss_value += np.mean(loss_curr)
+
                 if return_list:
                     loss.extend(loss_curr)
 
             if return_list:
-                return np.asarray(loss)
+                return np.array(loss)
             
-            loss_value = loss_value / (len(inputs)//self.batch_size)
+            loss_value = loss_value / (len(dataloader)//self.batch_size)
         else:
             assert evaluate_type == 2, "If inputs are not provided, evaluation type must be 2!"
             assert tn_target is not None, "If inputs are not provided, target tensor network must be provided!"
