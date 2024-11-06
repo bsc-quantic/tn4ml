@@ -49,5 +49,8 @@ from .util import (
     gramschmidt_col,
     return_digits,
     zigzag_order,
-    integer_to_one_hot
+    integer_to_one_hot,
+    pad_image_alternately,
+    divide_into_patches,
+    from_dense_to_mps
 )
