@@ -41,11 +41,11 @@ def NegLogLikelihood(model: qtn.MatrixProductState, data: qtn.MatrixProductState
         for index in inds_contract:
             output.contract_ind(index)
 
-        output = output.contract(all, optimize='auto-hq')
+        output = output^all
 
     elif len(model.tensors) == len(data.tensors):
         # assuming that model and data has same names for physical indices
-        output = (model.H & data).contract(all, optimize='auto-hq')
+        output = (model.H & data)^all
     else:
         raise ValueError('Number of tensors for input data MPS needs to be higher or equal number of tensors in model.')
 
@@ -75,7 +75,7 @@ def TransformedSquaredNorm(model: SpacedMatrixProductOperator, data: qtn.MatrixP
     else:
         mps = model.apply(data)
 
-    return jax.lax.pow((mps.H & mps).contract(all, optimize='auto-hq'), 2)
+    return jax.lax.pow((mps.H & mps)^all, 2)
 
 def NoReg(x):
     return 0
@@ -248,7 +248,7 @@ def SemiSupervisedNLL(model: SpacedMatrixProductOperator, data: qtn.MatrixProduc
     norm = jnp.array(mps.arrays).sum()
     norm = jax.lax.pow(((jax.lax.log(norm) - 1.0)), 2)
     
-    output = (model.H & data).contract(all, optimize='auto-hq')
+    output = (model.H & data)^all
     output = output.data.reshape((2,))
     class_error = optax.softmax_cross_entropy_with_integer_labels(output, jnp.squeeze(y_true))
 
@@ -296,12 +296,12 @@ def CrossEntropySoftmax(model: SpacedMatrixProductOperator, data: qtn.MatrixProd
         for index in inds_contract:
             output.contract_ind(index)
 
-        output = output.contract(all, optimize='auto-hq')
+        output = output^all
     elif len(model.tensors) == len(data.tensors):
         if hasattr(model, 'apply'):
-            output = model.apply(data).contract(all, optimize='auto-hq')
+            output = model.apply(data)^all
         else:
-            output = (model.H & data).contract(all, optimize='auto-hq')
+            output = (model.H & data)^all
     else:
         raise ValueError('Number of tensors for input data MPS needs to be higher or equal number of tensors in model.')
 
@@ -335,10 +335,10 @@ def MeanSquaredError(model: SpacedMatrixProductOperator, data: qtn.MatrixProduct
         for index in inds_contract:
             output.contract_ind(index)
 
-        output = output.contract(all, optimize='auto-hq')
+        output = output^all
     elif len(model.tensors) == len(data.tensors):
         if hasattr(model, 'apply'):
-            output = model.apply(data).contract(all, optimize='auto-hq')
+            output = model.apply(data)^all
         else:
             output = model | data
             for ind in data.outer_inds():
@@ -417,7 +417,7 @@ def OptaxWrapper(optax_loss = None) -> Callable:
                 for index in inds_contract:
                     output.contract_ind(index)
 
-                output = output.contract(all, optimize='auto-hq')
+                output = output^all
                 output = output.data.reshape((len(y_true), ))
                 
                 y_pred = jnp.log(output)
@@ -425,7 +425,7 @@ def OptaxWrapper(optax_loss = None) -> Callable:
                 output = model.apply(data)
                 
                 if len(output.tensors) > 1:
-                    output = output.contract(all, optimize='auto-hq')
+                    output = output^all
                     y_pred = output.data
                 else:
                     y_pred = jnp.expand_dims(jnp.squeeze(output.tensors[0].data), axis=0)
@@ -434,16 +434,17 @@ def OptaxWrapper(optax_loss = None) -> Callable:
                     y_true = jnp.expand_dims(jnp.squeeze(y_true), axis=0)
 
         elif isinstance(model, MatrixProductState):
-            y_pred = (model & data).contract(all, optimize='auto-hq')
+            y_pred = (model & data)^all
         else:
-            y_pred = (model & data).contract(all, optimize='auto-hq')
+            y_pred = (model & data)^all
             y_pred = jnp.expand_dims(jnp.squeeze(y_pred.data), axis=0)
         
         # normalize
         y_pred = y_pred/jnp.linalg.norm(y_pred)
-        #y_pred = jnp.expand_dims(y_pred, axis=0)
 
         if y_true is not None:
+            if len(y_true.shape) == 1:
+                y_true = jnp.expand_dims(y_true, axis=0)
             return optax_loss(y_pred, y_true, **kwargs)
         else:
             return optax_loss(y_pred, **kwargs)
