@@ -52,8 +52,8 @@ class ComplexEmbedding:
 
     @property
     @abc.abstractmethod
-    def dims(self) -> int:
-        """ Mapping dimensions per feature """
+    def dim(self) -> int:
+        """ Mapping dimension per feature """
         pass
 
     @property
@@ -395,25 +395,26 @@ class trigonometric_chain(ComplexEmbedding):
         Custom parameter = ``dim/2``.
     """
 
-    def __init__(self, k: int = 1, **kwargs):
+    def __init__(self, k: int = 1, n_features = 2, **kwargs):
         assert k >= 1
+        self.n_features = n_features
         self.k = k
         super().__init__(**kwargs)
 
     @property
-    def dims(self) -> int:
+    def dim(self) -> int:
         """ Mapping dimensions per feature """
-        return [self.k * 2] * self.k
+        return self.k * 2
 
     @property
     def input_dims(self) -> jnp.ndarray:
         return jnp.array([1] * self.k)
     
     @property
-    def embeddings(self) -> Collection[Embedding]:
-        return [trigonometric(k=self.k) for _ in range(self.k)]
+    def embedding(self) -> Embedding:
+        return trigonometric(k=self.k)
 
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, features: Collection) -> jnp.ndarray:
         """Embedding function for trigonometric chain.
         
         Parameters
@@ -426,7 +427,7 @@ class trigonometric_chain(ComplexEmbedding):
         jnp.ndarray
             Embedding vector.
         """
-        return jnp.concatenate([f(x) for f in self.embeddings])
+        return self.embedding(jnp.mean(features))
     
 class PatchEmbedding(StateVectorToMPSEmbedding):
     def __init__(self, k = 2, **kwargs):
@@ -641,9 +642,9 @@ def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToM
             arrays[i] = arrays[i].reshape((1, phi.dim))
         mps = qtn.MatrixProductState(arrays, **mps_opts)
     elif issubclass(type(phi), ComplexEmbedding):
-        arrays = [phi.embeddings[i](xi).reshape((1, 1, phi.dims[i])) for i, xi in enumerate(x)]
+        arrays = [phi.embedding(xi).reshape((1, 1, phi.dim)) for i, xi in enumerate(x)]
         for i in [0, -1]:
-            arrays[i] = arrays[i].reshape((1, phi.dims[i]))
+            arrays[i] = arrays[i].reshape((1, phi.dim))
         mps = qtn.MatrixProductState(arrays, **mps_opts)
     else:
         mps = phi(x)
