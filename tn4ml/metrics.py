@@ -64,6 +64,7 @@ def TransformedSquaredNorm(model: SpacedMatrixProductOperator, data: qtn.MatrixP
     -------
     float
     """
+    
     if len(model.tensors) < len(data.tensors):
         inds_contract = []
         for i in range(len(data.tensors)):
@@ -177,7 +178,6 @@ def QuadFrobNorm(model) -> Number:
         norm = tn.contract_cumulative(tn.site_tags)
     else:
         norm = model.norm()
-
     return jax.lax.pow(jax.lax.log(norm) - 1.0, 2)
 
 def LogQuadNorm(model: SpacedMatrixProductOperator, data: qtn.MatrixProductState) -> Number:

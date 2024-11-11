@@ -497,7 +497,7 @@ class Model(qtn.TensorNetwork):
                 backend='jax', # Use 'jax' backend for loading data
                 batch_size=batch_size, # Batch size 
                 shuffle=True, # Shuffle the dataloader every iteration or not
-                drop_last=False, # Drop the last batch or not
+                drop_last=True, # Drop the last batch or not
             )
 
         self.batch_size = batch_size
