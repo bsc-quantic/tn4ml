@@ -140,11 +140,11 @@ def LogReLUFrobNorm(model) -> Number:
     -------
     float
     """
-    assert type(model) in [SpacedMatrixProductOperator,
-                           MatrixProductState,
-                            MatrixProductOperator,
-                             qtn.MatrixProductState,
-                            qtn.MatrixProductOperator]
+    # assert type(model) in [SpacedMatrixProductOperator,
+    #                        MatrixProductState,
+    #                         MatrixProductOperator,
+    #                          qtn.MatrixProductState,
+    #                         qtn.MatrixProductOperator]
     
     if type(model) in [SpacedMatrixProductOperator]:
         tn = model.H.apply(model)
@@ -449,6 +449,14 @@ def OptaxWrapper(optax_loss = None) -> Callable:
         else:
             return optax_loss(y_pred, **kwargs)
     return loss_optax
+
+def CombinedOptaxLoss(model: Model, 
+                      data: qtn.MatrixProductState, 
+                      y_true: Optional[jnp.array] = None, 
+                      error: Callable = LogQuadNorm, 
+                      reg: Callable = NoReg, 
+                      embedding: Optional[Embedding] = None) -> Number:
+    return jnp.mean(error(model, data, y_true) + reg(model))
 
 def CombinedLoss(model: Model, data: np.ndarray = None, error: Callable = LogQuadNorm, reg: Callable = NoReg, embedding: Optional[Embedding] = None) -> Number:
     """Example of Loss function with calculation of error on input data and regularization.
