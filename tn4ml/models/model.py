@@ -471,6 +471,7 @@ class Model(qtn.TensorNetwork):
         history: dict
             Records training loss and metric values.
         """
+        print("Begin training...")
 
         if cache and not self.strategy == 'global':
             raise ValueError("Caching is only supported for global gradient descent strategy!")
@@ -661,7 +662,7 @@ class Model(qtn.TensorNetwork):
                             self.canonize(canonize[1])
 
                     loss_epoch = loss_batch/n_batches
-
+                    print("End epoch")
                     self.history['loss'].append(loss_epoch)
 
                     self.history['epoch_time'].append(time() - time_epoch)

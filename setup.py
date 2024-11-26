@@ -38,7 +38,7 @@ setup(
         "jax",
         "optax",
         "flax",
-        "jax-dataloader,"
+        "jax-dataloader",
         "pandas",
         "nevergrad", 
         "chocolate",
