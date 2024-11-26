@@ -193,13 +193,14 @@ def pad_image_alternately(image: np.ndarray, k: int) -> np.ndarray:
     :class:`numpy.ndarray`
         A padded 2D array of pixel intensities.
     """
+    H, W = image.shape
+    
     # Determine padding required
-    pad_h = (k - image.shape[0] % k) % k
-    pad_w = (k - image.shape[1] % k) % k
+    pad = (k - H % k) % k
     
     # Alternate padding by adding to left or right as necessary
-    top_pad, bottom_pad = (0, pad_h) if pad_h % 2 == 0 else (pad_h, 0)
-    left_pad, right_pad = (0, pad_w) if pad_w % 2 == 0 else (pad_w, 0)
+    top_pad, bottom_pad = (pad//2, pad//2) if pad % 2 == 0 else (pad//2 + 1, pad//2)
+    left_pad, right_pad = (pad//2, pad//2) if pad % 2 == 0 else (pad//2 + 1, pad//2)
     
     # Apply padding in a single operation
     padded_image = jnp.pad(
@@ -226,10 +227,11 @@ def divide_into_patches(image: np.ndarray, k: int) -> np.ndarray:
     -------
     :class:`numpy.ndarray`
         A list of 2D arrays, each of size kxk.
-    """
+    """        
     # Pad the image to ensure it's divisible by k
-    padded_image = pad_image_alternately(image, k)
-    H, W = padded_image.shape
+    padded_image = pad_image_alternately(image, k) if image.shape[0] % k != 0 else image
+
+    H, W = padded_image.shape    
 
     # Reshape and move axes to create kxk patches
     patches = padded_image.reshape(H // k, k, W // k, k).swapaxes(1, 2).reshape(-1, k, k)
