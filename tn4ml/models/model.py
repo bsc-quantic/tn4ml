@@ -210,12 +210,15 @@ class Model(qtn.TensorNetwork):
 
         correct_predictions = 0
         num_samples = 0
+        all_y_pred = [] # List to store all target predictions 
         for batch_data in dataloader:
             x, y = batch_data
             x = jnp.array(x, dtype=jnp.float64)
             y = jnp.array(y, dtype=jnp.float64)
 
             y_pred = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None))(x, embedding, False)))
+            all_y_pred.append(y_pred)
+
             predicted = jnp.argmax(y_pred, axis=-1)
             true = jnp.argmax(y, axis=-1)
 
@@ -223,7 +226,11 @@ class Model(qtn.TensorNetwork):
             num_samples += y_pred.shape[0]
 
         accuracy = correct_predictions / num_samples
-        return accuracy
+
+        # Combine all predictions into a single array
+        all_y_pred = jnp.concatenate(all_y_pred, axis=0)
+        
+        return accuracy, all_y_pred
 
     def update_tensors(self, params):
         """ Updates tensors of the model with new parameters.
