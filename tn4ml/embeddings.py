@@ -17,7 +17,7 @@ class Embedding:
 
     Attributes
     ----------
-        dype: :class:`numpy.dype`
+        dtype: :class:`numpy.dtype`
             Data Type
     """
     def __init__(self, dtype=onp.float32):
@@ -44,7 +44,7 @@ class ComplexEmbedding:
 
     Attributes
     ----------
-        dype: :class:`numpy.dype`
+        dtype: :class:`numpy.dtype`
             Data Type
     """
     def __init__(self, dtype=onp.float32):
@@ -77,7 +77,7 @@ class StateVectorToMPSEmbedding:
     A class to convert a statevector into a Matrix Product State (MPS).
     """
     def __init__(self, dtype=onp.float32, max_bond=None):
-        self.dype = dtype
+        self.dtype = dtype
         self.max_bond = max_bond
 
     @property
@@ -774,10 +774,9 @@ class PatchAmplitudeEmbedding(StateVectorToMPSEmbedding):
             raise ValueError("Only square matrix input is supported.")
         if self.k > H:
             raise ValueError(f"Patch dimension k = {self.k} is too large for {H}x{W} images.")
-        
-        
-        # Add gaussian noise to avoid division by zero when normalizing
-        x = self.add_gaussian_noise(x)
+
+        black_pixel = 1e-6
+        x = jnp.where(x == 0, black_pixel, x)
         patches = u.divide_into_patches(x, self.k)
         mps_patches = []
 
