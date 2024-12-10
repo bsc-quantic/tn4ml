@@ -303,3 +303,6 @@ $RECYCLE.BIN/
 
 # some non-functional notebooks atm
 /docs/source/notebooks/*
+
+# datasets
+/docs/examples/data/*
