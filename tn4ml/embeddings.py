@@ -776,8 +776,6 @@ class PatchAmplitudeEmbedding(StateVectorToMPSEmbedding):
         if self.k > H:
             raise ValueError(f"Patch dimension k = {self.k} is too large for {H}x{W} images.")
 
-        black_pixel = 1e-6
-        x = jnp.where(x == 0, black_pixel, x)
         patches = u.divide_into_patches(x, self.k)
         mps_patches = []
 
