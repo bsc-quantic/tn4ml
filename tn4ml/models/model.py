@@ -171,6 +171,30 @@ class Model(qtn.TensorNetwork):
             if type(output) == qtn.Tensor:
                 return output.data
             return output
+        
+    def forward(self, data: Union[jnp.ndarray, jdl.DataLoader], y_true: jnp.array = None, embedding: Embedding = trigonometric(), batch_size: int=64) -> Collection:
+
+        if not isinstance(data, jdl.DataLoader):
+            if y_true:
+                data = jdl.ArrayDataset(data, y_true)
+            else:
+                data = jdl.ArrayDataset(data)
+            
+            dataloader = jdl.DataLoader(
+                data, # Data to load
+                backend='jax', # Use 'jax' backend for loading data
+                batch_size=batch_size, # Batch size 
+                shuffle=False, # Shuffle the dataloader every iteration or not
+                drop_last=True, # Drop the last batch or not
+            )
+        
+        outputs = []
+        for batch_data in dataloader:
+            x = jnp.array(batch_data[0], jnp.float64)
+            output = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None))(x, embedding, False)))
+            outputs.append(output)
+        
+        return jnp.concatenate(outputs, axis=0)
     
     def accuracy(self, data: Union[jnp.ndarray, jdl.DataLoader], y_true: jnp.array = None, embedding: Embedding = trigonometric(), batch_size: int=64) -> Number:
         """ Calculates accuracy for supervised learning.
@@ -194,7 +218,7 @@ class Model(qtn.TensorNetwork):
         """
 
         if y_true is None:
-                raise ValueError("For unsupervised learning you must provide target data!")
+            raise ValueError("For unsupervised learning you must provide target data!")
         
         if not isinstance(data, jdl.DataLoader):
             
