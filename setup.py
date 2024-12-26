@@ -38,13 +38,13 @@ setup(
         "jax",
         "optax",
         "flax",
-        "jax_dataloader"
         "pandas",
         "nevergrad", 
         "chocolate",
         "baytune",
         "optuna",
         "scikit-optimize",
+        "kahypar"
     ],
     extras_require={
         "docs": [
