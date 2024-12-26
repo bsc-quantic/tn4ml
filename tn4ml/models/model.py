@@ -168,6 +168,35 @@ class Model(qtn.TensorNetwork):
             output = output.contract(all, optimize='auto-hq')
             output = output.squeeze()
             return output.data
+        
+    def forward(self, data: jnp.ndarray, embedding: Embedding = trigonometric(), batch_size: int=64) -> Collection:
+        """ Forward pass of the model.
+
+        Parameters
+        ----------
+        data : :class:`jax.numpy.ndarray`
+            Input data.
+        y_true: :class:`jax.numpy.ndarray`
+            Target class vector.
+        embedding: :class:`tn4ml.embeddings.Embedding`
+            Data embedding function.
+        batch_size: int
+            Batch size for data processing.
+        
+        Returns
+        -------
+        :class:`jax.numpy.ndarray`
+            Output of the model.
+        """
+        
+        outputs = []
+        for batch_data in _batch_iterator(data, batch_size=batch_size):
+            x = jnp.array(batch_data, dtype=jnp.float64)
+            
+            output = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None))(x, embedding, False)))
+            outputs.append(output)
+        
+        return jnp.concatenate(outputs, axis=0)
     
     def accuracy(self, data: jnp.ndarray, y_true: jnp.array, embedding: Embedding = trigonometric(), batch_size: int=64) -> Number:
         """ Calculates accuracy for supervised learning.
