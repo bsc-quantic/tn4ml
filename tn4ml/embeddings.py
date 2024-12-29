@@ -52,7 +52,7 @@ class ComplexEmbedding:
 
     @property
     @abc.abstractmethod
-    def dims(self) -> int:
+    def dims(self) -> Collection[int]:
         """ Mapping dimensions per feature """
         pass
 
@@ -65,7 +65,7 @@ class ComplexEmbedding:
     @property
     @abc.abstractmethod
     def embeddings(self) -> Collection[Embedding]:
-        """ Embeddings for each feature """
+        """ Embedding for each feature """
         pass
 
     @abc.abstractmethod
@@ -387,23 +387,30 @@ class add_ones(Embedding):
         return jnp.array([1.0, x])
     
 class trigonometric_chain(ComplexEmbedding):
-    """ Trigonometric feature map for each feature.
+    """ Trigonometric feature map for each dimension of feature.
+    Sample = [[x11, x12, x13], [x21, x22, x23]] ==> [[cos(x11), sin(x11), cos(x12), sin(x12), cos(x13), sin(x13)], [cos(x21), sin(x21), cos(x22), sin(x22), cos(x23), sin(x23)]]
+        - dims = 6 for each feature.
+        - input_dims = 1 for each feature.
 
     Attributes
     ----------
     k: int
         Custom parameter = ``dim/2``.
+    
+    input_shape: tuple
+        Input shape: number of features and number of dimensions per feature.
     """
 
-    def __init__(self, k: int = 1, **kwargs):
+    def __init__(self, k: int = 1, input_shape: tuple = (2, 2), **kwargs):
         assert k >= 1
         self.k = k
+        self.input_shape = input_shape
         super().__init__(**kwargs)
 
     @property
     def dims(self) -> int:
         """ Mapping dimensions per feature """
-        return [self.k * 2] * self.k
+        return [self.k * 2 * self.input_shape[1]]*self.input_shape[0]
 
     @property
     def input_dims(self) -> jnp.ndarray:
@@ -411,9 +418,9 @@ class trigonometric_chain(ComplexEmbedding):
     
     @property
     def embeddings(self) -> Collection[Embedding]:
-        return [trigonometric(k=self.k) for _ in range(self.k)]
+        return [trigonometric(k=self.k) for _ in range(self.input_shape[1])]
 
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Collection) -> jnp.ndarray:
         """Embedding function for trigonometric chain.
         
         Parameters
@@ -426,7 +433,54 @@ class trigonometric_chain(ComplexEmbedding):
         jnp.ndarray
             Embedding vector.
         """
-        return jnp.concatenate([f(x) for f in self.embeddings])
+        embedded = []
+        for f, xi in zip(self.embeddings, x):
+            embedded.extend(f(xi))
+        return jnp.array(embedded)
+    
+class trigonometric_avg(ComplexEmbedding):
+    """ Trigonometric feature map for mean(features).
+
+    Attributes
+    ----------
+    k: int
+        Custom parameter = ``dim/2``.
+    """
+
+    def __init__(self, k: int = 1, input_shape: tuple = (2, 2), **kwargs):
+        assert k >= 1
+        self.k = k
+        self.input_shape = input_shape
+        super().__init__(**kwargs)
+
+    @property
+    def dims(self) -> int:
+        """ Mapping dimensions per feature """
+        return [self.k * 2]*self.input_shape[0]
+
+    @property
+    def input_dims(self) -> jnp.ndarray:
+        return jnp.array([1] * self.k)
+
+    @property
+    def embeddings(self) -> Embedding:
+        return trigonometric(k=self.k)
+
+    def __call__(self, features: Collection) -> jnp.ndarray:
+        """
+        Embedding function for average of input features.
+
+        Parameters
+        ----------
+        features: Collection
+            Collection of features.
+
+        Returns
+        -------
+        :class:`jax.numpy.ndarray`
+            Embedded vector.
+        """
+        return self.embeddings(jnp.mean(features))
     
 class PatchEmbedding(StateVectorToMPSEmbedding):
     def __init__(self, k = 2, **kwargs):
@@ -631,7 +685,6 @@ def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToM
     mps_opts: optional
         Additional arguments passed to MatrixProductState class.
     """
-
     if not issubclass(type(phi), ComplexEmbedding) and not issubclass(type(phi), Embedding) and not issubclass(type(phi), StateVectorToMPSEmbedding):
         raise TypeError('Invalid embedding type')
     
@@ -640,10 +693,12 @@ def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToM
         for i in [0, -1]:
             arrays[i] = arrays[i].reshape((1, phi.dim))
         mps = qtn.MatrixProductState(arrays, **mps_opts)
-    elif issubclass(type(phi), ComplexEmbedding):
-        arrays = [phi.embeddings[i](xi).reshape((1, 1, phi.dims[i])) for i, xi in enumerate(x)]
+    
+    elif issubclass(type(phi), ComplexEmbedding) and x.ndim == 2:
+        arrays = [phi(xi).reshape((1, 1, phi.dims[i])) for i, xi in enumerate(x)]
         for i in [0, -1]:
             arrays[i] = arrays[i].reshape((1, phi.dims[i]))
+
         mps = qtn.MatrixProductState(arrays, **mps_opts)
     else:
         mps = phi(x)

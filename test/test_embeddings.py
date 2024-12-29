@@ -109,3 +109,12 @@ def test_embed_gauss(x, embedding):
     # zero entry makes problem if x starts with 0
     phi = tn4ml.embeddings.embed(x, phi=embedding)
     assert phi.norm() == pytest.approx(1.0)
+
+@pytest.mark.parametrize("x,embedding", [
+    (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.trigonometric_chain(input_shape=(2,3))),
+    (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.trigonometric_avg(input_shape=(2,3))),
+])
+
+def test_embed_trig_chain_avg(x, embedding):
+    phi = tn4ml.embeddings.embed(x, phi=embedding)
+    assert phi.norm() == pytest.approx(1.0)

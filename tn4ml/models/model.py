@@ -166,11 +166,38 @@ class Model(qtn.TensorNetwork):
         if return_tn:
             return output
         else:
-            output = output^all
+            output = output.contract(all, optimize='auto-hq')
+            output = output.squeeze()
+            return output.data
+        
+    def forward(self, data: jnp.ndarray, embedding: Embedding = trigonometric(), batch_size: int=64) -> Collection:
+        """ Forward pass of the model.
+
+        Parameters
+        ----------
+        data : :class:`jax.numpy.ndarray`
+            Input data.
+        y_true: :class:`jax.numpy.ndarray`
+            Target class vector.
+        embedding: :class:`tn4ml.embeddings.Embedding`
+            Data embedding function.
+        batch_size: int
+            Batch size for data processing.
+        
+        Returns
+        -------
+        :class:`jax.numpy.ndarray`
+            Output of the model.
+        """
+        
+        outputs = []
+        for batch_data in _batch_iterator(data, batch_size=batch_size):
+            x = jnp.array(batch_data, dtype=jnp.float64)
             
-            if type(output) == qtn.Tensor:
-                return output.data
-            return output
+            output = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None))(x, embedding, False)))
+            outputs.append(output)
+        
+        return jnp.concatenate(outputs, axis=0)
     
     def accuracy(self, data: Union[jnp.ndarray, jdl.DataLoader], y_true: jnp.array = None, embedding: Embedding = trigonometric(), batch_size: int=64) -> Number:
         """ Calculates accuracy for supervised learning.
@@ -425,6 +452,7 @@ class Model(qtn.TensorNetwork):
             gradient_clip_threshold: Optional[float] = None,
             cache: Optional[bool] = True,
             val_batch_size: Optional[int] = None,
+            eval_metric: Optional[Callable] = None,
             display_val_acc: Optional[bool] = False,
             dtype: Any = jnp.float_):
         
@@ -481,24 +509,8 @@ class Model(qtn.TensorNetwork):
             if targets.ndim == 1:
                 targets = np.expand_dims(targets, axis=-1)
         
-        if val_targets is not None:
-            if val_targets.ndim == 1:
-                val_targets = np.expand_dims(val_targets, axis=-1)
-
-        if inputs is not None and not isinstance(inputs, jdl.DataLoader):
-            if targets is not None:
-                array = jdl.ArrayDataset(inputs, targets)
-            else:
-                array = jdl.ArrayDataset(inputs)
-
-            jdl.manual_seed(1234) # Set the global seed to 1234 for reproducibility
-            dataloader = jdl.DataLoader(
-                array, # Data to load
-                backend='jax', # Use 'jax' backend for loading data
-                batch_size=batch_size, # Batch size 
-                shuffle=True, # Shuffle the dataloader every iteration or not
-                drop_last=False, # Drop the last batch or not
-            )
+        if val_inputs is not None and eval_metric is None:
+            eval_metric = self.loss
 
         self.batch_size = batch_size
 
@@ -675,7 +687,8 @@ class Model(qtn.TensorNetwork):
                     # evaluate validation loss
                     if val_inputs is not None:
 
-                        loss_val_epoch = self.evaluate(inputs=val_inputs, targets=val_targets, batch_size=val_batch_size, embedding=embedding, evaluate_type=self.train_type, dtype=dtype, loss_function=self.loss)
+                        loss_val_epoch = self.evaluate(val_inputs, val_targets, batch_size=val_batch_size, embedding=embedding, evaluate_type=self.train_type, metric=eval_metric, dtype=dtype)
+                        
                         self.history['val_loss'].append(loss_val_epoch)
                         if display_val_acc:
                             accuracy_val_epoch = self.accuracy(val_inputs, val_targets, batch_size=val_batch_size, embedding=embedding)
@@ -703,7 +716,6 @@ class Model(qtn.TensorNetwork):
 
         return self.history
 
-    # fix
     def evaluate(self, 
                  inputs: Collection = None,
                  targets: Optional[Collection] = None,
@@ -712,7 +724,7 @@ class Model(qtn.TensorNetwork):
                  embedding: Embedding = trigonometric(),
                  evaluate_type: int = 0,
                  return_list: bool = False,
-                 loss_function: Optional[Callable] = None,
+                 metric: Optional[Callable] = None,
                  dtype: Any = jnp.float_):
         
         """ Evaluates the model on the data.
@@ -733,6 +745,8 @@ class Model(qtn.TensorNetwork):
             Type of evaluation: 0 = 'unsupervised' or 1 ='unsupervised'.
         return_list : bool
             If True, returns list of loss values for each batch.
+        metric : function
+            Metric function for evaluation.
         dtype : Any
             Data type of input data.
         
@@ -754,29 +768,6 @@ class Model(qtn.TensorNetwork):
 
         if not hasattr(self, 'batch_size') and len(self.cache.keys()) == 0:
             self.batch_size = batch_size
-        
-        if inputs is not None:            
-            if targets is not None:
-                val_array = jdl.ArrayDataset(inputs, targets)
-            else:
-                val_array = jdl.ArrayDataset(inputs)
-            
-            jdl.manual_seed(1234)
-            dataloader = jdl.DataLoader(
-                val_array,
-                backend='jax',
-                batch_size=batch_size,
-                shuffle=False,
-                drop_last=True,
-            )
-        
-        # if not hasattr(self, 'loss') or self.loss is None:
-        #     if loss_function is not None:
-        #         self.loss = loss_function
-        #     else:
-        #         raise ValueError("Loss function not provided!")
-        
-
         if return_list:
             loss = []
 
@@ -798,20 +789,19 @@ class Model(qtn.TensorNetwork):
                 tn_i = embed(data, embedding)
 
                 if evaluate_type == 0:
-                    return loss_function(tn, tn_i)
+                    return metric(tn, tn_i)
                 else:
-                    return loss_function(tn, tn_i, targets)
+                    return metric(tn, tn_i, targets)
             else:
                 assert evaluate_type == 2, "Train type must be 2 for this type of loss function!"
-                return loss_function(tn, tn_target)
+                return metric(tn, tn_target)
         
         if inputs is not None:
             loss_value = 0
-            #for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype):
-            for batch_data in dataloader:
+            for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype):
                 if type(batch_data) == tuple and len(batch_data) == 2:
                     x, y = batch_data
-                    x, y = jnp.array(x), jnp.array(y)
+                    x, y = jnp.array(x, dtype=dtype), jnp.array(y)
                 else:
                     x = jnp.array(batch_data[0])
                     y = None
@@ -843,21 +833,15 @@ class Model(qtn.TensorNetwork):
                     loss_curr /= (s+1)
                 else:
                     params = self.arrays
-                    if len(self.cache.keys()) == 0 or (len(self.cache.keys()) > 0 and batch_size != self.batch_size):
-
-                        if loss_function is not None or not hasattr(self, 'loss_func'):
-                            if evaluate_type == 0:
-                                # unsupervised
-                                self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L))
-                            elif evaluate_type == 1:
-                                # supervised
-                                self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L))
-                            else:
-                                raise ValueError("Specify type of evaluation: 0 = 'unsupervised' or 1 ='supervised'! If type is 2 then you cannot have input data!")
-                        
-                        loss_curr = self.loss_func(x, y, *params)
+                    if evaluate_type == 0:
+                        # unsupervised
+                        loss_func = jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L)
+                    elif evaluate_type == 1:
+                        # supervised
+                        loss_func = jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L)
                     else:
-                        loss_curr = self.cache["loss_compiled"](x, y, *params)
+                        raise ValueError("Specify type of evaluation: 0 = 'unsupervised' or 1 ='supervised'! If type is 2 then you cannot have input data!")
+                    loss_curr = loss_func(x, y, *params)
                 
                 loss_value += np.mean(loss_curr)
 
