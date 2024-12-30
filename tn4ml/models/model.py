@@ -12,7 +12,6 @@ import optax
 import jax
 from flax.training.early_stopping import EarlyStopping
 import flax.linen as nn
-import jax_dataloader as jdl
 
 from ..embeddings import *
 from ..strategy import *
@@ -199,7 +198,7 @@ class Model(qtn.TensorNetwork):
         
         return jnp.concatenate(outputs, axis=0)
     
-    def accuracy(self, data: Union[jnp.ndarray, jdl.DataLoader], y_true: jnp.array = None, embedding: Embedding = trigonometric(), batch_size: int=64) -> Number:
+    def accuracy(self, data: jnp.ndarray, y_true: jnp.array = None, embedding: Embedding = trigonometric(), batch_size: int=64, dtype:Any = jnp.float_) -> Number:
         """ Calculates accuracy for supervised learning.
         
         Parameters
@@ -222,24 +221,12 @@ class Model(qtn.TensorNetwork):
 
         if y_true is None:
                 raise ValueError("For unsupervised learning you must provide target data!")
-        
-        if not isinstance(data, jdl.DataLoader):
-            
-            data = jdl.ArrayDataset(data, y_true)
-            dataloader = jdl.DataLoader(
-                data, # Data to load
-                backend='jax', # Use 'jax' backend for loading data
-                batch_size=batch_size, # Batch size 
-                shuffle=False, # Shuffle the dataloader every iteration or not
-                drop_last=False, # Drop the last batch or not
-            )
 
         correct_predictions = 0
         num_samples = 0
-        for batch_data in dataloader:
+        for batch_data in _batch_iterator(data, y_true, batch_size=batch_size):
             x, y = batch_data
-            x = jnp.array(x, dtype=jnp.float64)
-            y = jnp.array(y, dtype=jnp.float64)
+            x, y = jnp.array(x, dtype=dtype), jnp.array(y)
 
             y_pred = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None))(x, embedding, False)))
             predicted = jnp.argmax(y_pred, axis=-1)
@@ -403,7 +390,7 @@ class Model(qtn.TensorNetwork):
                     data, targets = data
                     data, targets = jnp.array(data), jnp.array(targets)
                 else:
-                    data = jnp.array(data[0])
+                    data = jnp.array(data)
                     targets = None
 
                 loss, grads = value_and_grad(params, data, targets)
@@ -638,8 +625,7 @@ class Model(qtn.TensorNetwork):
                     self.history['epoch_time'].append(time() - time_epoch)
                 else:
                     loss_batch = 0
-                    for batch_data in dataloader:
-
+                    for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype):
                         if isinstance(self.strategy, Sweeps):
                             loss_curr = 0
                             for s, sites in enumerate(self.strategy.iterate_sites(self)):
@@ -691,7 +677,7 @@ class Model(qtn.TensorNetwork):
                         
                         self.history['val_loss'].append(loss_val_epoch)
                         if display_val_acc:
-                            accuracy_val_epoch = self.accuracy(val_inputs, val_targets, batch_size=val_batch_size, embedding=embedding)
+                            accuracy_val_epoch = self.accuracy(val_inputs, val_targets, batch_size=val_batch_size, embedding=embedding, dtype=dtype)
                             self.history['val_acc'].append(accuracy_val_epoch)
 
                         # early stopping
@@ -768,6 +754,7 @@ class Model(qtn.TensorNetwork):
 
         if not hasattr(self, 'batch_size') and len(self.cache.keys()) == 0:
             self.batch_size = batch_size
+        
         if return_list:
             loss = []
 
@@ -803,7 +790,7 @@ class Model(qtn.TensorNetwork):
                     x, y = batch_data
                     x, y = jnp.array(x, dtype=dtype), jnp.array(y)
                 else:
-                    x = jnp.array(batch_data[0])
+                    x = jnp.array(batch_data, dtype=dtype)
                     y = None
 
                 if isinstance(self.strategy, Sweeps):
@@ -851,13 +838,13 @@ class Model(qtn.TensorNetwork):
             if return_list:
                 return np.array(loss)
             
-            loss_value = loss_value / (len(dataloader)//self.batch_size)
+            loss_value = loss_value / (len(inputs)//self.batch_size)
         else:
             assert evaluate_type == 2, "If inputs are not provided, evaluation type must be 2!"
             assert tn_target is not None, "If inputs are not provided, target tensor network must be provided!"
 
-            self.loss_func = jax.jit(loss_fn)
-            loss_value = self.loss_func(None, None, *params)
+            loss_func = jax.jit(loss_fn)
+            loss_value = loss_func(None, None, *params)
         return loss_value
     
     def convert_to_pytree(self):
