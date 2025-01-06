@@ -90,11 +90,6 @@ def LogFrobNorm(model) -> Number:
     -------
     float
     """
-    assert type(model) in [SpacedMatrixProductOperator,
-                           MatrixProductState,
-                           MatrixProductOperator,
-                           qtn.MatrixProductState,
-                           qtn.MatrixProductOperator]
     
     if type(model) in [SpacedMatrixProductOperator]:
         tn = model.H.apply(model)
@@ -114,11 +109,6 @@ def LogPowFrobNorm(model) -> Number:
     -------
     float
     """
-    assert type(model) in [SpacedMatrixProductOperator,
-                           MatrixProductState,
-                           MatrixProductOperator,
-                           qtn.MatrixProductState,
-                           qtn.MatrixProductOperator]
     
     if type(model) in [SpacedMatrixProductOperator]:
         tn = model.H.apply(model)
@@ -139,11 +129,6 @@ def LogReLUFrobNorm(model) -> Number:
     -------
     float
     """
-    assert type(model) in [SpacedMatrixProductOperator,
-                           MatrixProductState,
-                            MatrixProductOperator,
-                             qtn.MatrixProductState,
-                            qtn.MatrixProductOperator]
     
     if type(model) in [SpacedMatrixProductOperator]:
         tn = model.H.apply(model)
@@ -165,11 +150,6 @@ def QuadFrobNorm(model) -> Number:
     -------
     float
     """
-    assert type(model) in [SpacedMatrixProductOperator,
-                           MatrixProductState,
-                           MatrixProductOperator,
-                           qtn.MatrixProductState,
-                           qtn.MatrixProductOperator]
 
     if type(model) in [SpacedMatrixProductOperator]:
         tn = model.H.apply(model)
