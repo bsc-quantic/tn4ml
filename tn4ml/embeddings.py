@@ -17,7 +17,7 @@ class Embedding:
 
     Attributes
     ----------
-        dype: :class:`numpy.dype`
+        dtype: :class:`numpy.dtype`
             Data Type
     """
     def __init__(self, dtype=onp.float32):
@@ -44,7 +44,7 @@ class ComplexEmbedding:
 
     Attributes
     ----------
-        dype: :class:`numpy.dype`
+        dtype: :class:`numpy.dtype`
             Data Type
     """
     def __init__(self, dtype=onp.float32):
@@ -77,7 +77,7 @@ class StateVectorToMPSEmbedding:
     A class to convert a statevector into a Matrix Product State (MPS).
     """
     def __init__(self, dtype=onp.float32, max_bond=None):
-        self.dype = dtype
+        self.dtype = dtype
         self.max_bond = max_bond
 
     @property
@@ -550,7 +550,7 @@ class PatchEmbedding(StateVectorToMPSEmbedding):
          # Number of pixels (N = 16 for a 4x4 image)
         N = len(x)
         # Number of address qubits is log2(N) = 4
-        n_address_qubits = int(np.log2(N))
+        n_address_qubits = int(np.ceil(np.log2(N)))
         # One color qubit
         n_color_qubit = 1
         # Total number of qubits = address qubits + 1 color qubit
@@ -693,24 +693,6 @@ class PatchAmplitudeEmbedding(StateVectorToMPSEmbedding):
     @property
     def dims(self) -> list:
         return list([tensor.shape for tensor in self.mps.tensors])
-    
-    def add_gaussian_noise(self, x: jnp.ndarray, mean: Any = 0, std: Any =1e-1):
-        """
-        Adds Gaussian noise to the input image (or array) `x`.
-
-        Parameters:
-        - x (jnp.ndarray): The input image or array to which noise will be added.
-        - mean (Any, default=0): The mean of the Gaussian distribution from which noise will be drawn.
-        - std (Any, default=1e-1): The standard deviation of the Gaussian distribution for the noise.
-
-        Returns:
-        - noisy_x (jnp.ndarray): The input image with Gaussian noise added, clipped to the range [0, 1].
-        """
-        noise = np.random.normal(mean, std, x.shape)
-        noisy_x = x + noise
-        noisy_x = np.clip(noisy_x, 0, 1)  # To keep pixel values in valid range
-        
-        return noisy_x
 
     def create_statevector(self, x: jnp.ndarray) -> jnp.ndarray:
         """
