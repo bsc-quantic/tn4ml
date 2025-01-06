@@ -152,7 +152,7 @@ class Model(qtn.TensorNetwork):
             Output of the model.
         """
 
-        if len(np.squeeze(sample)) < self.L:
+        if len(sample.flatten()) < self.L:
             raise ValueError(f"Input data must have at least {self.L} elements!")
 
         tn_sample = embed(sample, embedding)
