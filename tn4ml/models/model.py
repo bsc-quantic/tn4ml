@@ -533,6 +533,7 @@ class Model(qtn.TensorNetwork):
             
             if tn_target is None:
                 tn_i = embed(data, embedding)
+
                 if self.train_type == 0:
                     return self.loss(tn, tn_i)
                 else:
@@ -655,7 +656,7 @@ class Model(qtn.TensorNetwork):
                             self.normalize()
 
                         if canonize[0]:
-                            self.canonize(canonize[1])
+                            self.canonicalize(canonize[1], inplace=True)
 
                     loss_epoch = loss_batch/n_batches
 
