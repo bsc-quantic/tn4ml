@@ -438,7 +438,7 @@ def OptaxWrapper(optax_loss = None) -> Callable:
         else:
             y_pred = (model & data)^all
             y_pred = jnp.expand_dims(jnp.squeeze(y_pred.data), axis=0)
-        
+
         # normalize
         y_pred = y_pred/jnp.linalg.norm(y_pred)
 
