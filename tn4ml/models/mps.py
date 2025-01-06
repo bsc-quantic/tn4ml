@@ -302,7 +302,11 @@ def MPS_initialize(L: int,
             mps = TensorNetwork(tensors, cyclic=cyclic, site_tag_id=tags_id, **kwargs)
 
             # normalize
-            mps.normalize()
+            if canonical_center is None:
+                mps.normalize()
+            else:
+                mps.canonize(canonical_center, inplace=True)
+                mps.normalize(insert = canonical_center)
         else:
             # MPS for regression
             if arrays is not None:
@@ -357,6 +361,6 @@ def MPS_initialize(L: int,
                 for tensor in mps.tensors:
                         tensor.modify(data=tensor.data / a.do("power", norm, 1 / L))
             else:
-                mps.canonize(canonical_center)
+                mps.canonicalize(canonical_center, inplace=True)
                 mps.normalize(insert = canonical_center)
         return mps

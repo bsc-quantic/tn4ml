@@ -671,7 +671,7 @@ def SMPO_initialize(L: int,
     if canonical_center is None:
         smpo.normalize()
     else:
-        smpo.canonize(canonical_center)
+        smpo.canonicalize(canonical_center, inplace=True)
         smpo.normalize(canonical_center)
     
     return smpo

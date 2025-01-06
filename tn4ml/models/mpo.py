@@ -235,7 +235,7 @@ def MPO_initialize(L: int,
     if canonical_center == None:
         mpo.normalize()
     else:
-        mpo.canonize(canonical_center)
+        mpo.canonicalize(canonical_center, inplace=True)
         mpo.normalize(insert = canonical_center)
     
     return mpo
