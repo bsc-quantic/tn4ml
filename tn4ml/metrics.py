@@ -1,16 +1,15 @@
 # Examples of loss functions for supervised and unsupervised learning.
 
 from numbers import Number
-from typing import Callable, Optional, Callable
+from typing import Callable, Optional, Union
 
-#from autoray import do
 import jax.numpy as jnp
 import jax
 import numpy as np
 import optax
 import quimb.tensor as qtn
 
-from .models.model import Model, _batch_iterator
+from .models.model import Model
 from .embeddings import Embedding, embed, trigonometric
 from .models.smpo import SpacedMatrixProductOperator
 from .models.mps import MatrixProductState
@@ -450,27 +449,49 @@ def OptaxWrapper(optax_loss = None) -> Callable:
             return optax_loss(y_pred, **kwargs)
     return loss_optax
 
-def CombinedLoss(model: Model, data: np.ndarray = None, error: Callable = LogQuadNorm, reg: Callable = NoReg, embedding: Optional[Embedding] = None) -> Number:
-    """Example of Loss function with calculation of error on input data and regularization.
+def CombinedLoss(model: Model,
+                data: Union[qtn.MatrixProductState, np.ndarray],
+                y_true: Optional[jnp.array] = None,
+                error: Callable = LogQuadNorm,
+                reg: Callable = NoReg,
+                embedding: Optional[Embedding] = None
+            ) -> Number:
+    """
+    Unified Loss function combining error computation and regularization.
 
     Parameters
     ----------
     model : :class:`tn4ml.models.Model`
         Tensor Network with parametrized tensors.
-    data: :class:`numpy.ndarray`
+    data : Union[:class:`qtn.MatrixProductState`, :class:`numpy.ndarray`]
         Data used for computing the loss value.
-    error: function
+    y_true : Optional[:class:`jnp.array`]
+        True labels for supervised learning tasks (only applicable for MatrixProductState data).
+    error : function
         Function for error calculation.
-    reg: function
+    reg : function
         Function for regularization value calculation.
-    embedding: :class:`tn4ml.embeddings.Embedding`
+    embedding : :class:`tn4ml.embeddings.Embedding`, optional
         Data embedding function.
 
     Returns
     -------
     float
+        Computed loss value.
     """
-    if not data:
-        raise ValueError('Provide input data!')
+    if data is None:
+        raise ValueError("Provide input data!")
+
+    if isinstance(data, np.ndarray):
+        # Compute loss for NumPy array data
+        if embedding:
+            data = [embed(sample, embedding) for sample in data]
+        else:
+            ValueError("Provide embedding function for NumPy array data to embed it into Tensor Network representation.")
     
-    return np.mean([error(model, embed(sample, embedding)) for sample in data] if embedding else error(model, data)) + reg(model)
+    if y_true:
+        loss = jnp.mean(error(model, data, y_true)) + reg(model)
+    else:
+        loss = jnp.mean(error(model, data)) + reg(model)
+
+    return loss
