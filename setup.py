@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="tn4ml",
-    version="1.0.2",
+    version="1.0.3",
     author="Ema Puljak, Sergio Sanchez Ramirez, Sergi Masot Llima, Jofre Vallès-Muns",
     description="Tensor Networks for Machine Learning",
     long_description=long_description,
