@@ -469,7 +469,7 @@ def CombinedLoss(model: Model,
         else:
             ValueError("Provide embedding function for NumPy array data to embed it into Tensor Network representation.")
     
-    if y_true:
+    if y_true is not None:
         loss = jnp.mean(error(model, data, y_true)) + reg(model)
     else:
         loss = jnp.mean(error(model, data)) + reg(model)
