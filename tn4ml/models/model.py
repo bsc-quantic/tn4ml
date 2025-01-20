@@ -10,12 +10,11 @@ import quimb as qu
 import autoray
 import optax
 import jax
-from flax.training.early_stopping import EarlyStopping
 import flax.linen as nn
 
 from ..embeddings import *
 from ..strategy import *
-from ..util import gradient_clip
+from ..util import gradient_clip, EarlyStopping
 
 def compute_entropy(model, data, embedding):
     """ NOT USED YET """
@@ -469,7 +468,7 @@ class Model(qtn.TensorNetwork):
             tuple indicating is model canonized after each iteration. Example: (True, 0) - model is canonized in canonization center = 0.
         time_limit: int
             Time limit on model's training in seconds.
-        earlystop : :class:` flax.training.early_stopping.EarlyStopping`
+        earlystop : :class:`tn4ml.util.EarlyStopping`
             Early stopping training when monitored metric stopped improving.
         gradient_clip_threshold : float
             Threshold for gradient clipping.
@@ -485,6 +484,8 @@ class Model(qtn.TensorNetwork):
         history: dict
             Records training loss and metric values.
         """
+
+        num_batches = (len(inputs)//batch_size)
 
         if cache and not self.strategy == 'global':
             raise ValueError("Caching is only supported for global gradient descent strategy!")
@@ -515,6 +516,9 @@ class Model(qtn.TensorNetwork):
                 self.history['val_loss'] = []
                 if display_val_acc:
                     self.history['val_acc'] = []
+        
+        if earlystop:
+            earlystop.on_begin_train(self.history)
         
         self.sitetags = None # for sweeping strategy
         
@@ -681,25 +685,26 @@ class Model(qtn.TensorNetwork):
                             accuracy_val_epoch = self.accuracy(val_inputs, val_targets, batch_size=val_batch_size, embedding=embedding, dtype=dtype)
                             self.history['val_acc'].append(accuracy_val_epoch)
 
-                        # early stopping
                         if earlystop:
-                            earlystop = earlystop.update(loss_val_epoch)
-                            if earlystop.should_stop:
-                                print(f'Met early stopping criteria, breaking at epoch {epoch}')
-                                break
+                            if earlystop.monitor == 'val_loss':
+                                current = loss_val_epoch
+                                return_value = earlystop.on_end_epoch(current, epoch)
                     else:
-                        if earlystop:
-                            earlystop = earlystop.update(loss_epoch)
-                            if earlystop.should_stop:
-                                print(f'Met early stopping criteria on training data, breaking at epoch {epoch}')
-                                break
-                
+                        if earlystop.monitor == 'loss':
+                                current = loss_epoch
+                        else:
+                            current = sum(self.history[earlystop.monitor][-num_batches:])/num_batches
+                        return_value = earlystop.on_end_epoch(current, epoch)
+
                 outerbar.update()
                 if val_inputs is not None:
                     outerbar.set_postfix({'loss': loss_epoch, 'val_loss': self.history['val_loss'][-1], 'val_acc': self.history['val_acc'][-1]})
                 else:
                     outerbar.set_postfix({'loss': loss_epoch})
                 
+                if earlystop:
+                    if return_value == 1:
+                        return self.history
 
         return self.history
 

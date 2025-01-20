@@ -301,3 +301,63 @@ def from_dense_to_mps(statevector: jnp.ndarray, n_qubits: int, max_bond: int = N
     mps.append(current_tensor.reshape(left_bond, 1, physical_dim))
     
     return mps
+
+class EarlyStopping:
+    """ Variation of `EarlyStopping` class from :class:tensorflow.
+
+    Attributes
+    ----------
+    monitor : str
+        Name of metric to be monitored.
+    min_delta : float
+        Minimum change in the monitored quantity to qualify as an improvement.
+    patience : int
+        Number of epochs for tracking the metric, if no improvement after training is stopped.
+    mode: str
+        Two options are valid: `min` - minimization, `max` - maximization of objective function
+    """
+    def __init__(self, monitor, min_delta, patience, mode):
+        self.monitor = monitor
+        self.min_delta = min_delta
+        self.patience = patience
+        self.mode = mode
+    
+    def on_begin_train(self, history):
+        if self.monitor not in history.keys():
+            raise ValueError(f'This metric {self.monitor} is not monitored. Change metric for EarlyStopping.monitor')
+        if self.mode not in ['min', 'max']:
+            raise ValueError(f'EarlyStopping mode can be either "min" or "max".')
+
+        self.memory = dict()
+        self.memory['best'] = np.Inf if self.mode == 'min' else -np.Inf
+        self.memory['best_epoch'] = 0 # track on each epoch
+        if self.mode == 'min':
+            self.min_delta = self.min_delta*(-1)
+            self.operator = np.less
+        else:
+            self.min_delta = self.min_delta*1
+            self.operator = np.greater
+        self.memory['wait'] = 0
+    
+    def on_end_epoch(self, loss_current, epoch):
+
+        if self.memory['wait'] == 0 and epoch == 0:
+            self.memory['best'] = loss_current
+            self.memory['best_model'] = self
+            self.memory['best_epoch'] = epoch
+            #memory['wait'] += 1
+        if epoch > 0: self.memory['wait'] += 1
+        if self.operator(loss_current - self.min_delta, self.memory['best']):
+            self.memory['best'] = loss_current
+            self.memory['best_model'] = self
+            self.memory['best_epoch'] = epoch
+            self.memory['wait'] = 0
+        if self.memory['wait'] >= self.patience and epoch > 0:
+            best_epoch = self.memory['best_epoch']
+            print(f'Training stopped by EarlyStopping on epoch: {best_epoch}', flush=True)
+            self = self.memory['best_model']
+            return 1
+        if self.memory['wait'] > 0: 
+            print('Waiting for ' + str(self.memory['wait']) + ' epochs.', flush=True)
+        
+        return 0
