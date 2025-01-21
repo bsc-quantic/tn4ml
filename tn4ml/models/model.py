@@ -698,9 +698,12 @@ class Model(qtn.TensorNetwork):
 
                 outerbar.update()
                 if val_inputs is not None:
-                    outerbar.set_postfix({'loss': loss_epoch, 'val_loss': self.history['val_loss'][-1], 'val_acc': self.history['val_acc'][-1]})
+                    if display_val_acc:
+                        outerbar.set_postfix({'loss': f'{loss_epoch:.4f}', 'val_loss': f'{self.history["val_loss"][-1]:.4f}', 'val_acc': f'{self.history["val_acc"][-1]:.4f}'})
+                    else:
+                        outerbar.set_postfix({'loss': loss_epoch, 'val_loss': f'{self.history["val_loss"][-1]:.4f}'})
                 else:
-                    outerbar.set_postfix({'loss': loss_epoch})
+                    outerbar.set_postfix({'loss': f'{loss_epoch:.4f}'})
                 
                 if earlystop:
                     if return_value == 1:
