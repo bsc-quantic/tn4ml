@@ -306,3 +306,6 @@ $RECYCLE.BIN/
 
 # data
 /docs/examples/data/*
+
+# jetclassification
+/docs/examples/jet_classification.ipynb

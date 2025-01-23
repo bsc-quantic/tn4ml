@@ -309,23 +309,34 @@ class polynomial(Embedding):
     ----------
     degree : int
         Degree of polynomial.
+    n : int
+        Number of features.
+    include_bias : bool
+        Include bias term.
     """
 
-    def __init__(self, degree: int, **kwargs):
+    def __init__(self, degree: int, n: int, include_bias: bool = False, **kwargs):
+        if degree < 1:
+            raise ValueError("Degree of polynomial embedding must be at least 1.")
         self.degree = degree
+        self.n = n
+        self.include_bias = include_bias
         super().__init__(**kwargs)
 
     @property
     def dim(self) -> int:
         """ Mapping dimension """
-        return self.degree + 1
+        if self.include_bias:
+            return sum(math.comb(self.input_dim + k - 1, k) for k in range(0, self.degree + 1))
+        else:
+            return sum(math.comb(self.input_dim + k - 1, k) for k in range(1, self.degree + 1))
 
     @property
     def input_dim(self) -> int:
-        """ Dimensionality of input feature. 1 = number"""
-        return 1
+        """ Dimensionality of input feature"""
+        return self.n
     
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Union[Number, onp.array]) -> jnp.ndarray:
         """Embedding function for polynomial.
         
         Parameters
@@ -338,7 +349,20 @@ class polynomial(Embedding):
         jnp.ndarray
             Embedding vector.
         """
-        return jnp.array([x**i for i in range(self.degree + 1)])
+        
+        if self.include_bias:
+            features = [1.0]
+        else:
+            features = []
+        # Generate combinations of feature indices with repetition up to the specified degree
+        for d in range(1, self.degree + 1):
+            if d == 0:
+                features.append(x)
+            for combination in itertools.combinations_with_replacement(range(len(x)), d):
+                # Compute the product of the selected features
+                product = jnp.prod(x[jnp.array(combination)])
+                features.append(product)
+        return jnp.array(features)
  
 class jax_arrays(Embedding):
     """Input arrays to JAX arrays.
@@ -860,4 +884,5 @@ def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToM
     norm = mps.norm()
     for tensor in mps.tensors:
         tensor.modify(data=tensor.data / a.do("power", norm, 1 / len(mps.tensors)))
+
     return mps
