@@ -420,7 +420,7 @@ def OptaxWrapper(optax_loss = None) -> Callable:
 
         # normalize
         y_pred = y_pred/jnp.linalg.norm(y_pred)
-
+            
         if y_true is not None:
             if len(y_true.shape) == 1:
                 y_true = jnp.expand_dims(y_true, axis=0)
@@ -428,6 +428,41 @@ def OptaxWrapper(optax_loss = None) -> Callable:
         else:
             return optax_loss(y_pred, **kwargs)
     return loss_optax
+
+def CrossEntropyWeighted(class_weights: jnp.array = None) -> Callable:
+
+    def cross_entropy(model: Model, data: qtn.MatrixProductState, y_true: jnp.array = None, **kwargs) -> Number:
+        """
+        Compute the weighted cross-entropy loss.
+
+        Parameters
+        ----------        
+            model : :class:`tn4ml.models.model.Model`
+                Tensor Network model.
+            data: :class:`quimb.tensor.MatrixProductState`
+                Input Matrix Product State
+            y_true: :class:`jax.numpy.ndarray`
+                Target class vector. Example = [1 0 0 0] for n_classes = 4.
+            class_weights: :class:`numpy.ndarray`
+                Class weights, shape (num_classes,).
+            kwargs : dict
+                Additional arguments for optax loss function.
+        Returns
+        -------
+            Weighted cross-entropy loss.
+        """
+
+        # Compute per-sample weights based on class labels
+        sample_weights = jnp.sum(y_true * jnp.array(class_weights), axis=-1)  # Shape: (batch_size,)
+
+        logits = OptaxWrapper(optax.softmax_cross_entropy)(model, data, y_true)
+
+        # Apply sample weights
+        weighted_loss = logits * jnp.array(sample_weights)  # Shape: (batch_size,)
+
+        # Return mean weighted loss
+        return jnp.array(weighted_loss)
+    return cross_entropy
 
 def CombinedLoss(model: Model,
                 data: Union[qtn.MatrixProductState, np.ndarray],
