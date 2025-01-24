@@ -281,26 +281,55 @@ def from_dense_to_mps(statevector: jnp.ndarray, n_qubits: int, max_bond: int = N
         
         # Reshape `u` to the `LRP` format
         right_bond = bond_dim
-        mps_tensor = u.reshape(left_bond, right_bond, physical_dim)
+        mps_tensor = u.reshape(left_bond, physical_dim, right_bond).transpose([0, 2, 1]) # (l, p, r) -> (l, r, p)
         mps.append(mps_tensor)
         
         # Move the singular values into the next tensor
         current_tensor = jnp.diag(s) @ vh
         left_bond = right_bond  # Update left_bond for the next tensor
 
-        # Reshape the next tensor to maintain LRP structure if possible
+        # Reshape the next tensor
         remaining_elements = current_tensor.size
         if remaining_elements == bond_dim * physical_dim:
-            current_tensor = current_tensor.reshape(bond_dim, 1, physical_dim)
+            current_tensor = current_tensor.reshape(bond_dim, physical_dim, 1)
         elif remaining_elements >= bond_dim * physical_dim:
-            current_tensor = current_tensor.reshape(bond_dim, -1, physical_dim)
-        else:
-            current_tensor = current_tensor.reshape(bond_dim, -1)
+            current_tensor = current_tensor.reshape(bond_dim, physical_dim, -1)
 
     # Final tensor for the last site with shape (left_bond, 1, physical_dim=2)
-    mps.append(current_tensor.reshape(left_bond, 1, physical_dim))
+    mps.append(current_tensor.reshape(left_bond, physical_dim, 1).transpose([0, 2, 1]))
     
     return mps
+
+
+def from_mps_to_dense(mps: List[jnp.ndarray], n_qubits: int) -> jnp.ndarray:
+    """
+    Convert a Matrix Product State (MPS) representation back to a dense statevector.
+    
+    Parameters
+    ----------
+    mps: List[jnp.ndarray]
+        A list of MPS tensors where each tensor has the shape "lrp".
+    n_qubits: int
+        The number of qubits.
+    
+    Returns
+    -------
+    jnp.ndarray
+        The dense statevector as a 1D array of length 2^n_qubits.
+    
+    """
+    # Start with the first MPS tensor.
+    statevector = mps[0].transpose([0, 2, 1])  # (l, r, p) -> (l, p, r)
+
+    # Iterate over the remaining MPS tensors and contract them.
+    for i in range(1, n_qubits):
+        next_tensor = mps[i].transpose([0, 2, 1]) # (l, r, p) -> (l, p, r)
+
+        statevector = jnp.tensordot(statevector, next_tensor, axes=[-1, 0])  # (l, p, p, p, bond) (bond, p, r) -> (l, p, p, p, p, r)
+
+    # Flatten the resulting tensor to form the dense statevector.
+    return statevector.flatten()
+
 
 class EarlyStopping:
     """ Variation of `EarlyStopping` class from :class:tensorflow.
