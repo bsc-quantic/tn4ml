@@ -349,6 +349,9 @@ class polynomial(Embedding):
         jnp.ndarray
             Embedding vector.
         """
+
+        if x.ndim == 0:
+            x = jnp.array([x])
         
         if self.include_bias:
             features = [1.0]
@@ -839,7 +842,7 @@ class PatchAmplitudeEmbedding(StateVectorToMPSEmbedding):
 
         for patch in patches:
             statevector, n_qubits = self.create_statevector(patch.ravel())
-            mps_arrays = u.from_dense_to_mps(statevector, n_qubits, self.max_bond)
+            mps_arrays = u._mps(statevector, n_qubits, self.max_bond)
 
             mps_patches.append(mps_arrays)
 
