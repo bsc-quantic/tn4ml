@@ -12,10 +12,13 @@ from .embeddings import (
     Embedding,
     trigonometric,
     fourier,
+    polynomial,
     linear_complement_map,
     gaussian_rbf,
     jax_arrays,
     add_ones,
+    PatchAmplitudeEmbedding,
+    PatchEmbedding,
     embed
 )
 
@@ -52,5 +55,22 @@ from .util import (
     integer_to_one_hot,
     pad_image_alternately,
     divide_into_patches,
-    from_dense_to_mps
+    from_dense_to_mps,
+    from_mps_to_dense
+)
+
+from .eval import (
+    plot_loss,
+    plot_accuracy,
+    get_roc_curve_data,
+    get_precision_recall_curve_data,
+    get_FPR_for_fixed_TPR,
+    get_TPR_for_fixed_FPR,
+    get_mean_and_error,
+    plot_ROC_curve_from_metrics,
+    plot_ROC_curve_from_data,
+    plot_PR_curve,
+    compare_AUC,
+    compare_TPR_per_FPR,
+    compare_FPR_per_TPR
 )
