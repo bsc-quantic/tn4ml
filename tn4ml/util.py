@@ -253,7 +253,7 @@ def from_dense_to_mps(statevector: jnp.ndarray, n_qubits: int, max_bond: int = N
         
     Returns
     -------
-    List[jnp.ndarray]
+    list[:class:`jax.numpy.ndarray`]
         A list of MPS tensors in JAX with shapes for Left-Right-Physical (LRP).
     """
     # Step 1: Reshape the statevector to a tensor of shape (2, 2, ..., 2)
@@ -314,7 +314,7 @@ def from_mps_to_dense(mps: List[jnp.ndarray], n_qubits: int) -> jnp.ndarray:
     
     Returns
     -------
-    jnp.ndarray
+    :class:`jax.numpy.ndarray`
         The dense statevector as a 1D array of length 2^n_qubits.
     
     """
@@ -332,7 +332,7 @@ def from_mps_to_dense(mps: List[jnp.ndarray], n_qubits: int) -> jnp.ndarray:
 
 
 class EarlyStopping:
-    """ Variation of `EarlyStopping` class from :class:tensorflow.
+    """ Variation of `EarlyStopping` class from :class:`tensorflow`.
 
     Attributes
     ----------
@@ -352,6 +352,21 @@ class EarlyStopping:
         self.mode = mode
     
     def on_begin_train(self, history):
+        """
+        Set up the memory for the early stopping algorithm.
+
+        Parameters
+        ----------
+        history : dict
+            The dictionary containing the training history.
+        
+        Raises
+        ------
+        ValueError
+            If the metric to be monitored is not in the history.
+        ValueError
+            If the mode is not `min` or `max`.
+        """
         if self.monitor not in history.keys():
             raise ValueError(f'This metric {self.monitor} is not monitored. Change metric for EarlyStopping.monitor')
         if self.mode not in ['min', 'max']:
@@ -369,6 +384,21 @@ class EarlyStopping:
         self.memory['wait'] = 0
     
     def on_end_epoch(self, loss_current, epoch):
+        """
+        Check if the training should be stopped based on the monitored metric.
+
+        Parameters
+        ----------
+        loss_current : float
+            The value of the monitored metric.
+        epoch : int
+            The current epoch number.
+        
+        Returns
+        -------
+        int
+            A flag to indicate if the training should be stopped.
+        """
 
         if self.memory['wait'] == 0 and epoch == 0:
             self.memory['best'] = loss_current
