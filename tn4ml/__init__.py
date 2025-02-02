@@ -16,7 +16,6 @@ from .embeddings import (
     linear_complement_map,
     gaussian_rbf,
     jax_arrays,
-    add_ones,
     PatchAmplitudeEmbedding,
     PatchEmbedding,
     embed
@@ -38,6 +37,7 @@ from .metrics import (
     Softmax,
     CrossEntropySoftmax,
     OptaxWrapper,
+    CrossEntropyWeighted,
     CombinedLoss
 )
 
