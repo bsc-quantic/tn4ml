@@ -155,7 +155,7 @@ class Model(qtn.TensorNetwork):
             raise ValueError(f"Input data must have at least {self.L} elements!")
 
         tn_sample = embed(sample, embedding)
-
+        
         if callable(getattr(self, "apply", None)):
             output = self.apply(tn_sample)
         else:
@@ -690,11 +690,12 @@ class Model(qtn.TensorNetwork):
                                 current = loss_val_epoch
                                 return_value = earlystop.on_end_epoch(current, epoch)
                     else:
-                        if earlystop.monitor == 'loss':
-                                current = loss_epoch
-                        else:
-                            current = sum(self.history[earlystop.monitor][-num_batches:])/num_batches
-                        return_value = earlystop.on_end_epoch(current, epoch)
+                        if earlystop:
+                            if earlystop.monitor == 'loss':
+                                    current = loss_epoch
+                            else:
+                                current = sum(self.history[earlystop.monitor][-num_batches:])/num_batches
+                            return_value = earlystop.on_end_epoch(current, epoch)
 
                 outerbar.update()
                 if val_inputs is not None:
@@ -886,7 +887,7 @@ def load_model(model_name, dir_name=None):
         return qu.load_from_disk(f'{model_name}.pkl')
     return qu.load_from_disk(f'{dir_name}/{model_name}.pkl')
 
-def _check_chunks(chunked: Collection, batch_size: int = 2):
+def _check_chunks(chunked: Collection, batch_size: int = 2) -> Collection:
     """ Checks if the last chunk has lower size then batch size.
     
     Parameters
@@ -904,7 +905,7 @@ def _check_chunks(chunked: Collection, batch_size: int = 2):
         chunked = chunked[:-1]
     return chunked
 
-def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:int = 2, dtype: Any = jnp.float_):
+def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:int = 2, dtype: Any = jnp.float_, shuffle: bool = True, seed: int = 0):
     """ Iterates over batches of data.
     
     Parameters
@@ -917,19 +918,34 @@ def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:in
         Target data.
     dtype : Any
         Data type of input data.
+    shuffle : bool
+        If True, shuffles the data.
+    seed : int
+        Seed for shuffling.
     
     Yields
     ------
     tuple
         Batch of input and target data (if target data is provided)
     """
-    x_chunks = funcy.chunks(batch_size, jax.numpy.asarray(x, dtype=dtype))
-    x_chunks = _check_chunks(list(x_chunks), batch_size)
+
+    key = jax.random.PRNGKey(seed)
+
+    # Convert to JAX array
+    x = jax.numpy.asarray(x, dtype=dtype)
+
+    if shuffle:
+        perm = jax.random.permutation(key, len(x))
+        x = x[perm]  # Shuffle x
+        if y is not None:
+            y = jax.numpy.asarray(y)  # Keep dtype as is
+            y = y[perm]  # Shuffle y accordingly
+
+    # Chunk the data
+    x_chunks = _check_chunks(list(funcy.chunks(batch_size, x)), batch_size)
 
     if y is not None:
-        y_chunks = funcy.chunks(batch_size, jax.numpy.asarray(y)) # dont change dtype
-        y_chunks = _check_chunks(list(y_chunks), batch_size)
-
+        y_chunks = _check_chunks(list(funcy.chunks(batch_size, y)), batch_size)
         for x_chunk, y_chunk in zip(x_chunks, y_chunks):
             yield x_chunk, y_chunk
     else:
