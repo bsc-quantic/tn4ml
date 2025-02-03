@@ -8,7 +8,6 @@ from autoray import numpy as np
 import autoray as a
 import jax.numpy as jnp
 from jax import lax
-import jax
 import quimb.tensor as qtn
 import tn4ml.util as u
 
@@ -167,7 +166,7 @@ class fourier(Embedding):
         
         Parameters
         ----------
-        x: Number
+        x: :class:`Number`
             Input feature.
         
         Returns
@@ -220,7 +219,6 @@ class linear_complement_map(Embedding):
         return vector / jnp.linalg.norm(vector)
     
 class quantum_basis(Embedding):
-    # fix that it works for any dimension
     """ Basis quantum feature map.  
     The basis is a dictionary of quantum states.
     
@@ -247,7 +245,7 @@ class quantum_basis(Embedding):
         
         Parameters
         ----------
-        x: Number
+        x: :class:`Number`
             Input feature.
         
         Returns
@@ -291,7 +289,7 @@ class gaussian_rbf(Embedding):
         
         Parameters
         ----------
-        x : Number
+        x : :class:`Number`
             Input feature.
         
         Returns
@@ -341,7 +339,7 @@ class polynomial(Embedding):
         
         Parameters
         ----------
-        x : Number
+        x : :class:`Number`
             Input feature.
         
         Returns
@@ -368,16 +366,18 @@ class polynomial(Embedding):
         return jnp.array(features)
  
 class jax_arrays(Embedding):
-    """Input arrays to JAX arrays.
+    """Input arrays to JAX arrays. No embedding.
+    Optional: adding one to the input array.
     
     Attributes
     ----------
     dim: int
         Dimension of input 
     """
-    def __init__(self, dim: int = None, **kwargs):
+    def __init__(self, dim: int = None, add_bias: bool = False, **kwargs):
         super().__init__(**kwargs)
         self._dim = dim
+        self.add_bias = add_bias
 
     @property
     def dim(self) -> int:
@@ -388,30 +388,17 @@ class jax_arrays(Embedding):
         
         Parameters
         ----------
-        x: Number
-            Input feature.
+        x: list
+            List of input features.
         
         Returns
         -------
         jnp.ndarray
             Embedding vector.
         """
+        if self.add_bias:
+            return jnp.concatenate([jnp.array([1.]), x])
         return jnp.array(x)
-
-class add_ones(Embedding):
-    def __init__(self, **kwargs):
-        """Constructor
-
-        """        
-        super().__init__(**kwargs)
-        self._dim = 2
-
-    @property
-    def dim(self) -> int:
-        return self._dim
-
-    def __call__(self, x: Number) -> jnp.ndarray:
-        return jnp.array([1.0, x])
     
 class trigonometric_chain(ComplexEmbedding):
     """ Trigonometric feature map for each dimension of feature.
@@ -452,8 +439,8 @@ class trigonometric_chain(ComplexEmbedding):
         
         Parameters
         ----------
-        x: :class:`Number`
-            Input feature.
+        x: list
+            List of input features.
         
         Returns
         -------
@@ -499,8 +486,8 @@ class trigonometric_avg(ComplexEmbedding):
 
         Parameters
         ----------
-        features: Collection
-            Collection of features.
+        features: list
+            List of input features.
 
         Returns
         -------
@@ -853,16 +840,17 @@ class PatchAmplitudeEmbedding(StateVectorToMPSEmbedding):
         return self.mps
 
 def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToMPSEmbedding], **mps_opts):
-    """Creates a product state from a vector of features `x`.
+    """
+    Creates a product state from a vector of features `x`.
     Works only if features are separated and not correlated (this check you need to do yourself).
 
     Parameters
     ----------
     x: :class:`numpy.ndarray`
         Vector or Matrix of features.
-    phi: :class:`tn4ml.embeddings.Embedding`
+    phi: :class:`tn4ml.embeddings.Embedding` or :class:`tn4ml.embeddings.ComplexEmbedding` or :class:`tn4ml.embeddings.StateVectorToMPSEmbedding`
         Feature map for each feature.
-    mps_opts: optional
+    mps_opts: Optional parameters.
         Additional arguments passed to MatrixProductState class.
     """
     if not issubclass(type(phi), ComplexEmbedding) and not issubclass(type(phi), Embedding) and not issubclass(type(phi), StateVectorToMPSEmbedding):
@@ -875,9 +863,9 @@ def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToM
         mps = qtn.MatrixProductState(arrays, **mps_opts)
     
     elif issubclass(type(phi), ComplexEmbedding) and x.ndim == 2:
-        arrays = [phi(xi).reshape((1, 1, phi.dims[i])) for i, xi in enumerate(x)]
+        arrays = [phi(xi).reshape((1, 1, phi.dims)) for i, xi in enumerate(x)]
         for i in [0, -1]:
-            arrays[i] = arrays[i].reshape((1, phi.dims[i]))
+            arrays[i] = arrays[i].reshape((1, phi.dims))
 
         mps = qtn.MatrixProductState(arrays, **mps_opts)
     else:
