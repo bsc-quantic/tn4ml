@@ -518,6 +518,7 @@ class Model(qtn.TensorNetwork):
                     self.history['val_acc'] = []
         
         if earlystop:
+            return_value = 0
             earlystop.on_begin_train(self.history)
         
         self.sitetags = None # for sweeping strategy
@@ -705,7 +706,7 @@ class Model(qtn.TensorNetwork):
                         outerbar.set_postfix({'loss': loss_epoch, 'val_loss': f'{self.history["val_loss"][-1]:.4f}'})
                 else:
                     outerbar.set_postfix({'loss': f'{loss_epoch:.4f}'})
-                
+
                 if earlystop:
                     if return_value == 1:
                         return self.history
