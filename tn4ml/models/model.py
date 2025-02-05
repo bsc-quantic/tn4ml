@@ -848,7 +848,7 @@ class Model(qtn.TensorNetwork):
             if return_list:
                 return np.array(loss)
             
-            loss_value = loss_value / (len(inputs)//self.batch_size)
+            loss_value = loss_value / (len(inputs)//batch_size)
         else:
             assert evaluate_type == 2, "If inputs are not provided, evaluation type must be 2!"
             assert tn_target is not None, "If inputs are not provided, target tensor network must be provided!"
