@@ -359,7 +359,7 @@ def MPS_initialize(L: int,
             if canonical_center is None:
                 norm = mps.norm()
                 for tensor in mps.tensors:
-                        tensor.modify(data=tensor.data / a.do("power", norm, 1 / L))
+                    tensor.modify(data=tensor.data / a.do("power", norm, 1 / L))
             else:
                 mps.canonicalize(canonical_center, inplace=True)
                 mps.normalize(insert = canonical_center)

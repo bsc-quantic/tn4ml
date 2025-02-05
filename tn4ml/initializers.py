@@ -225,7 +225,7 @@ def randn(std: Any = 1.0,
     Parameters
     ----------
         std : Any (Optional). Default = `1.0`.
-            Additional noise
+            Standard deviation of the normal distribution
         mean : Any (Optional). Default = `0.0`.
             Mean of the normal distribution.
         noise_std : Any (Optional). Default = `None`.
