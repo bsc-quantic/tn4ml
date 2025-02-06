@@ -165,8 +165,9 @@ class Model(qtn.TensorNetwork):
             return output
         else:
             output = output.contract(all, optimize='auto-hq')
-            output = output.squeeze()
-            return output.data
+            y_pred = output.squeeze().data
+            y_pred = y_pred/jnp.linalg.norm(y_pred)
+            return y_pred
         
     def forward(self, data: jnp.ndarray, embedding: Embedding = trigonometric(), batch_size: int=64) -> Collection:
         """ Forward pass of the model.
@@ -189,7 +190,7 @@ class Model(qtn.TensorNetwork):
         """
         
         outputs = []
-        for batch_data in _batch_iterator(data, batch_size=batch_size):
+        for batch_data in _batch_iterator(data, batch_size=batch_size, shuffle=False):
             x = jnp.array(batch_data, dtype=jnp.float64)
             
             output = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None))(x, embedding, False)))
@@ -223,7 +224,7 @@ class Model(qtn.TensorNetwork):
 
         correct_predictions = 0
         num_samples = 0
-        for batch_data in _batch_iterator(data, y_true, batch_size=batch_size):
+        for batch_data in _batch_iterator(data, y_true, batch_size=batch_size, shuffle=False):
             x, y = batch_data
             x, y = jnp.array(x, dtype=dtype), jnp.array(y)
 
