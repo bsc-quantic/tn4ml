@@ -133,7 +133,7 @@ class Model(qtn.TensorNetwork):
             else:
                 self.optimizer = optax.adam(learning_rate=self.learning_rate)
 
-    def predict(self, sample: Collection, embedding: Embedding = trigonometric(), return_tn: bool = False):
+    def predict(self, sample: Collection, embedding: Embedding = trigonometric(), return_tn: bool = False, normalize: bool = False):
         """ Predicts the output of the model.
         
         Parameters
@@ -166,10 +166,11 @@ class Model(qtn.TensorNetwork):
         else:
             output = output.contract(all, optimize='auto-hq')
             y_pred = output.squeeze().data
-            y_pred = y_pred/jnp.linalg.norm(y_pred)
+            if normalize:
+                y_pred = y_pred/jnp.linalg.norm(y_pred)
             return y_pred
         
-    def forward(self, data: jnp.ndarray, embedding: Embedding = trigonometric(), batch_size: int=64) -> Collection:
+    def forward(self, data: jnp.ndarray, embedding: Embedding = trigonometric(), batch_size: int=64, normalize: bool = False) -> Collection:
         """ Forward pass of the model.
 
         Parameters
@@ -193,12 +194,12 @@ class Model(qtn.TensorNetwork):
         for batch_data in _batch_iterator(data, batch_size=batch_size, shuffle=False):
             x = jnp.array(batch_data, dtype=jnp.float64)
             
-            output = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None))(x, embedding, False)))
+            output = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None, None))(x, embedding, False, normalize)))
             outputs.append(output)
         
         return jnp.concatenate(outputs, axis=0)
     
-    def accuracy(self, data: jnp.ndarray, y_true: jnp.array = None, embedding: Embedding = trigonometric(), batch_size: int=64, dtype:Any = jnp.float_) -> Number:
+    def accuracy(self, data: jnp.ndarray, y_true: jnp.array = None, embedding: Embedding = trigonometric(), batch_size: int=64, normalize: bool = False, dtype:Any = jnp.float_) -> Number:
         """ Calculates accuracy for supervised learning.
         
         Parameters
@@ -228,7 +229,7 @@ class Model(qtn.TensorNetwork):
             x, y = batch_data
             x, y = jnp.array(x, dtype=dtype), jnp.array(y)
 
-            y_pred = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None))(x, embedding, False)))
+            y_pred = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None, None))(x, embedding, False, normalize)))
             predicted = jnp.argmax(y_pred, axis=-1)
             true = jnp.argmax(y, axis=-1)
 
