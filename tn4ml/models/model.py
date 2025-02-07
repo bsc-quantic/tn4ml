@@ -305,16 +305,16 @@ class Model(qtn.TensorNetwork):
                 # supervised
                 dummy_targets = jnp.ones(shape=target_shape, dtype=targets_dtype)
 
-                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L)).lower(dummy_input, dummy_targets, *params)
-                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, 0] + [None] * self.L)).lower(dummy_input, dummy_targets, *params)
+                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L),backend=self.device).lower(dummy_input, dummy_targets, *params)
+                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, 0] + [None] * self.L), backend=self.device).lower(dummy_input, dummy_targets, *params)
             elif self.train_type == 2:
                 # with target TN
-                loss_ir = jax.jit(loss_fn).lower(None, None, *params)
-                grads_ir = jax.jit(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L)))).lower(None, None, *params)
+                loss_ir = jax.jit(loss_fn, backend=self.device).lower(None, None, *params)
+                grads_ir = jax.jit(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), backend=self.device).lower(None, None, *params)
             else:
                 # unsupervised
-                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L)).lower(dummy_input, None, *params)
-                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, None] + [None] * self.L)).lower(dummy_input, None, *params)
+                loss_ir = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L), backend=self.device).lower(dummy_input, None, *params)
+                grads_ir = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, None] + [None] * self.L), backend=self.device).lower(dummy_input, None, *params)
             
             self.cache["loss_compiled"] = loss_ir.compile()
             self.cache["grads_compiled"] = grads_ir.compile()
@@ -579,14 +579,14 @@ class Model(qtn.TensorNetwork):
             # Train without caching
             if isinstance(self.strategy, Sweeps):
                 if self.train_type == 0:
-                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None]))
-                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[2]), in_axes=[0, None, None]))
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None]), backend=self.device)
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[2]), in_axes=[0, None, None]), backend=self.device)
                 elif self.train_type == 1:
-                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None]))
-                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[2]), in_axes=[0, 0, None]))
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None]), backend=self.device)
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=[2]), in_axes=[0, 0, None]), backend=self.device)
                 elif self.train_type == 2:
-                    self.loss_func = jax.jit(loss_fn)
-                    self.grads_func = jax.jit(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))))
+                    self.loss_func = jax.jit(loss_fn, backend=self.device)
+                    self.grads_func = jax.jit(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), backend=self.device)
                 else:
                     raise ValueError("Specify type of training: 0 = 'unsupervised' or 1 ='supervised' or 2 = 'with target TN'!")
                 
@@ -611,14 +611,14 @@ class Model(qtn.TensorNetwork):
                     raise ValueError("Only Global Gradient Descent and DMRG Sweeping strategy is supported for now!")
                 
                 if self.train_type == 0:
-                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L))
-                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, None] + [None] * self.L))
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None] + [None]*self.L), backend=self.device)
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, None] + [None] * self.L), backend=self.device)
                 elif self.train_type == 1:
-                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L))
-                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, 0] + [None] * self.L))
+                    self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0] + [None]*self.L), backend=self.device)
+                    self.grads_func = jax.jit(jax.vmap(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), in_axes=[0, 0] + [None] * self.L), backend=self.device)
                 elif self.train_type == 2:
-                    self.loss_func = jax.jit(loss_fn)
-                    self.grads_func = jax.jit(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))))
+                    self.loss_func = jax.jit(loss_fn, backend=self.device)
+                    self.grads_func = jax.jit(jax.grad(loss_fn, argnums=(i + 2 for i in range(self.L))), backend=self.device)
                 else:
                     raise ValueError("Specify type of training: 0 = 'unsupervised' or 1 ='supervised' or 2 = 'with target TN'!")
                 
@@ -817,10 +817,10 @@ class Model(qtn.TensorNetwork):
                     if not hasattr(self, 'loss_func'):
                         if evaluate_type == 0:
                             # unsupervised
-                            self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None]))
+                            self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, None, None]), backend=self.device)
                         elif evaluate_type == 1:
                             # supervised
-                            self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None, None]))
+                            self.loss_func = jax.jit(jax.vmap(loss_fn, in_axes=[0, 0, None, None]), backend=self.device)
                         else:
                             raise ValueError("Specify type of evaluation: 0 = 'unsupervised' or 1 ='supervised'! If type is 2 then you cannot have input data!")                    
                     loss_curr = np.zeros((x.shape[0],))
@@ -863,7 +863,7 @@ class Model(qtn.TensorNetwork):
             assert evaluate_type == 2, "If inputs are not provided, evaluation type must be 2!"
             assert tn_target is not None, "If inputs are not provided, target tensor network must be provided!"
 
-            loss_func = jax.jit(loss_fn)
+            loss_func = jax.jit(loss_fn, backend=self.device)
             loss_value = loss_func(None, None, *params)
         return loss_value
     
