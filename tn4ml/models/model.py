@@ -10,7 +10,6 @@ import quimb as qu
 import autoray
 import optax
 import jax
-import flax.linen as nn
 
 from ..embeddings import *
 from ..strategy import *
@@ -62,7 +61,7 @@ class Model(qtn.TensorNetwork):
         self.gradient_transforms : Sequence = None
         self.opt_state : Any = None
         self.cache : dict = {}
-        self.device : str = "cpu"
+        self.device: str = 'cpu'
 
     def save(self, model_name: str, dir_name: str = '~', tn: bool = False):
         """ Saves :class:`tn4ml.models.Model` to pickle file.
@@ -115,7 +114,7 @@ class Model(qtn.TensorNetwork):
                     self.strategy = 'global'
                 else:
                     raise ValueError(f'Strategy "{value}" not found')
-            elif key in ["optimizer", "loss", "train_type", "learning_rate", "gradient_transforms"]:
+            elif key in ["optimizer", "loss", "train_type", "learning_rate", "gradient_transforms", "device"]:
                 setattr(self, key, value)
             else:
                 raise AttributeError(f"Attribute {key} not found")
@@ -133,8 +132,11 @@ class Model(qtn.TensorNetwork):
                 self.optimizer = self.optimizer(learning_rate = self.learning_rate)
             else:
                 self.optimizer = optax.adam(learning_rate=self.learning_rate)
+        
+        if self.device not in ['cpu', 'gpu']:
+            raise AttributeError("Device must be 'cpu' or 'gpu'!")
 
-    def predict(self, sample: Collection, embedding: Embedding = trigonometric(), return_tn: bool = False):
+    def predict(self, sample: Collection, embedding: Embedding = trigonometric(), return_tn: bool = False, normalize: bool = False):
         """ Predicts the output of the model.
         
         Parameters
@@ -166,10 +168,12 @@ class Model(qtn.TensorNetwork):
             return output
         else:
             output = output.contract(all, optimize='auto-hq')
-            output = output.squeeze()
-            return output.data
+            y_pred = output.squeeze().data
+            if normalize:
+                y_pred = y_pred/jnp.linalg.norm(y_pred)
+            return y_pred
         
-    def forward(self, data: jnp.ndarray, embedding: Embedding = trigonometric(), batch_size: int=64) -> Collection:
+    def forward(self, data: jnp.ndarray, embedding: Embedding = trigonometric(), batch_size: int=64, normalize: bool = False, dtype: Any = jnp.float_) -> Collection:
         """ Forward pass of the model.
 
         Parameters
@@ -190,15 +194,15 @@ class Model(qtn.TensorNetwork):
         """
         
         outputs = []
-        for batch_data in _batch_iterator(data, batch_size=batch_size):
+        for batch_data in _batch_iterator(data, batch_size=batch_size, shuffle=False, dtype=dtype):
             x = jnp.array(batch_data, dtype=jnp.float64)
             
-            output = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None))(x, embedding, False)))
+            output = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None, None))(x, embedding, False, normalize)))
             outputs.append(output)
         
         return jnp.concatenate(outputs, axis=0)
     
-    def accuracy(self, data: jnp.ndarray, y_true: jnp.array = None, embedding: Embedding = trigonometric(), batch_size: int=64, dtype:Any = jnp.float_) -> Number:
+    def accuracy(self, data: jnp.ndarray, y_true: jnp.array = None, embedding: Embedding = trigonometric(), batch_size: int=64, shuffle: bool = False, normalize: bool = False, dtype:Any = jnp.float_) -> Number:
         """ Calculates accuracy for supervised learning.
         
         Parameters
@@ -213,6 +217,10 @@ class Model(qtn.TensorNetwork):
             Data embedding function.
         batch_size: int
             Batch size for data processing.
+        normalize: bool
+            If True, the model output is normalized in predict function.
+        dtype: Any
+            Data type of input data.
         
         Returns
         -------
@@ -224,11 +232,11 @@ class Model(qtn.TensorNetwork):
 
         correct_predictions = 0
         num_samples = 0
-        for batch_data in _batch_iterator(data, y_true, batch_size=batch_size):
+        for batch_data in _batch_iterator(data, y_true, batch_size=batch_size, shuffle=shuffle, dtype=dtype):
             x, y = batch_data
             x, y = jnp.array(x, dtype=dtype), jnp.array(y)
 
-            y_pred = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None))(x, embedding, False)))
+            y_pred = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None, None))(x, embedding, False, normalize)))
             predicted = jnp.argmax(y_pred, axis=-1)
             true = jnp.argmax(y, axis=-1)
 
@@ -850,7 +858,7 @@ class Model(qtn.TensorNetwork):
             if return_list:
                 return np.array(loss)
             
-            loss_value = loss_value / (len(inputs)//self.batch_size)
+            loss_value = loss_value / (len(inputs)//batch_size)
         else:
             assert evaluate_type == 2, "If inputs are not provided, evaluation type must be 2!"
             assert tn_target is not None, "If inputs are not provided, target tensor network must be provided!"
