@@ -71,7 +71,7 @@ def plot_accuracy(history: dict, figsize: tuple =(5, 5), save_path: str = None, 
         plt.show()
     plt.close()
 
-def get_roc_curve_data(y_true: np.ndarray, y_scores: np.ndarray):
+def get_roc_curve_data(y_true: np.ndarray, y_scores: np.ndarray, anomaly_det: bool = False):
     """
     Calculate the ROC curve data from normal and anomaly scores. Use it when both y_true and y_scores are not binary.
 
@@ -81,6 +81,8 @@ def get_roc_curve_data(y_true: np.ndarray, y_scores: np.ndarray):
         True or normal scores.
     y_scores: :class:`numpy.ndarray`
         Predicted scores or anomaly scores.
+    anomaly: bool
+        Whether the scores are anomaly scores or
     
     Returns
     -------
@@ -89,12 +91,17 @@ def get_roc_curve_data(y_true: np.ndarray, y_scores: np.ndarray):
     tpr_loss: :class:`numpy.ndarray`
         True positive rate values.
     """
-    true_val = np.concatenate((np.ones(y_scores.shape[0]), np.zeros(y_true.shape[0])))
-    pred_val = np.concatenate((y_scores, y_true))
+    if anomaly_det:
+        true_val = np.concatenate((np.ones(y_scores.shape[0]), np.zeros(y_true.shape[0])))
+        pred_val = np.concatenate((y_scores, y_true))
+    else:
+        true_val = y_true
+        pred_val = y_scores
+    
     fpr, tpr, _ = roc_curve(true_val, pred_val, drop_intermediate=False)
     return fpr, tpr
 
-def get_precision_recall_curve_data(y_true: np.ndarray, y_scores: np.ndarray):
+def get_precision_recall_curve_data(y_true: np.ndarray, y_scores: np.ndarray, anomaly_det: bool = False):
     """
     Calculate the ROC curve data from normal and anomaly scores. Use it when both y_true and y_scores are not binary.
 
@@ -112,8 +119,12 @@ def get_precision_recall_curve_data(y_true: np.ndarray, y_scores: np.ndarray):
     tpr_loss: :class:`numpy.ndarray`
         True positive rate values.
     """
-    true_val = np.concatenate((np.ones(y_scores.shape[0]), np.zeros(y_true.shape[0])))
-    pred_val = np.concatenate((y_scores, y_true))
+    if anomaly_det:
+        true_val = np.concatenate((np.ones(y_scores.shape[0]), np.zeros(y_true.shape[0])))
+        pred_val = np.concatenate((y_scores, y_true))
+    else:
+        true_val = y_true
+        pred_val = y_scores
     precision, recall, _ = precision_recall_curve(true_val, pred_val, drop_intermediate=False)
     return precision, recall
 
