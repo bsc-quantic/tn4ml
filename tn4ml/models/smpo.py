@@ -178,7 +178,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         tensors = [qtn.Tensor(data=a.transpose(array, order), inds=ind, tags=site_tag) for array, site_tag, ind, order in zip(arrays, site_tags, inds, orders)]
         qtn.TensorNetwork.__init__(self, tensors, virtual=True, **tn_opts)
 
-    def normalize(self, insert=None) -> None:
+    def normalize(self, insert=None, output_inds=None) -> None:
         """Function for normalizing tensors of :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
 
         Parameters
@@ -186,8 +186,8 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         insert : int
             Index of tensor divided by norm. *Default = None*. When `None` the norm division is distributed across all tensors.
         """
-        norm = self.norm()
-        
+        norm = self.norm(output_inds=output_inds)
+
         if insert == None:
             for tensor in self.tensors:
                 tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
@@ -383,6 +383,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         for tag in A.site_tags:
             tn.contract_tags([tag], inplace=True)
+            
 
         # optionally compress
         if compress:
@@ -636,7 +637,7 @@ def SMPO_initialize(L: int,
                     identity = jnp.broadcast_to(identity, (copy_tensor.shape[0], copy_tensor.shape[1], copy_tensor.shape[3]))
                     copy_tensor.at[:, :, 0, :].set(identity)
                     tensor = copy_tensor
-        
+                
         if boundary == 'obc':
             aux_tensor = jnp.zeros(tensor.shape, dtype=dtype)
             if len(tensor.shape) == 3:
@@ -657,8 +658,7 @@ def SMPO_initialize(L: int,
                     # Right node
                     aux_tensor = aux_tensor.at[0,:,:,:].set(tensor[0,:,:,:])
                     tensor = aux_tensor
-
-        tensors.append(jnp.squeeze(tensor))
+        tensors.append(jnp.squeeze(tensor)/jnp.linalg.norm(tensor))
     
     if insert and insert < L and shape_method == 'even':
         tensors[insert] /= np.sqrt(min(bond_dim, phys_dim[0]))
@@ -668,10 +668,25 @@ def SMPO_initialize(L: int,
     if compress:
         smpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
-    if canonical_center is None:
-        smpo.normalize()
+    if L > 200:
+        for i, tensor in enumerate(smpo.tensors):
+            if i == 0:
+                smpo.left_canonize_site(i)
+            elif i == L - 1:
+                tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+            else:
+                tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                smpo.left_canonize_site(i)
+        
+        if canonical_center is not None:
+            smpo.canonicalize(canonical_center, inplace=True)
+            smpo.normalize(insert=canonical_center, output_inds=output_inds)
+        
     else:
-        smpo.canonicalize(canonical_center, inplace=True)
-        smpo.normalize(canonical_center)
+        if canonical_center is None:
+            smpo.normalize(output_inds=output_inds)
+        else:
+            smpo.canonicalize(canonical_center, inplace=True)
+            smpo.normalize(insert=canonical_center, output_inds=output_inds)
     
     return smpo

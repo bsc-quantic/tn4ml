@@ -232,10 +232,23 @@ def MPO_initialize(L: int,
     if compress and shape_method == 'even':
         mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
-    if canonical_center == None:
-        mpo.normalize()
+    if L > 200:
+        for i, tensor in enumerate(mpo.tensors):
+            if i == 0:
+                mpo.left_canonize_site(i)
+            elif i == L - 1:
+                tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+            else:
+                tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                mpo.left_canonize_site(i)
+        if canonical_center is not None:
+            mpo.canonicalize(canonical_center, inplace=True)
+            mpo.normalize(insert=canonical_center)
     else:
-        mpo.canonicalize(canonical_center, inplace=True)
-        mpo.normalize(insert = canonical_center)
+        if canonical_center == None:
+            mpo.normalize()
+        else:
+            mpo.canonicalize(canonical_center, inplace=True)
+            mpo.normalize(insert = canonical_center)
     
     return mpo

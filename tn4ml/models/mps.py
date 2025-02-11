@@ -301,12 +301,26 @@ def MPS_initialize(L: int,
             
             mps = TensorNetwork(tensors, cyclic=cyclic, site_tag_id=tags_id, **kwargs)
 
-            # normalize
-            if canonical_center is None:
-                mps.normalize()
+            if L > 200:
+                for i, tensor in enumerate(mps.tensors):
+                    if i == 0:
+                        mps.left_canonize_site(i)
+                    elif i == L - 1:
+                        tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                    else:
+                        tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                        mps.left_canonize_site(i)
+
+                if canonical_center is not None:
+                    mps.canonicalize(canonical_center, inplace=True)
+                    mps.normalize(insert=canonical_center)
             else:
-                mps.canonize(canonical_center, inplace=True)
-                mps.normalize(insert = canonical_center)
+                # normalize
+                if canonical_center is None:
+                    mps.normalize()
+                else:
+                    mps.canonize(canonical_center, inplace=True)
+                    mps.normalize(insert = canonical_center)
         else:
             # MPS for regression
             if arrays is not None:
@@ -355,12 +369,26 @@ def MPS_initialize(L: int,
                     mps.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
                 else:
                     raise ValueError('Compress only works with shape_method = "even".')
-                
-            if canonical_center is None:
-                norm = mps.norm()
-                for tensor in mps.tensors:
-                    tensor.modify(data=tensor.data / a.do("power", norm, 1 / L))
+            
+            if L > 200:
+                for i, tensor in enumerate(mps.tensors):
+                    if i == 0:
+                        mps.left_canonize_site(i)
+                    elif i == L - 1:
+                        tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                    else:
+                        tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                        mps.left_canonize_site(i)
+
+                if canonical_center is not None:
+                    mps.canonicalize(canonical_center, inplace=True)
+                    mps.normalize(insert=canonical_center)
             else:
-                mps.canonicalize(canonical_center, inplace=True)
-                mps.normalize(insert = canonical_center)
+                if canonical_center is None:
+                    norm = mps.norm()
+                    for tensor in mps.tensors:
+                        tensor.modify(data=tensor.data / a.do("power", norm, 1 / L))
+                else:
+                    mps.canonicalize(canonical_center, inplace=True)
+                    mps.normalize(insert = canonical_center)
         return mps
