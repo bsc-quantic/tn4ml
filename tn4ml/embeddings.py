@@ -872,8 +872,19 @@ def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToM
         mps = phi(x)
     
     # normalize
-    norm = mps.norm()
-    for tensor in mps.tensors:
-        tensor.modify(data=tensor.data / a.do("power", norm, 1 / len(mps.tensors)))
+
+    if len(mps.tensors) > 200: # for large systems
+        for i, tensor in enumerate(mps.tensors):
+            if i == 0:
+                mps.left_canonize_site(i)
+            elif i == len(mps.tensors) - 1:
+                tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+            else:
+                tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                mps.left_canonize_site(i)
+    else:
+        norm = mps.norm()
+        for tensor in mps.tensors:
+            tensor.modify(data=tensor.data / a.do("power", norm, 1 / len(mps.tensors)))
 
     return mps
