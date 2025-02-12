@@ -46,7 +46,6 @@ class MatrixProductState(Model, qtn.MatrixProductState):
                 else:
                     tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
                     self.left_canonize_site(i)
-            jax.debug.print("{x}", x=self.norm())
         else:
             norm = self.norm()
             if insert == None:
