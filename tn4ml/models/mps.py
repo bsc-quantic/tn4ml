@@ -35,6 +35,25 @@ class MatrixProductState(Model, qtn.MatrixProductState):
         
         Model.__init__(self)
         qtn.MatrixProductState.__init__(self, arrays, **kwargs)
+    
+    def normalize(self, insert=None):
+        if self.L > 195:  # for large systems
+            for i, tensor in enumerate(self.tensors):
+                if i == 0:
+                    self.left_canonize_site(i)
+                elif i == self.L - 1:
+                    tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                else:
+                    tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                    self.left_canonize_site(i)
+            jax.debug.print("{x}", x=self.norm())
+        else:
+            norm = self.norm()
+            if insert == None:
+                for tensor in self.tensors:
+                    tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
+            else:
+                self.tensors[insert].modify(data=self.tensors[insert].data / norm)
         
 def trainable_wrapper(mps: qtn.MatrixProductState, **kwargs) -> MatrixProductState:
     """ Creates a wrapper around qtn.MatrixProductState so it can be trainable.
@@ -301,7 +320,7 @@ def MPS_initialize(L: int,
             
             mps = TensorNetwork(tensors, cyclic=cyclic, site_tag_id=tags_id, **kwargs)
 
-            if L > 200:
+            if L > 200:  # for large systems
                 for i, tensor in enumerate(mps.tensors):
                     if i == 0:
                         mps.left_canonize_site(i)
@@ -370,7 +389,7 @@ def MPS_initialize(L: int,
                 else:
                     raise ValueError('Compress only works with shape_method = "even".')
             
-            if L > 200:
+            if L > 195:  # for large systems
                 for i, tensor in enumerate(mps.tensors):
                     if i == 0:
                         mps.left_canonize_site(i)

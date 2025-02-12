@@ -31,25 +31,22 @@ class MatrixProductOperator(Model, qtn.MatrixProductOperator):
         insert : int
             Index of tensor divided by norm. *Default = None*. When `None` the norm division is distributed across all tensors.
         """
-        norm = self.norm()
-        if insert == None:
-            for tensor in self.tensors:
-                tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
+        if self.L > 200: # for large systems
+            for i, tensor in enumerate(self.tensors):
+                if i == 0:
+                    self.left_canonize_site(i)
+                elif i == self.L - 1:
+                    tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                else:
+                    tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                    self.left_canonize_site(i)
         else:
-            self.tensors[insert].modify(data=self.tensors[insert].data / norm)
-    
-    # def copy(self):
-    #     """Copies the model.
-        
-    #     Returns
-    #     -------
-    #     Model of the same type.
-    #     """
-
-    #     model = self.copy()
-    #     for key in self.__dict__.keys():
-    #         model.__dict__[key] = self.__dict__[key]
-    #     return model
+            norm = self.norm()
+            if insert == None:
+                for tensor in self.tensors:
+                    tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
+            else:
+                self.tensors[insert].modify(data=self.tensors[insert].data / norm)
     
 def trainable_wrapper(mps: qtn.MatrixProductOperator, **kwargs) -> MatrixProductOperator:
     """ Creates a wrapper around qtn.MatrixProductOperator so it can be trainable.
@@ -232,7 +229,7 @@ def MPO_initialize(L: int,
     if compress and shape_method == 'even':
         mpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
-    if L > 200:
+    if L > 200:  # for large systems
         for i, tensor in enumerate(mpo.tensors):
             if i == 0:
                 mpo.left_canonize_site(i)

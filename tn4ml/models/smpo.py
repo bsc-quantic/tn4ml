@@ -186,13 +186,25 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
         insert : int
             Index of tensor divided by norm. *Default = None*. When `None` the norm division is distributed across all tensors.
         """
-        norm = self.norm(output_inds=output_inds)
 
-        if insert == None:
-            for tensor in self.tensors:
-                tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
+        if self.L > 200:  # for large systems
+            for i, tensor in enumerate(self.tensors):
+                if i == 0:
+                    self.left_canonize_site(i)
+                elif i == self.L - 1:
+                    tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                else:
+                    tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                    self.left_canonize_site(i)
+            jax.debug.print("{x}", x=self.norm())
         else:
-            self.tensors[insert].modify(data=self.tensors[insert].data / norm)
+            norm = self.norm(output_inds=output_inds)
+
+            if insert == None:
+                for tensor in self.tensors:
+                    tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
+            else:
+                self.tensors[insert].modify(data=self.tensors[insert].data / norm)
 
     def norm(self, **contract_opts) -> float:
         """Calculates norm of :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`.
@@ -668,7 +680,7 @@ def SMPO_initialize(L: int,
     if compress:
         smpo.compress(form="flat", max_bond=bond_dim)  # limit bond_dim
 
-    if L > 200:
+    if L > 200:  # for large systems
         for i, tensor in enumerate(smpo.tensors):
             if i == 0:
                 smpo.left_canonize_site(i)

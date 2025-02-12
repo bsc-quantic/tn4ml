@@ -664,9 +664,6 @@ class Model(qtn.TensorNetwork):
                         loss_batch += loss_curr
 
                         if normalize:
-                            if math.isclose(self.norm(), 0.0):
-                                finish = True
-                                break
                             self.normalize()
 
                         if canonize[0]:

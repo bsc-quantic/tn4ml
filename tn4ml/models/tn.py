@@ -85,15 +85,25 @@ class TensorNetwork(Model, qtn.tensor_1d.TensorNetwork1DFlat):
         if not self.tensors:
             raise ValueError("The tensor network is empty.")
         
-        norm = self.norm()
-        
-        if insert == None:
-            for tensor in self.tensors:
-                tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
+        if self.L > 200:  # for large systems
+            for i, tensor in enumerate(self.tensors):
+                if i == 0:
+                    self.left_canonize_site(i)
+                elif i == self.L - 1:
+                    tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                else:
+                    tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
+                    self.left_canonize_site(i)
         else:
-            if not (0 <= insert < len(self.tensors)):
-                raise IndexError(f"Insert index {insert} is out of bounds for the tensor list.")
-            self.tensors[insert].modify(data=self.tensors[insert].data / norm)
+            norm = self.norm()
+        
+            if insert == None:
+                for tensor in self.tensors:
+                    tensor.modify(data=tensor.data / a.do("power", norm, 1 / self.L))
+            else:
+                if not (0 <= insert < len(self.tensors)):
+                    raise IndexError(f"Insert index {insert} is out of bounds for the tensor list.")
+                self.tensors[insert].modify(data=self.tensors[insert].data / norm)
     
 def trainable_wrapper(tn: qtn.tensor_1d.TensorNetwork1DFlat, **kwargs) -> qtn.tensor_1d.TensorNetwork1DFlat:
     """ Creates a wrapper around qtn.tensor_1d.TensorNetwork1DFlat so it can be trainable.
