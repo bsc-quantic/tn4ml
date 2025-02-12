@@ -37,7 +37,7 @@ class MatrixProductState(Model, qtn.MatrixProductState):
         qtn.MatrixProductState.__init__(self, arrays, **kwargs)
     
     def normalize(self, insert=None):
-        if self.L > 195:  # for large systems
+        if self.L > 200:  # for large systems
             for i, tensor in enumerate(self.tensors):
                 if i == 0:
                     self.left_canonize_site(i)
@@ -389,7 +389,7 @@ def MPS_initialize(L: int,
                 else:
                     raise ValueError('Compress only works with shape_method = "even".')
             
-            if L > 195:  # for large systems
+            if L > 200:  # for large systems
                 for i, tensor in enumerate(mps.tensors):
                     if i == 0:
                         mps.left_canonize_site(i)
