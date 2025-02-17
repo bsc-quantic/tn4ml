@@ -872,7 +872,6 @@ def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToM
         mps = phi(x)
     
     # normalize
-
     if len(mps.tensors) > 200: # for large systems
         for i, tensor in enumerate(mps.tensors):
             if i == 0:
