@@ -670,6 +670,7 @@ class Model(qtn.TensorNetwork):
                             self.canonicalize(canonize[1], inplace=True)
 
                     loss_epoch = loss_batch/n_batches
+                    loss_epoch = loss_epoch.item()
 
                     self.history['loss'].append(loss_epoch)
 
@@ -703,8 +704,9 @@ class Model(qtn.TensorNetwork):
                             else:
                                 current = sum(self.history[earlystop.monitor][-num_batches:])/num_batches
                             return_value = earlystop.on_end_epoch(current, epoch)
-
-                outerbar.update()
+                if epoch == 0:
+                    outerbar.bar_format = "{l_bar}{bar} {n_fmt}/{total_fmt} {postfix}"
+                
                 if val_inputs is not None:
                     if display_val_acc:
                         outerbar.set_postfix({'loss': f'{loss_epoch:.4f}', 'val_loss': f'{self.history["val_loss"][-1]:.4f}', 'val_acc': f'{self.history["val_acc"][-1]:.4f}'})
@@ -712,6 +714,8 @@ class Model(qtn.TensorNetwork):
                         outerbar.set_postfix({'loss': loss_epoch, 'val_loss': f'{self.history["val_loss"][-1]:.4f}'})
                 else:
                     outerbar.set_postfix({'loss': f'{loss_epoch:.4f}'})
+                
+                outerbar.update()
 
                 if earlystop:
                     if return_value == 1:
@@ -862,7 +866,7 @@ class Model(qtn.TensorNetwork):
 
             loss_func = jax.jit(loss_fn, backend=self.device)
             loss_value = loss_func(None, None, *params)
-        return loss_value
+        return loss_value.item()
     
     def convert_to_pytree(self):
         """ Converts tensor network to pytree structure and returns its skeleon.
