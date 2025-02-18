@@ -51,22 +51,15 @@ def check_orthonormal_vectors(Q, type='rows', atol=1e-6):
         
         return True
 
-@pytest.mark.parametrize("type,std,shape", [
-        ('bond', 1e-6, (1,2,2)),
-        ('bond', 1e-6, (5,5,2)),
-        ('bond', 1e-6, (1,5,5)),
-        ('copy', 1e-7, (1,2,3)),
-        ('copy', 1e-7, (2,2,4)),
-        ('copy', 1e-7, (5,2,5)),
-        ('bond', 1e-7, (1,5,5)),
-        ('bond', 1e-8, (5,1,5)),
-        ('copy', 1e-6, (5,5,2,3)),
-        ('bond', 1e-6, (5,5,2,3)),
-        ('copy', None, (5,5,2)),
-        ('bond', None, (5,5,2))
+@pytest.mark.parametrize("std,mean,shape", [
+        (1.0, 0.0, (1,2,2)),
+        (1e-9, 1e-6, (5,5,2,3)),
+        (0.5, 1e-6, (5,5,2,3)),
+        (1e-9, None, (5,5,2)),
+        (0.5, None, (5,5,2))
         ])
-def test_identity_init(type, std, shape):
-    initializer = tn4ml.initializers.identity_init(type, std)
+def test_identity_init(std, mean, shape):
+    initializer = tn4ml.initializers.randn(std, mean)
     Q = initializer(jax.random.key(42), shape, jnp.float32)
     assert Q != None
 
@@ -84,10 +77,21 @@ def test_identity_init(type, std, shape):
     ('normal', 1e-3, (5, 5, 2, 3))
 ])
 def test_gramschmidt_init(dist, scale, shape):
-    initializer = tn4ml.initializers.gramschmidt_init(dist, scale)
+    initializer = tn4ml.initializers.gramschmidt(dist, scale)
     Q = initializer(jax.random.key(42), shape, jnp.float32)
     matrix_shape = shape[0], np.prod(shape[1:])
 
     Q = Q.reshape(matrix_shape)
     assert check_orthonormal_vectors(Q, 'rows')
+    assert Q != None
+
+
+@pytest.mark.parametrize("shape", [
+        ((1,2,2)),
+        ((5,5,2,3)),
+        ((5,5,2))
+        ])
+def test_identity_init(shape):
+    initializer = tn4ml.initializers.randn()
+    Q = initializer(jax.random.key(42), shape, jnp.float32)
     assert Q != None

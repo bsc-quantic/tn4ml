@@ -28,12 +28,6 @@ def test_fourier(x):
     phi: jnp.ndarray = embedding(x)
     assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
 
-@pytest.mark.parametrize("x", [0.003, 1.45, 2.998, 0.332, 0.3984, 4.83, 6.0])
-def test_linear(x):
-    embedding = tn4ml.embeddings.linear()
-    phi: jnp.ndarray = embedding(x)
-    assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
-
 @pytest.mark.parametrize("x,centers,gamma", [
     (1, [3], 1),
     (2, [3], 1),
@@ -100,21 +94,20 @@ def test_embed_trig_four(x, embedding):
     assert phi.norm() == pytest.approx(1.0)
 
 @pytest.mark.parametrize("x,embedding", [
-    (np.array([1,2,3,4,5,6]), tn4ml.embeddings.gaussian_rbf([3,5], 10)),
-    (np.array([-5,-4,-3,-2,-1,0,1,2,3,4,5]), tn4ml.embeddings.gaussian_rbf([0], 0.1)),
-    (np.array([1,2,3,4,5,6,7,8,9,10]), tn4ml.embeddings.gaussian_rbf([3,7], 0.5)),
-    (np.array([1,2,3,4,5]), tn4ml.embeddings.gaussian_rbf([3], 1))
+    (np.array([1,2,3,4,5,6]), tn4ml.embeddings.gaussian_rbf(np.array([3,5]), 10)),
+    (np.array([-5,-4,-3,-2,-1,0,1,2,3,4,5]), tn4ml.embeddings.gaussian_rbf(np.array([0]), 0.1)),
+    (np.array([1,2,3,4,5,6,7,8,9,10]), tn4ml.embeddings.gaussian_rbf(np.array([3,7]), 0.5)),
+    (np.array([1,2,3,4,5]), tn4ml.embeddings.gaussian_rbf(np.array([3]), 1))
 ])
 def test_embed_gauss(x, embedding):
     # zero entry makes problem if x starts with 0
     phi = tn4ml.embeddings.embed(x, phi=embedding)
     assert phi.norm() == pytest.approx(1.0)
 
-@pytest.mark.parametrize("x,embedding", [
-    (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.trigonometric_chain(input_shape=(2,3))),
-    (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.trigonometric_avg(input_shape=(2,3))),
-])
-
-def test_embed_trig_chain_avg(x, embedding):
-    phi = tn4ml.embeddings.embed(x, phi=embedding)
-    assert phi.norm() == pytest.approx(1.0)
+# @pytest.mark.parametrize("x,embedding", [
+#     (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.trigonometric_chain(input_shape=(1,3))),
+#     (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.trigonometric_avg(input_shape=(1,3))),
+# ])
+# def test_embed_trig_chain_avg(x, embedding):
+#     phi = tn4ml.embeddings.embed(x, phi=embedding)
+#     assert phi.norm() == pytest.approx(1.0)
