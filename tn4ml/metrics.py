@@ -135,8 +135,8 @@ def LogReLUFrobNorm(model) -> Number:
         norm = tn.contract_cumulative(tn.site_tags)
     else:
         norm = model.norm()
-
-    return jax.lax.max(0.0, jax.lax.log(norm))
+    
+    return jax.lax.max(0.0, jax.lax.log(norm).astype(jnp.float64))
 
 def QuadFrobNorm(model) -> Number:
     """Regularization cost using the quadratic formula centered in 1 of the Frobenius-norm of `model`.
