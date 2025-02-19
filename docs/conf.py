@@ -11,7 +11,6 @@
 #
 import os
 import inspect
-import tn4ml
 
 def linkcode_resolve(domain, info):
     if domain != 'py' or not info['module']:

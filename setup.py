@@ -52,6 +52,7 @@ setup(
             "sphinx-book-theme",
             "ipykernel",
             "nbsphinx",
+            'myst-parser',
             "sphinxcontrib-bibtex",
             "sphinxcontrib-devhelp",
             "sphinxcontrib-htmlhelp",
@@ -62,6 +63,7 @@ setup(
             "sphinx-copybutton",
             "sphinx-gallery",
             "tensorflow",
+            "matplotlib",
         ],
         "test": [
             "pytest",
