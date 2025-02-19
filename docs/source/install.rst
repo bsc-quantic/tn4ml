@@ -40,7 +40,7 @@ First create a virtualenv using `pyenv` or `conda`.
     pytest
 
 
-**Accelerated runtime** <br>
+**Accelerated runtime**
 
 (Optional) To improve runtime precision set these flags:
 .. code-block:: python
@@ -50,9 +50,9 @@ First create a virtualenv using `pyenv` or `conda`.
     jax.config.update('jax_default_matmul_precision', 'highest')
 
 
-**Running on GPU**<br>
+**Running on GPU**
 Before everything install `JAX` version that supports CUDA and its suitable for runs on GPU.
-Checkout how to install here: `jax[cuda] <https://docs.jax.dev/en/latest/installation.html#pip-installation-nvidia-gpu-cuda-installed-via-pip-easier>`.
+Checkout how to install here: `jax\[cuda\] <https://docs.jax.dev/en/latest/installation.html#pip-installation-nvidia-gpu-cuda-installed-via-pip-easier>`_.
 
 Next, at the beginning of your script set:
 

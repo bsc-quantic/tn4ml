@@ -11,7 +11,7 @@
 #
 import os
 import inspect
-import tn4ml  # Replace with your package name
+import tn4ml
 
 def linkcode_resolve(domain, info):
     if domain != 'py' or not info['module']:
@@ -57,7 +57,7 @@ if os.environ.get("READTHEDOCS", "") == "True":
 project = 'tn4ml'
 copyright = '2024, Barcelona Supercomputing Center - Centro Nacional de Supercomputación'
 author = 'Ema Puljak, Sergio Sánchez Ramírez, Sergi Masor Llima, Jofre Vallès-Muns'
-release = '1.0.2'
+release = '1.0.4'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -73,6 +73,9 @@ extensions = [
     'sphinx.ext.linkcode'  # For custom links to source code
     # "sphinx_gallery.gen_gallery",
 ]
+# Optional: Automatically generate autodoc stubs
+autosummary_generate = True
+
 
 # path to the examples scripts
 # sphinx_gallery_conf = {

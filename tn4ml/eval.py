@@ -345,10 +345,13 @@ def compare_AUC(save_dir: str = '.',
     Example of code to compare the TPR values for fixed FPR for different values of hyperparameters, when spacing parameter is fixed.
     - code for generating plots from the paper "tn4ml: Tensor Network Training and Customization for Machine Learning"
 
-    This works with the results saved in the directory structure as follows:
-    ```root_dir/initializer_string/bond_' + str(bond_dim) + '/spacing_' + str(spacing) + '/' + embedding_string+'/run_' + str(nrun)```
+    This works with the results saved in the directory structure as follows::
 
-    example: ```root_dir/randn_1e-1/bond_10/spacing_2/trigonometric/run_1```
+        root_dir/initializer_string/bond_' + str(bond_dim) + '/spacing_' + str(spacing) + '/' + embedding_string+'/run_' + str(nrun)
+
+    Example::
+
+        root_dir/randn_1e-1/bond_10/spacing_2/trigonometric/run_1
     
     Parameters
     ----------
@@ -368,11 +371,12 @@ def compare_AUC(save_dir: str = '.',
         Size of the figure.
     labels: dict
         Dictionary containing the labels for the bond dimensions
-        Example: 
-        LABELS = {'5': (r'bond = 5', 'o', '#016c59'),
-                  '10': (r'bond = 10','X', '#7a5195'),
-                  '30': (r'bond = 30', 'v', '#67a9cf'),
-                  '50': (r'bond = 50', 'd', '#ffa600')}
+        Example::
+            
+            LABELS = {'5': (r'bond = 5', 'o', '#016c59'),
+                    '10': (r'bond = 10','X', '#7a5195'),
+                    '30': (r'bond = 30', 'v', '#67a9cf'),
+                    '50': (r'bond = 50', 'd', '#ffa600')}
 
     Returns
     -------
@@ -433,41 +437,46 @@ def compare_TPR_per_FPR(save_dir: str = '.',
                 labels: dict = None):
     """
     Example of code to compare the TPR values for fixed FPR for different values of hyperparameters, when spacing parameter is fixed.
-    - code for generating plots from the paper "tn4ml: Tensor Network Training and Customization for Machine Learning"
 
-    This works with the results saved in the directory structure as follows:
-    ```root_dir/initializer_string/bond_' + str(bond_dim) + '/spacing_' + str(spacing) + '/' + embedding_string+'/run_' + str(nrun)```
+    This works with the results saved in the directory structure as follows::
 
-    example: ```root_dir/randn_1e-1/bond_10/spacing_2/trigonometric/run_1```
-    
+        root_dir/initializer_string/bond_<bond_dim>/spacing_<spacing>/<embedding_string>/run_<nrun>
+
+    Example::
+
+        root_dir/randn_1e-1/bond_10/spacing_2/trigonometric/run_1
+
     Parameters
     ----------
-    save_dir: str
+    save_dir : str
         Directory where the results are saved.
-    FPR_fixed: float
+    FPR_fixed : float
         Fixed FPR value.
-    bond_dims: list[int]
+    bond_dims : list[int]
         List of bond dimensions.
-    spacings: list[int]
+    spacings : list[int]
         List of spacing values. If model is :class:`tn4ml.models.smpo.SpacedMatrixProductOperator`, then spacing is required.
-    initializers: list[str]
+    initializers : list[str]
         List of initializers.
-    embedding: str
-        List of embeddings.
-    nruns: int
+    embedding : str
+        Embedding method used.
+    nruns : int
         Number of runs for each model. Assumes that the model is run at least 2 times.
-    fig_size: tuple
+    fig_size : tuple
         Size of the figure.
-    labels: dict
-        Dictionary containing the labels for the bond dimensions
-        Example: 
-        LABELS = {'5': (r'bond = 5', 'o', '#016c59'),
-                  '10': (r'bond = 10','X', '#7a5195'),
-                  '30': (r'bond = 30', 'v', '#67a9cf'),
-                  '50': (r'bond = 50', 'd', '#ffa600')}
+    labels : dict
+        Dictionary containing the labels for the bond dimensions.
+
+        Example::
+
+            LABELS = {'5': (r'bond = 5', 'o', '#016c59'),
+                    '10': (r'bond = 10', 'X', '#7a5195'),
+                    '30': (r'bond = 30', 'v', '#67a9cf'),
+                    '50': (r'bond = 50', 'd', '#ffa600')}
 
     Returns
     -------
+    None
         Displays or saves the plot.
     """
 
@@ -528,10 +537,13 @@ def compare_FPR_per_TPR(save_dir: str = '.',
     Example of code to compare the FPR values for fixed TPR for different values of hyperparameters, when spacing parameter is fixed.
     - code for generating plots from the paper "tn4ml: Tensor Network Training and Customization for Machine Learning"
 
-    This works with the results saved in the directory structure as follows:
-    ```root_dir/initializer_string/bond_' + str(bond_dim) + '/spacing_' + str(spacing) + '/' + embedding_string+'/run_' + str(nrun)```
+    This works with the results saved in the directory structure as follows::
+        
+        root_dir/initializer_string/bond_' + str(bond_dim) + '/spacing_' + str(spacing) + '/' + embedding_string+'/run_' + str(nrun)
 
-    example: ```root_dir/randn_1e-1/bond_10/spacing_2/trigonometric/run_1```
+    Example::
+        
+        root_dir/randn_1e-1/bond_10/spacing_2/trigonometric/run_1
     
     Parameters
     ----------
@@ -553,11 +565,12 @@ def compare_FPR_per_TPR(save_dir: str = '.',
         Size of the figure.
     labels: dict
         Dictionary containing the labels for the bond dimensions
-        Example: 
-        LABELS = {'5': (r'bond = 5', 'o', '#016c59'),
-                  '10': (r'bond = 10','X', '#7a5195'),
-                  '30': (r'bond = 30', 'v', '#67a9cf'),
-                  '50': (r'bond = 50', 'd', '#ffa600')}
+        Example:: 
+            
+            LABELS = {'5': (r'bond = 5', 'o', '#016c59'),
+                    '10': (r'bond = 10','X', '#7a5195'),
+                    '30': (r'bond = 30', 'v', '#67a9cf'),
+                    '50': (r'bond = 50', 'd', '#ffa600')}
 
     Returns
     -------

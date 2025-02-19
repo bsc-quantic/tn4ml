@@ -371,8 +371,8 @@ class jax_arrays(Embedding):
     
     Attributes
     ----------
-    dim: int
-        Dimension of input 
+    add_bias: bool
+        Add bias term (1.0)
     """
     def __init__(self, dim: int = None, add_bias: bool = False, **kwargs):
         super().__init__(**kwargs)
@@ -381,6 +381,7 @@ class jax_arrays(Embedding):
 
     @property
     def dim(self) -> int:
+        """ Mapping dimension """
         return self._dim
     
     def __call__(self, x: Any) -> jnp.ndarray:

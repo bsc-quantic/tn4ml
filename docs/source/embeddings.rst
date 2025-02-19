@@ -16,6 +16,7 @@ Fourier
 .. autoclass:: tn4ml.embeddings.fourier
    :members:
    :undoc-members:
+   :noindex:
 
 Linear Complement
 ^^^^^^^^^^^^^^^^^^
@@ -35,12 +36,17 @@ Polynomial
    :members:
    :undoc-members:
 
-Add Ones
+Jax Arrays
 ^^^^^^^^^^
-.. autoclass:: tn4ml.embeddings.add_ones
+.. autoclass:: tn4ml.embeddings.jax_arrays
    :members:
    :undoc-members:
-   :noindex:
+
+Patch Embedding
+^^^^^^^^^^^^^^^
+.. autoclass:: tn4ml.embeddings.PatchEmbedding
+   :members:
+   :undoc-members:
 
 Embed Function
 ^^^^^^^^^^^^^^
