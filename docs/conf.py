@@ -90,9 +90,9 @@ autodoc_typehints = "description"
 autodoc_class_signature = "separated"
 
 nbsphinx_thumbnails = {
-    'examples/mnist_classification': '_static/class.png',
-    'examples/mnist_ad': '_static/ad.png',
-    'examples/mnist_ad_sweeps': '_static/ad_sweeps.png',
+    'source/examples/mnist_classification': '_static/class.png',
+    'source/examples/mnist_ad': '_static/ad.png',
+    'source/examples/mnist_ad_sweeps': '_static/ad_sweeps.png',
 }
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
