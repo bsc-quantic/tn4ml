@@ -23,6 +23,7 @@ Tensor Networks for Machine Learning
    source/embeddings
    source/metrics
    source/strategy
+   source/eval
 
 .. nbgallery::
    :caption: Examples

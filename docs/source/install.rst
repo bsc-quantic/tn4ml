@@ -38,3 +38,33 @@ First create a virtualenv using `pyenv` or `conda`.
 .. code-block:: bash
 
     pytest
+
+
+**Accelerated runtime** <br>
+
+(Optional) To improve runtime precision set these flags:
+.. code-block:: python
+
+    import jax
+    jax.config.update("jax_enable_x64", True)
+    jax.config.update('jax_default_matmul_precision', 'highest')
+
+
+**Running on GPU**<br>
+Before everything install `JAX` version that supports CUDA and its suitable for runs on GPU.
+Checkout how to install here: `jax[cuda] <https://docs.jax.dev/en/latest/installation.html#pip-installation-nvidia-gpu-cuda-installed-via-pip-easier>`.
+
+Next, at the beginning of your script set:
+
+.. code-block:: python
+
+    import os
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Use GPU 0 - or set any GPU ID
+    import jax
+    jax.config.update("jax_platform_name", 'gpu')
+
+Then when training `Model` set:
+.. code-block:: python
+
+    device = 'gpu'
+    model.configure(device=device)
