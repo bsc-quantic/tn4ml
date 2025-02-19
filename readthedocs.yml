@@ -9,6 +9,13 @@ build:
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
   configuration: docs/conf.py
+  builder: html
+  extra_args:
+    - -E
+    - -b html
+    - -c docs
+    - ./docs/source
+    - ./docs/build/html
 
 python:
   install:
