@@ -48,7 +48,7 @@ setup(
     ],
     extras_require={
         "docs": [
-            "sphinx>=2.0",
+            "sphinx<8.0.0",
             "sphinx-book-theme",
             "ipykernel",
             "nbsphinx",
