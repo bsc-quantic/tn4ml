@@ -6,25 +6,25 @@ Tensor Networks for Machine Learning
    :titlesonly:
    :caption: Getting started
 
-   install
+   source/install
 
 .. toctree::
    :maxdepth: 1
    :titlesonly:
    :caption: Modules
 
-   tn4ml.models
-   initializers
-   embeddings
-   metrics
-   strategy
-   eval
+   source/tn4ml.models
+   source/initializers
+   source/embeddings
+   source/metrics
+   source/strategy
+   source/eval
 
 .. nbgallery::
    :maxdepth: 2
    :caption: Examples
    :name: example-gallery
 
-   examples/mnist_classification
-   examples/mnist_ad
-   examples/mnist_ad_sweeps
+   source/examples/mnist_classification
+   source/examples/mnist_ad
+   source/examples/mnist_ad_sweeps
