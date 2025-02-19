@@ -65,9 +65,9 @@ Visit [tn4ml.readthedocs.io](https://tn4ml.readthedocs.io/en/latest/)
 
 ## Example notebooks
 
-[TN for Classification](docs/source/notebooks/mnist_classification.ipynb)<br>
-[TN for Anomaly Detection](docs/source/notebooks/mnist_ad.ipynb)<br>
-[TN for Anomaly Detection with DMRG-like method](docs/source/notebooks/mnist_ad_sweeps.ipynb)
+[TN for Classification](docs/examples/mnist_classification.ipynb)<br>
+[TN for Anomaly Detection](docs/examples/mnist_ad.ipynb)<br>
+[TN for Anomaly Detection with DMRG-like method](docs/examples/mnist_ad_sweeps.ipynb)
 
 ## License
 MIT license - check it out [here](LICENSE)
