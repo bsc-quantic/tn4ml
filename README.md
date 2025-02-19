@@ -69,5 +69,22 @@ Visit [tn4ml.readthedocs.io](https://tn4ml.readthedocs.io/en/latest/)
 [TN for Anomaly Detection](docs/source/examples/mnist_ad.ipynb)<br>
 [TN for Anomaly Detection with DMRG-like method](docs/source/examples/mnist_ad_sweeps.ipynb)
 
+## Citation
+
+If you use **tn4ml** in your work, please cite the following paper: [arXiv:2502.13090](https://arxiv.org/abs/2502.13090)
+
+```bibtex
+@article{puljak2025tn4mltensornetworktraining,
+      title={tn4ml: Tensor Network Training and Customization for Machine Learning}, 
+      author={Ema Puljak and Sergio Sanchez-Ramirez and Sergi Masot-Llima and Jofre Vallès-Muns and Artur Garcia-Saez and Maurizio Pierini},
+      year={2025},
+      eprint={2502.13090},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2502.13090}, 
+      }
+```
+
+
 ## License
 MIT license - check it out [here](LICENSE)
