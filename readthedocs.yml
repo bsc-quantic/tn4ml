@@ -16,10 +16,3 @@ python:
       path: .
       extra_requirements:
         - docs
-
-sphinx:
-  builder: html
-  configuration: docs/conf.py
-  extra_args:
-    - -D master_doc=index
-    - -c docs
