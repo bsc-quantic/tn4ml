@@ -72,9 +72,7 @@ extensions = [
     'sphinx.ext.linkcode'  # For custom links to source code
     # "sphinx_gallery.gen_gallery",
 ]
-# Optional: Automatically generate autodoc stubs
-autosummary_generate = True
-
+master_doc = "index"
 
 # path to the examples scripts
 # sphinx_gallery_conf = {
