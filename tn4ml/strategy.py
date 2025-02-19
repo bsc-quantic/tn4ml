@@ -140,7 +140,7 @@ class Sweeps(Strategy):
         if self.grouping > 2:
             raise NotImplementedError('Not implememented for grouping > 2.')
         
-        model.canonicalize(sites)
+        model.canonicalize(sites, inplace=True)
         
         # remembed bond_size and bond_name
         self.bond_dim_split = model.bond_size(sites[0], sites[1])
