@@ -240,7 +240,7 @@ class Model(qtn.TensorNetwork):
             predicted = jnp.argmax(y_pred, axis=-1)
             true = jnp.argmax(y, axis=-1)
 
-            correct_predictions += jnp.sum(predicted ==true).item()
+            correct_predictions += jnp.sum(predicted == true).item()
             num_samples += y_pred.shape[0]
 
         accuracy = correct_predictions / num_samples
@@ -861,8 +861,8 @@ class Model(qtn.TensorNetwork):
             
             loss_value = loss_value / (len(inputs)//batch_size)
         else:
-            assert evaluate_type == 2, "If inputs are not provided, evaluation type must be 2!"
-            assert tn_target is not None, "If inputs are not provided, target tensor network must be provided!"
+            assert evaluate_type == 2 # If inputs are not provided, evaluation type must be 2!
+            assert tn_target is not None # If inputs are not provided, target tensor network must be provided!
 
             loss_func = jax.jit(loss_fn, backend=self.device)
             loss_value = loss_func(None, None, *params)
@@ -950,7 +950,7 @@ def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:in
         x = x[perm]  # Shuffle x
         if y is not None:
             y = jax.numpy.asarray(y)  # Keep dtype as is
-            y = y[perm]  # Shuffle y accordingly
+            y = y[perm]
 
     # Chunk the data
     x_chunks = _check_chunks(list(funcy.chunks(batch_size, x)), batch_size)
