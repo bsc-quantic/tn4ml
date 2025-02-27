@@ -864,9 +864,14 @@ def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToM
         mps = qtn.MatrixProductState(arrays, **mps_opts)
     
     elif issubclass(type(phi), ComplexEmbedding) and x.ndim == 2:
-        arrays = [phi(xi).reshape((1, 1, phi.dims[i])) for i, xi in enumerate(x)]
-        for i in [0, -1]:
-            arrays[i] = arrays[i].reshape((1, phi.dims))
+        if type(phi.dims) == int:
+            arrays = [phi(xi).reshape((1, 1, phi.dims)) for xi in x]
+            for i in [0, -1]:
+                arrays[i] = arrays[i].reshape((1, phi.dims))
+        else:
+            arrays = [phi(xi).reshape((1, 1, phi.dims[i])) for i, xi in enumerate(x)]
+            for i in [0, -1]:
+                arrays[i] = arrays[i].reshape((1, phi.dims[i]))
 
         mps = qtn.MatrixProductState(arrays, **mps_opts)
     else:
