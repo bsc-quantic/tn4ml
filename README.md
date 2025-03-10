@@ -17,7 +17,7 @@ It supports different **embedding** functions, **initialization** techniques, **
 First create a virtualenv using `pyenv` or `conda`. Then install the package and its dependencies.
 <br>
 
-**With** `pip` (tag v1.0.4):
+**With** `pip` (tag v1.0.5):
 ```bash
 pip install tn4ml
 ```
@@ -34,6 +34,18 @@ If you want to test and edit the code, you can clone the local version of the pa
 git clone https://github.com/bsc-quantic/tn4ml.git
 pip install -e tn4ml/
 ```
+If you want to install dependices for *docs*, *test* and *examples*:
+
+```zsh
+pip install "tn4ml[docs]"
+```
+```zsh
+pip install "tn4ml[test]"
+```
+```zsh
+pip install "tn4ml[examples]"
+```
+
 
 **Accelerated runtime** <br>
 
