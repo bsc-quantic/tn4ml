@@ -58,7 +58,7 @@ if os.environ.get("READTHEDOCS", "") == "True":
 project = 'tn4ml'
 copyright = '2024, Barcelona Supercomputing Center - Centro Nacional de Supercomputación'
 author = 'Ema Puljak, Sergio Sánchez Ramírez, Sergi Masor Llima, Jofre Vallès-Muns'
-release = '1.0.4'
+release = '1.0.5'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
