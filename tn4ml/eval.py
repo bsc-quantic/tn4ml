@@ -340,7 +340,8 @@ def compare_AUC(save_dir: str = '.',
                 embedding: str = 'trigonometric',
                 nruns: int = 0,
                 fig_size: tuple = (6, 5),
-                labels: dict = None):
+                labels: dict = None,
+                anomaly_det: bool = False):
     """
     Example of code to compare the TPR values for fixed FPR for different values of hyperparameters, when spacing parameter is fixed.
     - code for generating plots from the paper "tn4ml: Tensor Network Training and Customization for Machine Learning"
@@ -382,9 +383,6 @@ def compare_AUC(save_dir: str = '.',
     -------
         Displays or saves the plot.
     """
-
-    if nruns < 2:
-        raise ValueError("Number of runs must be at least 2.")
     
     for spacing in spacings:
         plt.figure(figsize=fig_size)
@@ -394,9 +392,12 @@ def compare_AUC(save_dir: str = '.',
             for init in initializers:
                 auc_data=[]
                 for j in range(1, nruns+1):
-                    dir_name = save_dir + '/' + init + '/bond_' + str(bond_dim) + '/spacing_' + str(spacing)+'/'+ embedding +'/run_'+str(j)
+                    if nruns == 1:
+                        dir_name = save_dir + '/' + init + '/bond_' + str(bond_dim) + '/spacing_' + str(spacing)+'/'+ embedding
+                    else:
+                        dir_name = save_dir + '/' + init + '/bond_' + str(bond_dim) + '/spacing_' + str(spacing)+'/'+ embedding +'/run_'+str(j)
                             
-                    fpr, tpr = get_roc_curve_data(np.load(dir_name + '/normal_score.npy'), np.load(dir_name + '/anomaly_score.npy'))
+                    fpr, tpr = get_roc_curve_data(np.load(dir_name + '/normal_score.npy'), np.load(dir_name + '/anomaly_score.npy'), anomaly_det=anomaly_det)
                     auc_data.append(auc(fpr, tpr))
                 mean_error = get_mean_and_error(np.array(auc_data))
                 auc_per_init_data.append(mean_error[0])
@@ -434,7 +435,8 @@ def compare_TPR_per_FPR(save_dir: str = '.',
                 embedding: str = 'trigonometric',
                 nruns: int = 0,
                 fig_size: tuple = (6, 5),
-                labels: dict = None):
+                labels: dict = None,
+                anomaly_det: bool = False):
     """
     Example of code to compare the TPR values for fixed FPR for different values of hyperparameters, when spacing parameter is fixed.
 
@@ -479,9 +481,6 @@ def compare_TPR_per_FPR(save_dir: str = '.',
     None
         Displays or saves the plot.
     """
-
-    if nruns < 2:
-        raise ValueError("Number of runs must be at least 2.")
     
     for spacing in spacings:
         plt.figure(figsize=fig_size)
@@ -491,9 +490,12 @@ def compare_TPR_per_FPR(save_dir: str = '.',
             for init in initializers:
                 tpr_data=[]
                 for j in range(1, nruns+1):
-                    dir_name = save_dir + '/' + init + '/bond_' + str(bond_dim) + '/spacing_' + str(spacing)+'/'+ embedding +'/run_'+str(j)
+                    if nruns == 1:
+                        dir_name = save_dir + '/' + init + '/bond_' + str(bond_dim) + '/spacing_' + str(spacing)+'/'+ embedding
+                    else:
+                        dir_name = save_dir + '/' + init + '/bond_' + str(bond_dim) + '/spacing_' + str(spacing)+'/'+ embedding +'/run_'+str(j)
                             
-                    fpr, tpr = get_roc_curve_data(np.load(dir_name + '/normal_score.npy'), np.load(dir_name + '/anomaly_score.npy'))
+                    fpr, tpr = get_roc_curve_data(np.load(dir_name + '/normal_score.npy'), np.load(dir_name + '/anomaly_score.npy'), anomaly_det=anomaly_det)
                     tpr_per_fpr = get_TPR_for_fixed_FPR(FPR_fixed, np.array(fpr), np.array(tpr), tolerance=0.01)
                     tpr_data.append(tpr_per_fpr)
                 mean_error = get_mean_and_error(np.array(tpr_data))
@@ -532,7 +534,8 @@ def compare_FPR_per_TPR(save_dir: str = '.',
                 embedding: str = 'trigonometric',
                 nruns: int = 0,
                 fig_size: tuple = (6, 5),
-                labels: dict = None):
+                labels: dict = None,
+                anomaly_det: bool = False):
     """
     Example of code to compare the FPR values for fixed TPR for different values of hyperparameters, when spacing parameter is fixed.
     - code for generating plots from the paper "tn4ml: Tensor Network Training and Customization for Machine Learning"
@@ -576,9 +579,6 @@ def compare_FPR_per_TPR(save_dir: str = '.',
     -------
         Displays or saves the plot.
     """
-
-    if nruns < 2:
-        raise ValueError("Number of runs must be at least 2.")
     
     for spacing in spacings:
         plt.figure(figsize=fig_size)
@@ -588,9 +588,12 @@ def compare_FPR_per_TPR(save_dir: str = '.',
             for init in initializers:
                 tpr_data=[]
                 for j in range(1, nruns+1):
-                    dir_name = save_dir + '/' + init + '/bond_' + str(bond_dim) + '/spacing_' + str(spacing)+'/'+ embedding +'/run_'+str(j)
+                    if nruns == 1:
+                        dir_name = save_dir + '/' + init + '/bond_' + str(bond_dim) + '/spacing_' + str(spacing)+'/'+ embedding
+                    else:
+                        dir_name = save_dir + '/' + init + '/bond_' + str(bond_dim) + '/spacing_' + str(spacing)+'/'+ embedding +'/run_'+str(j)
                             
-                    fpr, tpr = get_roc_curve_data(np.load(dir_name + '/normal_score.npy'), np.load(dir_name + '/anomaly_score.npy'))
+                    fpr, tpr = get_roc_curve_data(np.load(dir_name + '/normal_score.npy'), np.load(dir_name + '/anomaly_score.npy'), anomaly_det=anomaly_det)
                     tpr_per_fpr = get_FPR_for_fixed_TPR(TPR_fixed, np.array(fpr), np.array(tpr), tolerance=0.01)
                     tpr_data.append(tpr_per_fpr)
                 mean_error = get_mean_and_error(np.array(tpr_data))
