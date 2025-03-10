@@ -196,7 +196,6 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 else:
                     tensor.modify(data=tensor.data / jnp.linalg.norm(tensor.data))
                     self.left_canonize_site(i)
-            jax.debug.print("{x}", x=self.norm())
         else:
             norm = self.norm(output_inds=output_inds)
 
