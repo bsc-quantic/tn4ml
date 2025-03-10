@@ -294,3 +294,7 @@ $RECYCLE.BIN/
 
 # examples/results
 /docs/source/examples/results/*
+
+# examples/*/results
+/docs/source/examples/supervised/results
+/docs/source/examples/unsupervised/results
