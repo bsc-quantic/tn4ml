@@ -81,6 +81,11 @@ Visit [tn4ml.readthedocs.io](https://tn4ml.readthedocs.io/en/latest/)
 [TN for Anomaly Detection](docs/source/examples/mnist_ad.ipynb)<br>
 [TN for Anomaly Detection with DMRG-like method](docs/source/examples/mnist_ad_sweeps.ipynb)
 
+## Examples from the paper
+[Breast Cancer Classification](docs/source/examples/supervised)<br>
+[Unsupervised learning with MNIST](docs/source/examples/unsupervised)
+
+
 ## Citation
 
 If you use **tn4ml** in your work, please cite the following paper: [arXiv:2502.13090](https://arxiv.org/abs/2502.13090)
