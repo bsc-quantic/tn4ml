@@ -96,6 +96,31 @@ class StateVectorToMPSEmbedding:
         """ Method to convert a Statevector into an Matrix Product State """
         pass
 
+class MPSEmbedding:
+    """
+    An abstract class to convert a input image into a Matrix Product State (MPS) with your custom decomposition strategy.
+    """
+    def __init__(self, dtype=onp.float32, max_bond=None):
+        self.dtype = dtype
+        self.max_bond = max_bond
+
+    @property
+    @abc.abstractmethod
+    def dims(self) -> list:
+        """ Dimensions of mps arrays """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def decompose(self, x: Any, *args) -> jnp.ndarray:
+        """ Method to decompose an """
+        pass
+    
+    @abc.abstractmethod
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
+        """ Method to convert an input into an Matrix Product State """
+        pass
+
 class trigonometric(Embedding):
     """ Trigonometric feature map.
     
