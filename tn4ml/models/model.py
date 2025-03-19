@@ -528,7 +528,7 @@ class Model(qtn.TensorNetwork):
         
         if earlystop:
             return_value = 0
-            earlystop.on_begin_train(self.history)
+            earlystop.on_begin_train(self.history, self)
         
         self.sitetags = None # for sweeping strategy
         
@@ -696,14 +696,14 @@ class Model(qtn.TensorNetwork):
                         if earlystop:
                             if earlystop.monitor == 'val_loss':
                                 current = loss_val_epoch
-                                return_value = earlystop.on_end_epoch(current, epoch)
+                                return_value = earlystop.on_end_epoch(current, epoch, self)
                     else:
                         if earlystop:
                             if earlystop.monitor == 'loss':
                                     current = loss_epoch
                             else:
                                 current = sum(self.history[earlystop.monitor][-num_batches:])/num_batches
-                            return_value = earlystop.on_end_epoch(current, epoch)
+                            return_value = earlystop.on_end_epoch(current, epoch, self)
                 if epoch == 0:
                     outerbar.bar_format = "{l_bar}{bar} {n_fmt}/{total_fmt} {postfix}"
                 
@@ -719,6 +719,7 @@ class Model(qtn.TensorNetwork):
 
                 if earlystop:
                     if return_value == 1:
+                        self = earlystop.memory['best_model']
                         return self.history
 
         return self.history

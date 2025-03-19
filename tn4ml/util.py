@@ -351,7 +351,7 @@ class EarlyStopping:
         self.patience = patience
         self.mode = mode
 
-    def on_begin_train(self, history):
+    def on_begin_train(self, history, model):
         """
         Set up the memory for the early stopping algorithm.
 
@@ -381,9 +381,10 @@ class EarlyStopping:
         else:
             self.min_delta = self.min_delta*1
             self.operator = np.greater
+        self.best_model = model
         self.memory['wait'] = 0
 
-    def on_end_epoch(self, loss_current, epoch):
+    def on_end_epoch(self, loss_current, epoch, current_model):
         """
         Check if the training should be stopped based on the monitored metric.
 
@@ -402,19 +403,17 @@ class EarlyStopping:
 
         if self.memory['wait'] == 0 and epoch == 0:
             self.memory['best'] = loss_current
-            self.memory['best_model'] = self
+            self.memory['best_model'] = current_model
             self.memory['best_epoch'] = epoch
-            #memory['wait'] += 1
         if epoch > 0: self.memory['wait'] += 1
         if self.operator(loss_current - self.min_delta, self.memory['best']):
             self.memory['best'] = loss_current
-            self.memory['best_model'] = self
+            self.memory['best_model'] = current_model
             self.memory['best_epoch'] = epoch
             self.memory['wait'] = 0
         if self.memory['wait'] >= self.patience and epoch > 0:
             best_epoch = self.memory['best_epoch']
             print(f'Training stopped by EarlyStopping on epoch: {best_epoch}', flush=True)
-            self = self.memory['best_model']
             return 1
         if self.memory['wait'] > 0:
             print('Waiting for ' + str(self.memory['wait']) + ' epochs.', flush=True)
