@@ -1,8 +1,10 @@
 import re
+from typing import List
+from enum import IntEnum
+
 import jax
 import jax.numpy as jnp
 import numpy as np
-from typing import List
 
 def return_digits(array):
     """Helper function to convert array of string numbers to integers.
@@ -329,6 +331,11 @@ def from_mps_to_dense(mps: List[jnp.ndarray], n_qubits: int) -> jnp.ndarray:
 
     # Flatten the resulting tensor to form the dense statevector.
     return statevector.flatten()
+
+class TrainingType(IntEnum):
+    UNSUPERVISED = 0
+    SUPERVISED = 1
+    TARGET_TN = 2
 
 
 class EarlyStopping:

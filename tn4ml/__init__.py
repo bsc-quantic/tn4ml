@@ -56,7 +56,8 @@ from .util import (
     pad_image_alternately,
     divide_into_patches,
     from_dense_to_mps,
-    from_mps_to_dense
+    from_mps_to_dense,
+    TrainingType
 )
 
 from .eval import (
