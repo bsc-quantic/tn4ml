@@ -3,13 +3,14 @@ import itertools
 import math
 from numbers import Number
 from typing import Collection, Any, Union
+
 import numpy as onp
-from autoray import numpy as np
-import autoray as a
 import jax.numpy as jnp
 from jax import lax
 import quimb.tensor as qtn
+
 import tn4ml.util as u
+from tn4ml.scipy.special import eval_legendre, eval_laguerre, eval_hermite
 
 class Embedding:
     """Data embedding (feature map) class.
@@ -36,6 +37,7 @@ class Embedding:
 
     @abc.abstractmethod
     def __call__(self, x: Number) -> jnp.ndarray:
+        """Embedding function."""
         pass
 
 class ComplexEmbedding:
@@ -164,41 +166,46 @@ class trigonometric(Embedding):
 
 class fourier(Embedding):
     """ Fourier feature map.
-    :math:`\\phi(x_\\textit{j}) = \\frac{1}{\\sqrt{k}}\\left[ cos(\\frac{\\pi x_\\textit{j}}{2}), sin(\\frac{\\pi x_\\textit{j}}{2}), ..., cos(\\frac{\\pi x_\\textit{j}}{2^k}), sin(\\frac{\\pi x_\\textit{j}}{2^k})\\right]`
+    
+    Computes cosine and sine components for different frequencies:
+    :math:`\\phi(x) = \\frac{1}{\\sqrt{p}}[\\cos(2\\pi 0 x), \\cos(2\\pi 1 x), ..., \\cos(2\\pi (p-1) x), \\sin(2\\pi 0 x), \\sin(2\\pi 1 x), ..., \\sin(2\\pi (p-1) x)]`
     
     Attributes
     ----------
     p: int
-        Mapping dimension.
+        Number of frequency components.
     """
 
     def __init__(self, p: int = 2, **kwargs):
-        #assert p >= 2
+        assert p >= 1, "Number of frequency components must be at least 1"
         self.p = p
         super().__init__(**kwargs)
 
     @property
     def dim(self) -> int:
         """ Mapping dimension """
-        return self.p
+        return 2 * self.p  # p cosine terms + p sine terms
 
     @property
     def input_dim(self) -> int:
         return 1
 
     def __call__(self, x: Number) -> jnp.ndarray:
-        """Embedding function for Fourier.
+        """Embedding function for Fourier features.
         
         Parameters
         ----------
         x: :class:`Number`
-            Input feature.
+            Input feature in [0,1].
         
         Returns
         -------
         jnp.ndarray
-            Embedding vector."""
-        return 1 / self.p * jnp.array([np.abs(sum((np.exp(1j * 2 * onp.pi * k * ((self.p - 1) * x - j) / self.p) for k in range(self.p)))) for j in range(self.p)])
+            Embedding vector with cosine and sine components.
+        """
+        k = jnp.arange(self.p)  # Frequency indices
+        features = jnp.concatenate([jnp.cos(2 * jnp.pi * k * x), jnp.sin(2 * jnp.pi * k * x)])
+        return features / jnp.sqrt(self.p)  # Normalization for orthonormality
     
 class linear_complement_map(Embedding):
     """Feature map :math:`[x, 1-x]` or :math:`[1, x, 1-x]`
@@ -302,7 +309,7 @@ class gaussian_rbf(Embedding):
     @property
     def dim(self) -> int:
         """Mapping dimension"""
-        return np.prod(self.centers.shape)
+        return jnp.prod(self.centers.shape)
     
     @property
     def input_dim(self) -> int:
@@ -376,19 +383,138 @@ class polynomial(Embedding):
         if x.ndim == 0:
             x = jnp.array([x])
         
+        features = []
         if self.include_bias:
-            features = [1.0]
-        else:
-            features = []
+            features.append(1.0)        
+        
         # Generate combinations of feature indices with repetition up to the specified degree
         for d in range(1, self.degree + 1):
-            if d == 0:
-                features.append(x)
             for combination in itertools.combinations_with_replacement(range(len(x)), d):
                 # Compute the product of the selected features
                 product = jnp.prod(x[jnp.array(combination)])
                 features.append(product)
+        
         return jnp.array(features)
+
+class legendre(Embedding):
+    """Legendre polynomial feature map.
+    
+    Attributes
+    ----------
+    degree : int
+        Maximum polynomial degree (inclusive)
+    """
+    
+    def __init__(self, degree: int = 2, **kwargs):
+        self.degree = degree
+        super().__init__(**kwargs)
+        
+    @property
+    def dim(self) -> int:
+        """Mapping dimension"""
+        return self.degree + 1
+        
+    @property
+    def input_dim(self) -> int:
+        return 1
+        
+    def __call__(self, x: Number) -> jnp.ndarray:
+        """Embedding function for Legendre polynomials.
+        
+        Parameters
+        ----------
+        x: :class:`Number`
+            Input feature in [-1, 1].
+            
+        Returns
+        -------
+        jnp.ndarray
+            Embedding vector.
+        """
+        features = jnp.array([eval_legendre(k, x) for k in range(self.degree + 1)])
+        return features
+    
+class laguerre(Embedding):
+    """Laguerre polynomial feature map with isometric weighting.
+    
+    Computes :math:`e^(-x/2) * L_k(x)` for k from 0 to degree.
+    
+    Attributes
+    ----------
+    degree : int
+        Maximum polynomial degree (inclusive)
+    """
+    
+    def __init__(self, degree: int = 2, **kwargs):
+        self.degree = degree
+        super().__init__(**kwargs)
+        
+    @property
+    def dim(self) -> int:
+        """Mapping dimension"""
+        return self.degree + 1
+        
+    @property
+    def input_dim(self) -> int:
+        return 1
+        
+    def __call__(self, x: Number) -> jnp.ndarray:
+        """Embedding function for weighted Laguerre polynomials.
+        
+        Parameters
+        ----------
+        x: :class:`Number`
+            Input feature in [0, ∞).
+            
+        Returns
+        -------
+        jnp.ndarray
+            Embedding vector.
+        """
+        weight = jnp.exp(-x / 2)
+        features = jnp.array([weight * eval_laguerre(k, x) for k in range(self.degree + 1)])
+        return features
+
+class hermite(Embedding):
+    """Hermite polynomial feature map with isometric weighting.
+    
+    Computes :math:`e^(-x^2/2) * H_k(x)` for k from 0 to degree.
+    
+    Attributes
+    ----------
+    degree : int
+        Maximum polynomial degree (inclusive)
+    """
+    
+    def __init__(self, degree: int = 2, **kwargs):
+        self.degree = degree
+        super().__init__(**kwargs)
+        
+    @property
+    def dim(self) -> int:
+        """Mapping dimension"""
+        return self.degree + 1
+        
+    @property
+    def input_dim(self) -> int:
+        return 1
+        
+    def __call__(self, x: Number) -> jnp.ndarray:
+        """Embedding function for weighted Hermite polynomials.
+        
+        Parameters
+        ----------
+        x: :class:`Number`
+            Input feature in R (real numbers).
+            
+        Returns
+        -------
+        jnp.ndarray
+            Embedding vector.
+        """
+        weight = jnp.exp(-0.5 * x**2)
+        features = jnp.array([weight * eval_hermite(k, x) for k in range(self.degree + 1)])
+        return features
  
 class jax_arrays(Embedding):
     """Input arrays to JAX arrays. No embedding.
@@ -399,15 +525,20 @@ class jax_arrays(Embedding):
     add_bias: bool
         Add bias term (1.0)
     """
-    def __init__(self, dim: int = None, add_bias: bool = False, **kwargs):
+    def __init__(self, dim: int = None, add_bias: bool = False, input_dim: int = None, **kwargs):
         super().__init__(**kwargs)
         self._dim = dim
         self.add_bias = add_bias
+        self._input_dim = input_dim
 
     @property
     def dim(self) -> int:
         """ Mapping dimension """
         return self._dim
+    
+    @property
+    def input_dim(self) -> int:
+        return self._input_dim
     
     def __call__(self, x: Any) -> jnp.ndarray:
         """Embedding function for JAX arrays.
@@ -448,7 +579,7 @@ class trigonometric_chain(ComplexEmbedding):
         super().__init__(**kwargs)
 
     @property
-    def dims(self) -> int:
+    def dims(self) -> Collection[int]:
         """ Mapping dimensions per feature """
         return [self.k * 2 * self.input_shape[1]]*self.input_shape[0]
 
@@ -522,19 +653,23 @@ class trigonometric_avg(ComplexEmbedding):
         """
         return self.embeddings(jnp.mean(features))
     
-class PatchEmbedding(StateVectorToMPSEmbedding):
-    def __init__(self, k = 2, **kwargs):
+class BasePatchEmbedding(StateVectorToMPSEmbedding):
+    """
+    Base class for patch-based embedding methods that convert input data to MPS.
+    
+    Attributes
+    ----------
+    k : int
+        The kernel size of the patch window (k×k).
+    """
+    def __init__(self, k=2, **kwargs):
         """
-        Initialize the PatchedEmbedding class.
+        Initialize the BasePatchEmbedding class.
 
         Parameters
         ----------
         k: int
             The kernel size of the patch window kxk.
-        
-        Returns
-        -------
-        None
         """
         super().__init__(**kwargs)
         self.k = k
@@ -542,6 +677,7 @@ class PatchEmbedding(StateVectorToMPSEmbedding):
 
     @property
     def dims(self) -> list:
+        """Get dimensions of the MPS tensors"""
         return list([tensor.shape for tensor in self.mps.tensors])
     
     def pad_or_truncate_statevector(self, statevector: jnp.ndarray, target_size: int) -> jnp.ndarray:
@@ -573,24 +709,131 @@ class PatchEmbedding(StateVectorToMPSEmbedding):
         
         return statevector
 
-    def create_statevector(self, x: jnp.ndarray) -> jnp.ndarray:
+    def combine_mps_patches(self, mps_patches: onp.ndarray, n_qubits: int) -> jnp.ndarray:
         """
-        Create a statevector representation of an input array (vector like).
+        Combine arrays of each MPS patch into a single MPS.
 
         Parameters
         ----------
-        x: :class:`jax.numpy.ndarray`
-            An array of patch pixel intensities flattened from original patch k x k.
+        mps_patches: :class:`numpy.ndarray`
+            List of MPS patches (nested lists of arrays).
+        n_qubits: int
+            Number of qubits.
 
         Returns
         -------
         :class:`jax.numpy.ndarray`
-            A statevector representation of the input array.
+            A list of arrays for combined MPS.
         """
-         # Number of pixels (N = 16 for a 4x4 image)
+        new_arrays = []
+        number_interval = 0
+        
+        for patch in mps_patches:
+            for i, arr in enumerate(patch):
+                # Check if current array index matches the start or end of an interval
+                if i == number_interval * n_qubits and len(arr.shape) == 2:
+                    # Add a new axis at the beginning (dim=0)
+                    new_arrays.append(jnp.expand_dims(arr, axis=0))
+                elif i == ((number_interval + 1) * n_qubits - 1) and len(arr.shape) == 2:
+                    # Add a new axis at the end (dim=-1)
+                    new_arrays.append(jnp.expand_dims(arr, axis=-1))
+                    number_interval += 1
+                else:
+                    # Add the array as is
+                    new_arrays.append(arr)
+
+        return new_arrays
+    
+    @property
+    @abc.abstractmethod
+    def create_statevector(self, x: jnp.ndarray) -> jnp.ndarray:
+        """
+        Abstract method to create a statevector representation of an input array.
+        Must be implemented by subclasses.
+        """
+        pass
+    
+    def __call__(self, x: jnp.ndarray) -> qtn.MatrixProductState:
+        """
+        Convert input data into a Matrix Product State (MPS).
+        
+        Parameters
+        ----------
+        x: :class:`jax.numpy.ndarray`
+            Input data (typically an image).
+        
+        Returns
+        -------
+        :class:`quimb.tensor.MatrixProductState`
+            A Matrix Product State representation of the input data.
+        """
+        H, W = x.shape  # H: height, W: width
+        if H != W:
+            raise ValueError(f"Only square matrices are supported, got {H}x{W} image.")
+        if self.k > H:
+            raise ValueError(f"Patch dimension k = {self.k} is too large for {H}x{W} images.")
+        
+        patches = u.divide_into_patches(x, self.k)
+        mps_patches = []
+        
+        # Process each patch
+        for patch in patches:
+            # Subclasses will implement different statevector creation methods
+            patch_data = patch.ravel() if not hasattr(self, 'flatten_snake') else self.flatten_snake(patch)
+            statevector, n_qubits = self.create_statevector(patch_data)
+            mps_arrays = u.from_dense_to_mps(statevector, n_qubits, self.max_bond)
+            mps_patches.append(mps_arrays)
+
+        new_arrays = self.combine_mps_patches(mps_patches, n_qubits)
+        
+        # Recreate the MPS with the reshaped arrays
+        self.mps = qtn.MatrixProductState(new_arrays, shape='lrp')
+        return self.mps
+    
+class PatchEmbedding(BasePatchEmbedding):
+    """
+    Embedding that converts image patches to MPS using basis encoding.
+    """
+    def flatten_snake(self, image: jnp.ndarray) -> jnp.ndarray:
+        """
+        Flatten an image in a snake-like fashion.
+        
+        Parameters
+        ----------
+        image: :class:`jax.numpy.ndarray`
+            A 2D array of pixel intensities.
+            
+        Returns
+        -------
+        :class:`jax.numpy.ndarray`
+            A 1D array of pixel intensities in snake-like order.
+        """
+        # Flip every other row by slicing
+        image = jnp.where(jnp.arange(image.shape[0])[:, None] % 2 == 1, jnp.flip(image, axis=1), image)
+        
+        # Flatten the image
+        flattened = image.reshape(-1)
+        
+        return flattened
+
+    def create_statevector(self, x: jnp.ndarray) -> jnp.ndarray:
+        """
+        Create a statevector representation using basis encoding.
+
+        Parameters
+        ----------
+        x: :class:`jax.numpy.ndarray`
+            An array of patch pixel intensities.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the statevector and number of qubits.
+        """
+        # Number of pixels (N = 16 for a 4x4 image)
         N = len(x)
         # Number of address qubits is log2(N) = 4
-        n_address_qubits = int(np.ceil(np.log2(N)))
+        n_address_qubits = int(onp.ceil(onp.log2(N)))
         # One color qubit
         n_color_qubit = 1
         # Total number of qubits = address qubits + 1 color qubit
@@ -620,250 +863,42 @@ class PatchEmbedding(StateVectorToMPSEmbedding):
         padded_statevector = self.pad_or_truncate_statevector(statevector.flatten(), fixed_size)
 
         return padded_statevector, n_qubits
-    
-    def flatten_snake(self, image: jnp.ndarray) -> jnp.ndarray:
-        """
-        Flatten an image in a snake-like fashion.
-        
-        Parameters
-        ----------
-        image: :class:`jax.numpy.ndarray`
-            A 2D array of pixel intensities.
-            
-        Returns
-        -------
-        :class:`jax.numpy.ndarray`
-            A 1D array of pixel intensities in snake-like order.
-        """
-        # Flip every other row by slicing
-        image = jnp.where(jnp.arange(image.shape[0])[:, None] % 2 == 1, jnp.flip(image, axis=1), image)
-        
-        # Flatten the image
-        flattened = image.reshape(-1)
-        
-        return flattened
 
-    def combine_mps_patches(self, mps_patches: onp.ndarray, n_qubits: int) -> jnp.ndarray:
-        """
-        Combine arrays of each MPS patch into a single MPS.
-
-        Parameters
-        ----------
-        mps_patches: :class:`numpy.ndarray`
-            List of MPS patches (nested lists of arrays).
-        n_qubits: int
-            Number of qubits.
-
-        Returns
-        -------
-        :class:`jax.numpy.ndarray`
-            A list of arrays for combined MPS.
-        """
-        new_arrays = []
-        number_interval = 0
-        
-        for patch in mps_patches:
-            for i, arr in enumerate(patch):
-                # Check if current array index matches the start or end of an interval
-                if i == number_interval * n_qubits and len(arr.shape) == 2:
-                    # Add a new axis at the beginning (dim=0)
-                    new_arrays.append(jnp.expand_dims(arr, axis=0))
-                elif i == ((number_interval + 1) * n_qubits - 1) and len(arr.shape) == 2:
-                    # Add a new axis at the end (dim=-1)
-                    new_arrays.append(jnp.expand_dims(arr, axis=-1))
-                    number_interval += 1
-                else:
-                    # Add the array as is
-                    new_arrays.append(arr)
-
-        return new_arrays
-
-    def __call__(self, x: jnp.ndarray) -> qtn.MatrixProductState:
-        """
-        Convert a Statevector into a Matrix Product State (MPS).
-
-        Parameters
-        ----------
-        x: :class:`jax.numpy.ndarray`
-            A Statevector.
-        
-        Returns
-        -------
-        :class:`quimb.tensor.MatrixProductState`
-            A Matrix Product State representation of the input Statevector.
-        """
-
-        H, W = x.shape  # H: height, W: width patches: number of patches
-        if H != W:
-            raise ValueError("Only square matrix input is supported.")
-        
-        patches = u.divide_into_patches(x, self.k)
-        mps_patches = []
-        for patch in patches:
-            patch_pixels = self.flatten_snake(patch)
-            statevector, n_qubits = self.create_statevector(patch_pixels)
-            mps_arrays = u.from_dense_to_mps(statevector, n_qubits, self.max_bond)
-
-            mps_patches.append(mps_arrays)
-
-        new_arrays = self.combine_mps_patches(mps_patches, n_qubits)
-        
-        # Recreate the MPS with the reshaped arrays
-        self.mps = qtn.MatrixProductState(new_arrays, shape='lrp')
-        return self.mps
-
-class PatchAmplitudeEmbedding(StateVectorToMPSEmbedding):
-    def __init__(self, k = 2, **kwargs):
-        """
-        Initialize the AmplitudeToMPSEmbedding class.
-
-        Parameters
-        ----------
-        k: int
-            The kernel size of the patch window kxk.
-        
-        Returns
-        -------
-        None
-        """
-        super().__init__(**kwargs)
-        self.k = k
-        self.mps = None
-
-    @property
-    def dims(self) -> list:
-        return list([tensor.shape for tensor in self.mps.tensors])
-
+class PatchAmplitudeEmbedding(BasePatchEmbedding):
+    """
+    Embedding that converts image patches to MPS using amplitude encoding.
+    """
     def create_statevector(self, x: jnp.ndarray) -> jnp.ndarray:
         """
-        Create a statevector representation of an input array (vector like).
+        Create a statevector representation using amplitude encoding.
 
         Parameters
         ----------
         x: :class:`jax.numpy.ndarray`
-            An array of patch pixel intensities flattened from original image.
+            An array of patch pixel intensities.
 
         Returns
         -------
-        :class:`jax.numpy.ndarray`
-            A statevector representation of the input array.
+        tuple
+            A tuple containing the statevector and number of qubits.
         """
-
-        # Number of pixels (N = 784 for a 28x28 image)
+        # Number of pixels
         N = len(x)
-        # Number of address qubits is ceil(log2(N)) = 10 for a 28x28 image
-        n_qubits = int(np.ceil(np.log2(N)))
+        # Number of qubits needed
+        n_qubits = int(onp.ceil(onp.log2(N)))
+        
         # Create the state vector and fill it with square roots of the pixel values
         statevector = jnp.sqrt(x)
 
         # Normalize the statevector
-        statevector /=  jnp.linalg.norm(statevector)
-
+        statevector /= jnp.linalg.norm(statevector)
         
         # Pad or truncate to fixed size
         fixed_size = 2**n_qubits
         padded_statevector = self.pad_or_truncate_statevector(statevector.flatten(), fixed_size)
+        
         return padded_statevector, n_qubits
 
-    def pad_or_truncate_statevector(self, statevector: jnp.ndarray, target_size: int) -> jnp.ndarray:
-        """
-        Pad or truncate the statevector to a target size.
-
-        Parameters
-        ----------
-        statevector: :class:`jax.numpy.ndarray`
-            The input statevector.
-        target_size: int
-            The desired size of the statevector.
-
-        Returns
-        -------
-        :class:`jax.numpy.ndarray`
-            A statevector of the target size.
-        """
-        current_size = statevector.shape[0]
-
-        # Pad or truncate
-        if current_size < target_size:
-            # Pad with zeros if smaller than target size
-            padding = [(0, target_size - current_size)]
-            statevector = jnp.pad(statevector, padding, mode='constant')
-        else:
-            # Truncate if larger than target size
-            statevector = statevector[:target_size]
-        
-        return statevector
-
-    def combine_mps_patches(self, mps_patches: onp.ndarray, n_qubits: int) -> jnp.ndarray:
-        """
-        Combine arrays of each MPS patch into a single MPS.
-
-        Parameters
-        ----------
-        mps_patches: :class:`numpy.ndarray`
-            List of MPS patches (nested lists of arrays).
-        n_qubits: int
-            Number of qubits.
-
-        Returns
-        -------
-        :class:`jax.numpy.ndarray`
-            A list of arrays for combined MPS.
-        """
-        new_arrays = []
-        number_interval = 0
-        
-        for patch in mps_patches:
-            for i, arr in enumerate(patch):
-                # Check if current array index matches the start or end of an interval
-                if i == number_interval * n_qubits and len(arr.shape) == 2:
-                    # Add a new axis at the beginning (dim=0)
-                    new_arrays.append(jnp.expand_dims(arr, axis=0))
-                elif i == ((number_interval + 1) * n_qubits - 1) and len(arr.shape) == 2:
-                    # Add a new axis at the end (dim=-1)
-                    new_arrays.append(jnp.expand_dims(arr, axis=-1))
-                    number_interval += 1
-                else:
-                    # Add the array as is
-                    new_arrays.append(arr)
-
-        return new_arrays
-
-    def __call__(self, x: jnp.ndarray) -> qtn.MatrixProductState:
-        """
-        Convert a Statevector into a Matrix Product State (MPS).
-
-        Parameters
-        ----------
-        x: :class:`jax.numpy.ndarray`
-            A Statevector.
-        
-        Returns
-        -------
-        :class:`quimb.tensor.MatrixProductState`
-            A Matrix Product State representation of the input Statevector.
-        """
-
-        H, W = x.shape  # H: height, W: width patches: number of patches
-        if H != W:      # TODO: Discuss about rectangular images (they could be supported, at least in principle)
-            raise ValueError("Only square matrix input is supported.")
-        if self.k > H:
-            raise ValueError(f"Patch dimension k = {self.k} is too large for {H}x{W} images.")
-
-        patches = u.divide_into_patches(x, self.k)
-        mps_patches = []
-
-        for patch in patches:
-            statevector, n_qubits = self.create_statevector(patch.ravel())
-            mps_arrays = u.from_dense_to_mps(statevector, n_qubits, self.max_bond)
-
-            mps_patches.append(mps_arrays)
-
-        new_arrays = self.combine_mps_patches(mps_patches, n_qubits)
-
-        # Recreate the MPS with the reshaped arrays
-        self.mps = qtn.MatrixProductState(new_arrays, shape='lrp')
-        return self.mps
 
 def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToMPSEmbedding], **mps_opts):
     """
@@ -915,6 +950,6 @@ def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToM
     else:
         norm = mps.norm()
         for tensor in mps.tensors:
-            tensor.modify(data=tensor.data / a.do("power", norm, 1 / len(mps.tensors)))
+            tensor.modify(data=tensor.data / jnp.power(norm, 1 / len(mps.tensors)))
 
     return mps
