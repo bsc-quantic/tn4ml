@@ -172,7 +172,7 @@ if __name__ == "__main__":
                 optimizer = optax.adam
                 strategy = 'global'
                 loss = loss_combined
-                train_type = 0 # 0 for unsupervised
+                train_type = TrainingType.UNSUPERVISED
                 learning_rate = args.lr
 
                 # configure model
@@ -250,8 +250,8 @@ if __name__ == "__main__":
                     metric_loss = LogQuadNorm
 
                 # evaluate model on normal and anomaly data
-                anomaly_score = model.evaluate(test_anomaly, evaluate_type=0, return_list=True, dtype=jnp.float64, embedding=embedding, batch_size=args.test_batch_size, metric = metric_loss)
-                normal_score = model.evaluate(test_normal, evaluate_type=0, return_list=True, dtype=jnp.float64, embedding=embedding, batch_size=args.test_batch_size, metric = metric_loss)
+                anomaly_score = model.evaluate(test_anomaly, evaluate_type=train_type, return_list=True, dtype=jnp.float64, embedding=embedding, batch_size=args.test_batch_size, metric = metric_loss)
+                normal_score = model.evaluate(test_normal, evaluate_type=train_type, return_list=True, dtype=jnp.float64, embedding=embedding, batch_size=args.test_batch_size, metric = metric_loss)
 
                 # save scores
                 np.save(save_dir + '/anomaly_score.npy', anomaly_score)

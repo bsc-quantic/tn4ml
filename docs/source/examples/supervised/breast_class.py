@@ -113,7 +113,7 @@ if __name__ == "__main__":
         optimizer = optax.adam
         strategy = 'global'
         loss = crossentropy_loss
-        train_type = 1 # 1 for supervised learning
+        train_type = TrainingType.SUPERVISED
         learning_rate = args.lr
 
         # configure model
