@@ -15,19 +15,6 @@ from ..embeddings import *
 from ..strategy import *
 from ..util import gradient_clip, EarlyStopping, TrainingType
 
-def compute_entropy(model, data, embedding):
-    """ NOT USED """
-    data_embeded = embed(np.array(data), embedding)
-    mps = model.apply(data_embeded)
-    e = mps.entropy(len(mps.tensors)//2)
-    return e
-
-def compute_entropy_batch(model, data, embedding):
-    """ NOT USED """
-    data = np.array(data)
-    entropy = compute_entropy(model, data[0], embedding)
-    return entropy
-
 class Model(qtn.TensorNetwork):
     """:class:`tn4ml.models.Model` class models training model of class :class:`quimb.tensor.tensor_core.TensorNetwork`.
 
@@ -139,7 +126,7 @@ class Model(qtn.TensorNetwork):
                 setattr(self, key, value)
             else:
                 raise AttributeError(f"Attribute {key} not found")
-                
+
         if self.train_type not in [TrainingType.UNSUPERVISED, TrainingType.SUPERVISED, TrainingType.TARGET_TN]:
             raise AttributeError(f"Specify type of training: {TrainingType.UNSUPERVISED.name}, {TrainingType.SUPERVISED.name}, or {TrainingType.TARGET_TN.name}!") 
                
@@ -157,7 +144,7 @@ class Model(qtn.TensorNetwork):
         if self.device not in ['cpu', 'gpu']:
             raise AttributeError("Device must be 'cpu' or 'gpu'!")
 
-    def predict(self, sample: np.ndarray, embedding: Embedding = trigonometric(), return_tn: bool = False, normalize: bool = False) -> Union[np.ndarray, qtn.TensorNetwork]:
+    def predict(self, sample: np.ndarray, embedding: Embedding = TrigonometricEmbedding(), return_tn: bool = False, normalize: bool = False) -> Union[np.ndarray, qtn.TensorNetwork]:
         """ Predicts the output of the model.
         
         Parameters
@@ -194,7 +181,7 @@ class Model(qtn.TensorNetwork):
                 y_pred = y_pred/jnp.linalg.norm(y_pred)
             return y_pred
         
-    def forward(self, data: jnp.ndarray, embedding: Embedding = trigonometric(), batch_size: int=64, normalize: bool = False, dtype: Any = jnp.float_, seed: int = 42) -> Collection:
+    def forward(self, data: jnp.ndarray, embedding: Embedding = TrigonometricEmbedding(), batch_size: int=64, normalize: bool = False, dtype: Any = jnp.float_, seed: int = 42, alternate_flip: bool = False) -> Collection:
         """ Forward pass of the model.
 
         Parameters
@@ -229,7 +216,7 @@ class Model(qtn.TensorNetwork):
         
         return jnp.concatenate(outputs, axis=0)
     
-    def accuracy(self, data: jnp.ndarray, y_true: jnp.array = None, embedding: Embedding = trigonometric(), batch_size: int=64, shuffle: bool = False, normalize: bool = False, dtype:Any = jnp.float_, seed: int = 42) -> Number:
+    def accuracy(self, data: jnp.ndarray, y_true: jnp.array = None, embedding: Embedding = TrigonometricEmbedding(), batch_size: int=64, shuffle: bool = False, normalize: bool = False, dtype:Any = jnp.float_, seed: int = 42, alternate_flip: bool = False) -> Number:
         """ Calculates accuracy for supervised learning.
         
         Parameters
@@ -261,7 +248,7 @@ class Model(qtn.TensorNetwork):
 
         correct_predictions = 0
         num_samples = 0
-        for batch_data in _batch_iterator(data, y_true, batch_size=batch_size, shuffle=shuffle, dtype=dtype, seed=seed):
+        for batch_data in _batch_iterator(data, y_true, batch_size=batch_size, shuffle=shuffle, dtype=dtype, seed=seed, alternate_flip=alternate_flip):
             x, y = batch_data
             x, y = jnp.array(x, dtype=dtype), jnp.array(y)
 
@@ -297,10 +284,49 @@ class Model(qtn.TensorNetwork):
         else:
             for tensor, array in zip(self.tensors, params):
                 tensor.modify(data=array)
+    
+    def compute_entropy(self, data, embedding):
+        """ Computes entropy of the model.
+
+        Parameters
+        ----------
+        data : :class:`jax.numpy.ndarray`
+            Input data.
+        embedding : :class:`tn4ml.embeddings.Embedding`
+            Data embedding function.
+
+        Returns
+        -------
+        float
+            Entropy of the model.
+        """
+        data_embeded = embed(jnp.array(data), embedding)
+        mps = self.apply(data_embeded)
+        e = mps.entropy(len(mps.tensors)//2)
+        return e
+
+    def compute_entropy_batch(self, data, embedding):
+        """ Computes entropy of the model for a batch of data.
+
+        Parameters
+        ----------
+        data : :class:`jax.numpy.ndarray`
+            Input data.
+        embedding : :class:`tn4ml.embeddings.Embedding`
+            Data embedding function.
+        
+        Returns
+        -------
+        float
+            Entropy of the model.
+        """
+        data = jnp.array(data)
+        entropy = self.compute_entropy(data[0], embedding)
+        return entropy
 
     def create_cache(self,
                     loss_fn,
-                    embedding: Optional[Embedding] = trigonometric(),
+                    embedding: Optional[Embedding] = TrigonometricEmbedding(),
                     input_shape: Optional[tuple] = None,
                     target_shape: Optional[tuple] = None,
                     inputs_dtype: Any = jnp.float_,
@@ -467,7 +493,7 @@ class Model(qtn.TensorNetwork):
             tn_target: Optional[qtn.TensorNetwork] = None,
             batch_size: Optional[int] = None,
             epochs: Optional[int] = 1,
-            embedding: Embedding = trigonometric(),
+            embedding: Embedding = TrigonometricEmbedding(),
             normalize: Optional[bool] = False,
             canonize: Optional[Tuple] = tuple([False, None]),
             time_limit: Optional[int] = None,
@@ -480,7 +506,8 @@ class Model(qtn.TensorNetwork):
             display_val_acc: Optional[bool] = False,
             dtype: Any = jnp.float_,
             shuffle: Optional[bool] = False,
-            seed: Optional[int] = 42):
+            seed: Optional[int] = 42,
+            alternate_flip: bool = False):
         
         """Performs the training procedure of :class:`tn4ml.models.Model`.
 
@@ -518,6 +545,8 @@ class Model(qtn.TensorNetwork):
             Number of samples per validation batch.
         display_val_acc : bool
             If True, displays validation accuracy.
+        alternate_flip : bool
+            If True, flips every other batch along axis=1.
             
         Returns
         -------
@@ -564,7 +593,8 @@ class Model(qtn.TensorNetwork):
         self.sitetags = None # for sweeping strategy
         
         def loss_fn(data=None, targets=None, *params):
-            """ Loss function that adapts based on training type.
+            """ 
+            Loss function that adapts based on training type.
             """
             tn = self.copy()
 
@@ -619,7 +649,7 @@ class Model(qtn.TensorNetwork):
                 else:
                     raise ValueError(f"Specify type of training: {TrainingType.UNSUPERVISED.name}, {TrainingType.SUPERVISED.name}, or {TrainingType.TARGET_TN.name}!")
                 
-                # initialize optimizer
+                # initialize optimizers
                 self.opt_states = []
 
                 for s, sites in enumerate(self.strategy.iterate_sites(self)):
@@ -669,8 +699,9 @@ class Model(qtn.TensorNetwork):
                     self.history['epoch_time'].append(time() - time_epoch)
                 else:
                     loss_batch = 0
-                    for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype, shuffle=shuffle, seed=seed):
+                    for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype, shuffle=shuffle, seed=seed, alternate_flip=alternate_flip):
                         if isinstance(self.strategy, Sweeps):
+                            # Sweeping strategy
                             loss_curr = 0
                             for s, sites in enumerate(self.strategy.iterate_sites(self)):
                                 self.strategy.prehook(self, sites)
@@ -687,6 +718,7 @@ class Model(qtn.TensorNetwork):
                                 loss_curr += loss_group
                             loss_curr /= (s+1)
                         else:
+                            # Global strategy
                             params = self.arrays
                             _, self.opt_state, loss_curr = self.step(params, self.opt_state, batch_data, grad_clip_threshold=gradient_clip_threshold)
 
@@ -715,11 +747,11 @@ class Model(qtn.TensorNetwork):
                     # evaluate validation loss
                     if val_inputs is not None:
 
-                        loss_val_epoch = self.evaluate(val_inputs, val_targets, batch_size=val_batch_size, embedding=embedding, evaluate_type=self.train_type, metric=eval_metric, dtype=dtype, shuffle=shuffle, seed=seed)
+                        loss_val_epoch = self.evaluate(val_inputs, val_targets, batch_size=val_batch_size, embedding=embedding, evaluate_type=self.train_type, metric=eval_metric, dtype=dtype, shuffle=shuffle, seed=seed, alternate_flip=alternate_flip)
                         
                         self.history['val_loss'].append(loss_val_epoch)
                         if display_val_acc:
-                            accuracy_val_epoch = self.accuracy(val_inputs, val_targets, batch_size=val_batch_size, embedding=embedding, shuffle=shuffle, dtype=dtype, seed=seed)
+                            accuracy_val_epoch = self.accuracy(val_inputs, val_targets, batch_size=val_batch_size, embedding=embedding, shuffle=shuffle, dtype=dtype, seed=seed, alternate_flip=alternate_flip)
                             self.history['val_acc'].append(accuracy_val_epoch)
 
                         if earlystop:
@@ -758,13 +790,14 @@ class Model(qtn.TensorNetwork):
                  targets: Optional[Collection] = None,
                  tn_target: Optional[qtn.TensorNetwork] = None,
                  batch_size: Optional[int] = None,
-                 embedding: Embedding = trigonometric(),
+                 embedding: Embedding = TrigonometricEmbedding(),
                  evaluate_type: int = TrainingType.UNSUPERVISED,
                  return_list: bool = False,
                  metric: Optional[Callable] = None,
                  dtype: Any = jnp.float_,
                  shuffle: Optional[bool] = False,
-                 seed: Optional[int] = 42) -> Union[float, np.ndarray]:
+                 seed: Optional[int] = 42,
+                 alternate_flip: Optional[bool] = False) -> Union[float, np.ndarray]:
         
         """ Evaluates the model on the data.
 
@@ -841,7 +874,7 @@ class Model(qtn.TensorNetwork):
         
         if inputs is not None:
             loss_value = 0
-            for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype, shuffle=shuffle, seed=seed):
+            for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype, shuffle=shuffle, seed=seed, alternate_flip=alternate_flip):
                 if type(batch_data) == tuple and len(batch_data) == 2:
                     x, y = batch_data
                     x, y = jnp.array(x, dtype=dtype), jnp.array(y)
@@ -951,8 +984,10 @@ def _check_chunks(chunked: Collection, batch_size: int = 2) -> Collection:
         chunked = chunked[:-1]
     return chunked
 
-def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:int = 2, dtype: Any = jnp.float_, shuffle: bool = True, seed: int = 0):
-    """ Iterates over batches of data.
+def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:int = 2, 
+                   dtype: Any = jnp.float_, shuffle: bool = True, seed: int = 0,
+                   alternate_flip: bool = False):
+    """ Iterates over batches of data with optional alternating batch flipping.
     
     Parameters
     ----------
@@ -968,6 +1003,8 @@ def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:in
         If True, shuffles the data.
     seed : int
         Seed for shuffling.
+    alternate_flip : bool
+        If True, flips every other batch along axis=1.
     
     Yields
     ------
@@ -992,8 +1029,24 @@ def _batch_iterator(x: Collection, y: Optional[Collection] = None, batch_size:in
 
     if y is not None:
         y_chunks = _check_chunks(list(funcy.chunks(batch_size, y)), batch_size)
-        for x_chunk, y_chunk in zip(x_chunks, y_chunks):
+        
+        # Track batch number for alternating flips
+        for batch_idx, (x_chunk, y_chunk) in enumerate(zip(x_chunks, y_chunks)):
+            # Flip every other batch if alternate_flip is enabled
+            if alternate_flip and batch_idx % 2 == 1:  # For odd-indexed batches (0-indexed)
+                x_chunk = jax.numpy.asarray(x_chunk, dtype=dtype)
+                y_chunk = jax.numpy.asarray(y_chunk)
+                # Flip each sample in the batch along axis=1
+                x_chunk = jax.numpy.flip(x_chunk, axis=1)
+            
             yield x_chunk, y_chunk
     else:
-        for x_chunk in x_chunks:
+        for batch_idx, x_chunk in enumerate(x_chunks):
+            # Flip every other batch if alternate_flip is enabled
+            if alternate_flip and batch_idx % 2 == 1:  # For odd-indexed batches (0-indexed)
+                x_chunk = jax.numpy.asarray(x_chunk, dtype=dtype)
+
+                # Flip each sample in the batch along axis=1
+                x_chunk = jax.numpy.flip(x_chunk, axis=1)
+                
             yield x_chunk
