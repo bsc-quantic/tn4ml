@@ -13,20 +13,20 @@ Trigonometric
 
 Fourier
 ^^^^^^^
-.. autoclass:: tn4ml.embeddings.fourier
+.. autoclass:: tn4ml.embeddings.FourierEmbedding
    :members:
    :undoc-members:
    :noindex:
 
 Linear Complement
 ^^^^^^^^^^^^^^^^^^
-.. autoclass:: tn4ml.embeddings.linear_complement_map
+.. autoclass:: tn4ml.embeddings.LinearComplementEmbedding
    :members:
    :undoc-members:
 
 Gaussian RBF
 ^^^^^^^^^^^^
-.. autoclass:: tn4ml.embeddings.gaussian_rbf
+.. autoclass:: tn4ml.embeddings.GaussianRBFEmbedding
    :members:
    :undoc-members:
 
@@ -38,7 +38,13 @@ Polynomial
 
 Jax Arrays
 ^^^^^^^^^^
-.. autoclass:: tn4ml.embeddings.jax_arrays
+.. autoclass:: tn4ml.embeddings.JaxArraysEmbedding
+   :members:
+   :undoc-members:
+
+Patch Amplitude Embedding
+^^^^^^^^^^^^^^^
+.. autoclass:: tn4ml.embeddings.PatchAmplitudeEmbedding
    :members:
    :undoc-members:
 
