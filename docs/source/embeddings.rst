@@ -43,7 +43,7 @@ Jax Arrays
    :undoc-members:
 
 Patch Amplitude Embedding
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: tn4ml.embeddings.PatchAmplitudeEmbedding
    :members:
    :undoc-members:
