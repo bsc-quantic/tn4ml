@@ -10,7 +10,7 @@ import optax
 import quimb.tensor as qtn
 
 from .models.model import Model
-from .embeddings import Embedding, embed, trigonometric
+from .embeddings import Embedding, embed, TrigonometricEmbedding
 from .models.smpo import SpacedMatrixProductOperator
 from .models.mps import MatrixProductState
 from .models.mpo import MatrixProductOperator
@@ -419,8 +419,8 @@ def OptaxWrapper(optax_loss = None) -> Callable:
             y_pred = jnp.expand_dims(jnp.squeeze(y_pred.data), axis=0)
 
         # normalize
-        y_pred = y_pred/jnp.linalg.norm(y_pred)
-            
+        y_pred = y_pred/jnp.linalg.norm(y_pred)        
+        
         if y_true is not None:
             if len(y_true.shape) == 1:
                 y_true = jnp.expand_dims(y_true, axis=0)

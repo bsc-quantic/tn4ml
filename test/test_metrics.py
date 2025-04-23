@@ -38,7 +38,7 @@ def test_NegLogLikelihood_3(model, data):
 
 @pytest.mark.parametrize("model,data", [(qtn.MPS_rand_state(10, bond_dim=2, phys_dim=3), np.random.rand(10,))])
 def test_NegLogLikelihood_4(model,data):
-    embedding = tn4ml.embeddings.fourier(p=3)
+    embedding = tn4ml.embeddings.FourierEmbedding(p=3)
     phi = tn4ml.embeddings.embed(data, phi=embedding)
     loss = tn4ml.metrics.NegLogLikelihood(model, phi)
     assert loss >= 0.0
@@ -53,7 +53,7 @@ def test_NegLogLikelihood_4(model,data):
                                                                             phys_dim=(2,2), cyclic=False),
                                         np.random.rand(10,))])
 def test_transformed_squared_norm(model,data):
-    embedding = tn4ml.embeddings.trigonometric()
+    embedding = tn4ml.embeddings.TrigonometricEmbedding()
     phi = tn4ml.embeddings.embed(data, phi=embedding)
     loss = tn4ml.metrics.TransformedSquaredNorm(model, phi)
     assert loss >= 0.0
@@ -232,7 +232,7 @@ def test_LogQuadNorm_SMPO_with_embedded_numpy_array():
                                  spacing=2, bond_dim=4,
                                  phys_dim=(2,2), cyclic=False)
     data = np.random.rand(10)
-    embedded_data = embeddings.embed(data, phi=embeddings.trigonometric())
+    embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
     error = metrics.LogQuadNorm(model, embedded_data)
     assert isinstance(jax.device_get(error), np.ndarray)
 
@@ -251,7 +251,7 @@ def test_error_quad_SMPO_with_embedded_numpy_array():
                                  spacing=2, bond_dim=4,
                                  phys_dim=(2,2), cyclic=False)
     data = np.random.rand(10)
-    embedded_data = embeddings.embed(data, phi=embeddings.trigonometric())
+    embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
     error = metrics.QuadNorm(model, embedded_data)
     assert isinstance(jax.device_get(error), np.ndarray)
 
@@ -271,7 +271,7 @@ def test_CrossEntropySoftmax_with_embedded_numpy_array():
                                               spacing=10, bond_dim=4,
                                               phys_dim=(2,3), cyclic=False)
     data = np.random.rand(10)
-    embedded_data = embeddings.embed(data, phi=embeddings.trigonometric())
+    embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
     targets = jnp.array([0, 1, 0])
     loss = tn4ml.metrics.CrossEntropySoftmax(model, embedded_data, targets)
     assert isinstance(loss, jnp.ndarray)
@@ -283,7 +283,7 @@ def test_CrossEntropySoftmax_with_embedded_numpy_array():
 #                                                 spacing=2, bond_dim=4,
 #                                                 phys_dim=(2,2), cyclic=False)
 #     data = np.random.rand(10)
-#     embedded_data = embeddings.embed(data, phi=embeddings.trigonometric())
+#     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
 #     loss_fn = optax.squared_error
 #     loss = tn4ml.metrics.OptaxWrapper(loss_fn)
 #     loss_value = loss(model, embedded_data).mean()
@@ -305,7 +305,7 @@ def test_CrossEntropySoftmax_with_embedded_numpy_array():
 #                                             key=jax.random.key(42), shape_method='even',
 #                                             bond_dim=4, phys_dim=2, cyclic=False)
 #     data = np.random.rand(10)
-#     embedded_data = embeddings.embed(data, phi=embeddings.trigonometric())
+#     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
 #     loss_fn = optax.softmax_cross_entropy
 #     loss = tn4ml.metrics.OptaxWrapper(loss_fn)
 #     loss_value = loss(model, embedded_data).mean()
@@ -327,7 +327,7 @@ def test_CrossEntropySoftmax_with_embedded_numpy_array():
 #                                                 spacing=10, bond_dim=4,
 #                                                 phys_dim=(2,10), cyclic=False)
 #     data = np.random.rand(10)
-#     embedded_data = embeddings.embed(data, phi=embeddings.trigonometric())
+#     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
 #     targets = np.random.randint(0, 2, size=(10,))
 #     loss_fn = optax.softmax_cross_entropy
 #     loss = tn4ml.metrics.OptaxWrapper(loss_fn)

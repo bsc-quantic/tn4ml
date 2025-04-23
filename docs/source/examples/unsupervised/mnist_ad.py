@@ -128,16 +128,16 @@ if __name__ == "__main__":
     embedding_string = args.embedding
     if embedding_string == 'trigonometric':
         phys_dim = 2
-        embedding = trigonometric()
+        embedding = TrigonometricEmbedding()
     elif embedding_string == 'fourier':
         phys_dim = 3
-        embedding = fourier(p=3)
+        embedding = FourierEmbedding(p=3)
     elif embedding_string == 'poly_2':
         phys_dim = 3
-        embedding = polynomial(degree=2)
+        embedding = PolynomialEmbedding(degree=2)
     elif embedding_string == 'poly_3':
         phys_dim = 4
-        embedding = polynomial(degree=3)
+        embedding = PolynomialEmbedding(degree=3)
     else:
         raise ValueError("Invalid embedding")
 

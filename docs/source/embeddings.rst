@@ -6,7 +6,7 @@ Embeddings
 
 Trigonometric
 ^^^^^^^^^^^^^
-.. autoclass:: tn4ml.embeddings.trigonometric
+.. autoclass:: tn4ml.embeddings.TrigonometricEmbedding
    :members:
    :undoc-members:
    :noindex:
@@ -32,7 +32,7 @@ Gaussian RBF
 
 Polynomial
 ^^^^^^^^^^
-.. autoclass:: tn4ml.embeddings.polynomial
+.. autoclass:: tn4ml.embeddings.PolynomialEmbedding
    :members:
    :undoc-members:
 

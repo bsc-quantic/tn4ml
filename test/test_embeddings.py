@@ -5,26 +5,26 @@ import tn4ml
 import itertools
 
 @pytest.mark.parametrize("x", [0.0, 1.0, -1.0, 0.3, 0.7, 2.0])
-def test_trigonometric(x):
-    embedding = tn4ml.embeddings.trigonometric()
+def test_TrigonometricEmbedding(x):
+    embedding = tn4ml.embeddings.TrigonometricEmbedding()
     phi: jnp.ndarray = embedding(x)
     assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
 
 @pytest.mark.parametrize("x", [0.0, 1.0, -1.0, 0.3, 0.7, 2.0])
 def test_fourier(x):
-    embedding = tn4ml.embeddings.fourier()
+    embedding = tn4ml.embeddings.FourierEmbedding()
     phi: jnp.ndarray = embedding(x)
     assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
 
 @pytest.mark.parametrize("x", [0.003, 1.45, 2.998, 0.332, 0.3984, 4.83, 6.0])
 def test_fourier(x):
-    embedding = tn4ml.embeddings.trigonometric()
+    embedding = tn4ml.embeddings.TrigonometricEmbedding()
     phi: jnp.ndarray = embedding(x)
     assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
 
 @pytest.mark.parametrize("x", [0.003, 1.45, 2.998, 0.332, 0.3984, 4.83, 6.0])
 def test_fourier(x):
-    embedding = tn4ml.embeddings.fourier()
+    embedding = tn4ml.embeddings.FourierEmbedding()
     phi: jnp.ndarray = embedding(x)
     assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
 
@@ -88,7 +88,7 @@ def test_gaussian_low_gamma(x, centers, gamma):
     phi: jnp.ndarray = embedding(x)
     assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
 
-@pytest.mark.parametrize("x,embedding", itertools.product((np.random.rand(4) for _ in range(5)), [tn4ml.embeddings.trigonometric(), tn4ml.embeddings.fourier()]))
+@pytest.mark.parametrize("x,embedding", itertools.product((np.random.rand(4) for _ in range(5)), [tn4ml.embeddings.TrigonometricEmbedding(), tn4ml.embeddings.FourierEmbedding()]))
 def test_embed_trig_four(x, embedding):
     phi = tn4ml.embeddings.embed(x, phi=embedding)
     assert phi.norm() == pytest.approx(1.0)
@@ -105,8 +105,8 @@ def test_embed_gauss(x, embedding):
     assert phi.norm() == pytest.approx(1.0)
 
 # @pytest.mark.parametrize("x,embedding", [
-#     (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.trigonometric_chain(input_shape=(1,3))),
-#     (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.trigonometric_avg(input_shape=(1,3))),
+#     (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.TrigonometricEmbedding_chain(input_shape=(1,3))),
+#     (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.TrigonometricEmbedding_avg(input_shape=(1,3))),
 # ])
 # def test_embed_trig_chain_avg(x, embedding):
 #     phi = tn4ml.embeddings.embed(x, phi=embedding)

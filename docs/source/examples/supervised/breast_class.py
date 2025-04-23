@@ -89,7 +89,7 @@ if __name__ == "__main__":
     class_index = int(L//2)
     shape_method='noteven' # default method
     compress = False # connected with shape method
-    embedding = polynomial(degree=2, n=1, include_bias=True)
+    embedding = PolynomialEmbedding(degree=2, n=1, include_bias=True)
     phys_dim = 3
     initializer = randn(1e-2, dtype=jnp.float64)
     
@@ -186,7 +186,7 @@ if __name__ == "__main__":
         print('F-measure=%.3f'%F_measure)
 
         params = {
-                'embedding': 'polynomial(degree=2, n=1, include_bias=True)',
+                'embedding': 'PolynomialEmbedding(degree=2, n=1, include_bias=True)',
                 'initializer': 'randn(std=1e-2)',
                 'shape_method': shape_method,
                 'bond_dim': bond_dim,
