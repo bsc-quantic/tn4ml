@@ -10,12 +10,12 @@ from .initializers import (
 )
 from .embeddings import (
     Embedding,
-    trigonometric,
-    fourier,
-    polynomial,
-    linear_complement_map,
-    gaussian_rbf,
-    jax_arrays,
+    TrigonometricEmbedding, 
+    FourierEmbedding, 
+    PolynomialEmbedding, 
+    LinearComplementEmbedding, 
+    GaussianRBFEmbedding, 
+    JaxArraysEmbedding,
     PatchAmplitudeEmbedding,
     PatchEmbedding,
     embed
