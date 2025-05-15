@@ -386,7 +386,7 @@ class FourierEmbedding(Embedding):
     @property
     def dim(self) -> int:
         """Get the output dimension (2p)."""
-        return 2 * self.p
+        return self.p
 
     @property
     def input_dim(self) -> int:
@@ -406,12 +406,7 @@ class FourierEmbedding(Embedding):
         :class:`jax.numpy.ndarray`
             Embedded vector with cosine and sine components
         """
-        k = jnp.arange(self.p)
-        features = jnp.concatenate([
-            jnp.cos(2 * jnp.pi * k * x),
-            jnp.sin(2 * jnp.pi * k * x)
-        ])
-        return features / jnp.sqrt(self.p)
+        return 1 / self.p * jnp.array([jnp.abs(sum((jnp.exp(1j * 2 * jnp.pi * k * ((self.p - 1) * x - j) / self.p) for k in range(self.p)))) for j in range(self.p)])
 
 class LinearComplementEmbedding(Embedding):
     """Linear complement feature map.
@@ -872,7 +867,7 @@ class JaxArraysEmbedding(Embedding):
             return jnp.concatenate([jnp.array([1.]), x])
         return jnp.array(x)
     
-class TrigonometricEmbeddingChainEmbedding(ComplexEmbedding):
+class TrigonometricEmbeddingChain(ComplexEmbedding):
     """TrigonometricEmbedding feature map for each dimension of feature.
     
     Maps each feature dimension to TrigonometricEmbedding features.
@@ -940,7 +935,7 @@ class TrigonometricEmbeddingChainEmbedding(ComplexEmbedding):
             embedded.extend(f(xi))
         return jnp.array(embedded)
     
-class TrigonometricEmbeddingAvgEmbedding(ComplexEmbedding):
+class TrigonometricEmbeddingAvg(ComplexEmbedding):
     """TrigonometricEmbedding feature map for mean of features.
     
     Maps the mean of input features to TrigonometricEmbedding features.
