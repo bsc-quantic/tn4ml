@@ -6,18 +6,20 @@ from .initializers import (
     gramschmidt,
     identity,
     randn,
-    rand_unitary
+    rand_unitary,
 )
 from .embeddings import (
     Embedding,
-    TrigonometricEmbedding, 
-    FourierEmbedding, 
-    PolynomialEmbedding, 
-    LinearComplementEmbedding, 
-    GaussianRBFEmbedding, 
+    TrigonometricEmbedding,
+    FourierEmbedding,
+    PolynomialEmbedding,
+    LinearComplementEmbedding,
+    GaussianRBFEmbedding,
     JaxArraysEmbedding,
     PatchAmplitudeEmbedding,
     PatchEmbedding,
+    TrigonometricEmbeddingAvg,
+    TrigonometricEmbeddingChain,
     embed
 )
 
