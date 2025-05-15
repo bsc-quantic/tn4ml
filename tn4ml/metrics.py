@@ -431,7 +431,7 @@ def OptaxWrapper(optax_loss = None) -> Callable:
 
 def CrossEntropyWeighted(class_weights: jnp.array = None) -> Callable:
 
-    def cross_entropy(model: Model, data: qtn.MatrixProductState, y_true: jnp.array = None, **kwargs) -> Number:
+    def cross_entropy(model: Model, data: MatrixProductState, y_true: jnp.array = None, **kwargs) -> Number:
         """
         Compute the weighted cross-entropy loss.
 
