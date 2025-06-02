@@ -189,7 +189,6 @@ if __name__ == "__main__":
                                     embedding = embedding,
                                     normalize=True,
                                     dtype=jnp.float64,
-                                    cache=True,
                                     earlystop=earlystop,
                                     time_limit=args.time_limit
                                     )

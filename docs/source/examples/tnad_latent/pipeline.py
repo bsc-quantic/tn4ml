@@ -213,7 +213,6 @@ if __name__ == "__main__":
                                 embedding = embedding,
                                 normalize=True,
                                 dtype=jnp.float64,
-                                cache=False,
                                 earlystop=earlystop,
                                 canonize=canonize,
                                 seed=seed,
