@@ -10,7 +10,6 @@ from jax.nn.initializers import *
 import matplotlib.pyplot as plt
 from sklearn.metrics import recall_score, precision_score, f1_score, confusion_matrix
 from sklearn.utils.class_weight import compute_class_weight
-
 from sklearn.model_selection import train_test_split
 
 from tn4ml.util import *
@@ -49,7 +48,6 @@ if __name__ == "__main__":
 
     jax.config.update("jax_platform_name", args.device)
     print("Available devices:", jax.devices())
-    print("Current device:", jax.default_device())
 
     jax.config.update("jax_enable_x64", True)
     jax.config.update('jax_default_matmul_precision', 'highest')
@@ -57,7 +55,7 @@ if __name__ == "__main__":
     # ------ LOAD DATASET ------
     n_classes = 2 # binary classification
 
-    # load data
+    # Load data
     data = pd.read_csv(f'{args.load_dir}/breast-cancer.csv')
     data['diagnosis'] = data['diagnosis'].map({'M': 1, 'B': 0})
 
