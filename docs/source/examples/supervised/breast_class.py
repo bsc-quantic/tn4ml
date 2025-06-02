@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     parser.add_argument("-bond_dims", dest="bond_dims", type=int, nargs='+', default=[2, 4, 8, 16, 32])
 
-    parser.add_argument("-lr", dest="lr", type=float, default=1e-3)
+    parser.add_argument("-lr", dest="lr", type=float, default=1e-4)
     parser.add_argument("-min_delta", dest="min_delta", type=float, default=0)
     parser.add_argument("-patience", dest="patience", type=int, default=10)
     parser.add_argument("-epochs", dest="epochs", type=int, default=100)
@@ -78,6 +78,7 @@ if __name__ == "__main__":
     classes = np.unique(y_train)
     print('Classes: ', classes)
     class_weights = compute_class_weight(class_weight='balanced', classes=classes, y=y_train)
+    print('Class weights: ', class_weights)
 
     y_train = integer_to_one_hot(y_train, n_classes)
     y_valid = integer_to_one_hot(y_valid, n_classes)
@@ -95,9 +96,9 @@ if __name__ == "__main__":
     class_index = int(L//2)
     shape_method='noteven' # default method
     compress = False # connected with shape method
-    embedding = PolynomialEmbedding(degree=2, n=1, include_bias=True)
+    embedding = PolynomialEmbedding(degree=2, n=1, include_bias=True) # polynomial embedding of degree 2
     phys_dim = 3
-    initializer = randn(1e-2, dtype=jnp.float64)
+    initializer = randn(1e-4)
     
     for bond_dim in args.bond_dims:
         print('Initializing model with bond dimension: ', bond_dim)
@@ -114,7 +115,8 @@ if __name__ == "__main__":
                             class_dim=n_classes,
                             add_identity=True,
                             boundary='obc')
-
+        
+        print(f'Number of parameters: {model.nparams()}')
         # define training parameters
         optimizer = optax.adam
         strategy = 'global'
@@ -125,7 +127,7 @@ if __name__ == "__main__":
         # configure model
         model.configure(optimizer=optimizer, strategy=strategy, loss=loss, train_type=train_type, learning_rate=learning_rate)
 
-        earlystop = EarlyStopping(min_delta=args.min_delta, patience=args.patience, monitor='loss', mode='min')
+        earlystop = EarlyStopping(min_delta=args.min_delta, patience=args.patience, monitor='val_loss', mode='min')
         
         # ------ TRAIN ------
         print('Training model')
@@ -143,7 +145,7 @@ if __name__ == "__main__":
                             canonize=(True, class_index),
                             display_val_acc = True,
                             eval_metric = crossentropy_loss,
-                            val_batch_size = args.batch_size
+                            val_batch_size = args.batch_size,
                             )
 
         run_end = time()
@@ -164,6 +166,12 @@ if __name__ == "__main__":
 
         # save loss
         np.save(save_dir + '/loss.npy', history['loss'])
+
+        # plot validation accuracy
+        plt.figure()
+        plt.plot(range(len(history['val_acc'])), history['val_acc'], label='validation')
+        plt.legend()
+        plt.savefig(save_dir + '/val_acc.pdf')
 
         # accuracy
         acc = model.accuracy(X_test, y_test, embedding=embedding, batch_size=args.test_batch_size, dtype=jnp.float64)
@@ -237,9 +245,7 @@ if __name__ == "__main__":
             }
 
         # save parameters
-        with open(os.path.join(save_dir,("parameters.txt")), "w") as f:
-            f.write("Parameters: ")
-            json.dump(params, f)
-            f.write("\n")
+        with open(os.path.join(save_dir,("parameters.json")), "w") as f:
+            json.dump(params, f, indent=4)
         f.close()
         
