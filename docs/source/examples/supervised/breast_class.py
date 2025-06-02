@@ -1,5 +1,5 @@
 import os
-from time import time
+from time import time, perf_counter
 import json
 import argparse
 import jax.numpy as jnp
@@ -9,6 +9,7 @@ import pandas as pd
 from jax.nn.initializers import *
 import matplotlib.pyplot as plt
 from sklearn.metrics import recall_score, precision_score, f1_score, confusion_matrix
+from sklearn.utils.class_weight import compute_class_weight
 
 from sklearn.model_selection import train_test_split
 
@@ -22,7 +23,6 @@ from tn4ml.metrics import *
 import warnings
 warnings.filterwarnings("ignore", message="Couldn't import `kahypar`")
 warnings.filterwarnings("ignore", message="OMP: Info #276: omp_set_nested routine deprecated")
-
 
 def crossentropy_loss(*args, **kwargs):
     return OptaxWrapper(optax.softmax_cross_entropy)(*args, **kwargs).mean()
@@ -77,15 +77,23 @@ if __name__ == "__main__":
     print('Validation data shape: ', X_valid.shape)
     print('Test data shape: ', X_test.shape)
 
+    classes = np.unique(y_train)
+    print('Classes: ', classes)
+    class_weights = compute_class_weight(class_weight='balanced', classes=classes, y=y_train)
+
     y_train = integer_to_one_hot(y_train, n_classes)
     y_valid = integer_to_one_hot(y_valid, n_classes)
     y_test = integer_to_one_hot(y_test, n_classes)
+
+    def weighted_crossentropy_loss(*args, **kwargs):
+        return CrossEntropyWeighted(class_weights=class_weights)(*args, **kwargs).mean()
 
     # ------ MODEL ------
 
     # define model hyperparameters
     key = jax.random.key(42)
     L = X_train.shape[1]
+    print('Input dimension: ', L)
     class_index = int(L//2)
     shape_method='noteven' # default method
     compress = False # connected with shape method
@@ -112,7 +120,7 @@ if __name__ == "__main__":
         # define training parameters
         optimizer = optax.adam
         strategy = 'global'
-        loss = crossentropy_loss
+        loss = weighted_crossentropy_loss
         train_type = TrainingType.SUPERVISED
         learning_rate = args.lr
 
@@ -133,7 +141,6 @@ if __name__ == "__main__":
                             embedding = embedding,
                             normalize=True,
                             dtype=jnp.float64,
-                            cache=False,
                             earlystop=earlystop,
                             canonize=(True, class_index),
                             display_val_acc = True,
@@ -185,6 +192,29 @@ if __name__ == "__main__":
         print('Precision=%.3f'%precision)
         print('F-measure=%.3f'%F_measure)
 
+        # measure inference time
+        x = jnp.array(X_test, dtype=jnp.float64)
+        total_num_samples = x.shape[0]
+
+        start_time = perf_counter()
+        _ = model.forward(x, embedding, batch_size=args.test_batch_size, normalize=True, dtype=jnp.float64)
+        end_time = perf_counter()
+
+        total_time = end_time - start_time
+        throughput = total_num_samples / total_time
+        print(f"Inference throughput: {throughput:.2f} events/sec")
+
+        x = jnp.array(X_test[1], dtype=jnp.float64)
+        _ = model.predict(x, embedding, normalize=True)
+        inference_times = []
+        for i in range(100):
+            time_start = perf_counter()
+            _ = model.predict(x, embedding, normalize=True)
+            time_end = perf_counter()
+            inference_time = time_end - time_start
+            inference_times.append(inference_time)
+        print(f"Inference time for one sample: {inference_times}")
+
         params = {
                 'embedding': 'PolynomialEmbedding(degree=2, n=1, include_bias=True)',
                 'initializer': 'randn(std=1e-2)',
@@ -200,10 +230,12 @@ if __name__ == "__main__":
                 'test_batch_size': args.test_batch_size,
                 'acc': str(acc),
                 'train_time': str(run_time),
+                'throughput': str(throughput),
                 'sensitivity': str(sensitivity),
                 'specificity': str(specificity),
                 'precision': str(precision),
-                'F_measure': str(F_measure)
+                'F_measure': str(F_measure),
+                'inference_times': str(inference_times),
             }
 
         # save parameters
