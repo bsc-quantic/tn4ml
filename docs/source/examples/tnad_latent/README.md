@@ -1,12 +1,12 @@
 # Tensor Network for Anomaly Detection in Latent Space of Proton-Proton Collision Events at the LHC
 
-Implementation of the anomaly detection pipeline from the paper: [doi_number](link).\
+Implementation of the anomaly detection pipeline from the paper: [2506.00102](https://arxiv.org/abs/2506.00102v1).\
 \
 Install additional package for data handling:
   - `h5py`
 
 ### (optional) Download dataset
-The dimensionality of the dataset is reduced by passing it through autoencoder. If you are interested more about the architecture of the autoenoder, please refer to [[\*]](https://www.nature.com/articles/s42005-024-01811-6).\
+The dimensionality of the dataset is reduced by passing it through autoencoder. If you are interested more in the autoenoder's architecture, please refer to [[\*]](https://www.nature.com/articles/s42005-024-01811-6).\
 Reduced dataset can be downloaded from `Zenodo` :
 [record/7673769](https://zenodo.org/record/7673769)\
 Description of filenames:
