@@ -1,13 +1,13 @@
 # Tensor Network for Anomaly Detection in Latent Space of Proton-Proton Collision Events at the LHC
 
-Implementation of the anomaly detection pipeline from the paper: [2506.00102](https://arxiv.org/abs/2506.00102v1).\
+Implementation of the anomaly detection pipeline from the paper: [2506.00102](https://arxiv.org/abs/2506.00102v1).
 
 
 Install `tn4ml` directly from GitHub:
 ```bash
 git clone https://github.com/bsc-quantic/tn4ml.git
 ```
-\
+
 
 Install an additional package for data handling:
   - `h5py`
