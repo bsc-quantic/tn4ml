@@ -32,6 +32,8 @@ class Model(qtn.TensorNetwork):
         Type of training: 0 = 'unsupervised' or 1 ='supervised', 2 = 'target TN'.
     gradient_transforms : sequence
         Sequence of gradient transformations.
+    device : (str, int)
+        Device for computation, e.g. ('cpu', 0) or ('gpu', 0). [0] = device name, [1] = device index.
     opt_state : Any
         State of optimizer.
     """
@@ -45,7 +47,7 @@ class Model(qtn.TensorNetwork):
         self.train_type : int = TrainingType.UNSUPERVISED
         self.gradient_transforms : Sequence = None
         self.opt_state : Any = None
-        self.device: str = 'cpu'
+        self.device: str = ('cpu', 0)
 
     def save(self, model_name: str, dir_name: str = '~', tn: bool = False):
         """ Saves :class:`tn4ml.models.Model` to pickle file.
@@ -101,8 +103,9 @@ class Model(qtn.TensorNetwork):
                 Learning rate for optimizer
             - gradient_transforms: sequence
                 Sequence of gradient transformations for optax
-            - device: str
-                Computation device ('cpu' or 'gpu')
+            - device: (str, int)
+                Device for computation, e.g. ('cpu', 0) or ('gpu', 0).
+                [0] = device name, [1] = device index.
         
         Examples
         --------
@@ -138,7 +141,10 @@ class Model(qtn.TensorNetwork):
             else:
                 self.optimizer = optax.adam(learning_rate=self.learning_rate)
         
-        if self.device not in ['cpu', 'gpu']:
+        if len(self.device) != 2 or not isinstance(self.device, tuple):
+            raise AttributeError("Device must be a tuple of (str, int)!")
+        
+        if self.device[0] not in ['cpu', 'gpu']:
             raise AttributeError("Device must be 'cpu' or 'gpu'!")
 
     def predict(self, sample: np.ndarray, embedding: Embedding = TrigonometricEmbedding(), return_tn: bool = False, normalize: bool = False) -> Union[np.ndarray, qtn.TensorNetwork]:
@@ -173,7 +179,10 @@ class Model(qtn.TensorNetwork):
             return output
         else:
             output = output.contract(all, optimize='auto-hq')
-            y_pred = output.squeeze().data
+            if type(output) == qtn.Tensor:
+                y_pred = output.squeeze().data
+            else:
+                y_pred = output.squeeze()
             if normalize:
                 y_pred = y_pred/jnp.linalg.norm(y_pred)
             return y_pred
@@ -206,7 +215,8 @@ class Model(qtn.TensorNetwork):
         outputs = []
         for batch_data in _batch_iterator(data, batch_size=batch_size, shuffle=False, dtype=dtype, seed=seed, alternate_flip=alternate_flip):
             x = jnp.array(batch_data, dtype=jnp.float64)
-            
+            x = jax.device_put(x, device=jax.devices(self.device[0])[self.device[1]])
+
             output = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None, None))(x, embedding, False, normalize)))
             outputs.append(output)
         
@@ -247,6 +257,8 @@ class Model(qtn.TensorNetwork):
         for batch_data in _batch_iterator(data, y_true, batch_size=batch_size, shuffle=shuffle, dtype=dtype, seed=seed, alternate_flip=alternate_flip):
             x, y = batch_data
             x, y = jnp.array(x, dtype=dtype), jnp.array(y)
+            x = jax.device_put(x, device=jax.devices(self.device[0])[self.device[1]])
+            y = jax.device_put(y, device=jax.devices(self.device[0])[self.device[1]])
 
             y_pred = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None, None))(x, embedding, False, normalize)))
             predicted = jnp.argmax(y_pred, axis=-1)
@@ -377,13 +389,15 @@ class Model(qtn.TensorNetwork):
                 if type(data) == tuple and len(data) == 2:
                     data, targets = data
                     data, targets = jnp.array(data), jnp.array(targets)
+                    data = jax.device_put(data, device=jax.devices(self.device[0])[self.device[1]])
+                    targets = jax.device_put(targets, device=jax.devices(self.device[0])[self.device[1]])
                 else:
-                    data = jnp.array(data)
+                    data = jax.device_put(jnp.array(data), device=jax.devices(self.device[0])[self.device[1]])
                     targets = None
             else:
                 targets = None
             
-            loss, grads = jax.jit(value_and_grad, backend=self.device)(params, data, targets)
+            loss, grads = jax.jit(value_and_grad, backend=self.device[0])(params, data, targets)
 
             if grad_clip_threshold:
                 grads = gradient_clip(grads, grad_clip_threshold)
@@ -534,19 +548,19 @@ class Model(qtn.TensorNetwork):
 
             # Choose vmap axis setup
             if self.train_type == TrainingType.UNSUPERVISED:
-                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0,)), backend=self.device)  # only data needed
+                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0,)), backend=self.device[0])  # only data needed
                 return jnp.mean(vmapped_loss(data))
             elif self.train_type == TrainingType.SUPERVISED:
-                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0, 0)), backend=self.device)  # both data and targets batched
+                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0, 0)), backend=self.device[0])  # both data and targets batched
                 return jnp.mean(vmapped_loss(data, targets))
             else:  # TARGET_TN
-                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0,)), backend=self.device)  # only data needed
+                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0,)), backend=self.device[0])  # only data needed
                 return jnp.mean(vmapped_loss(data))
 
         if isinstance(self.strategy, Sweeps):
             
             # initialize optimizers
-            self.loss_func = jax.jit(loss_fn, backend=self.device)
+            self.loss_func = jax.jit(loss_fn, backend=self.device[0])
             self.opt_states = []
 
             for s, sites in enumerate(self.strategy.iterate_sites(self)):
@@ -569,7 +583,7 @@ class Model(qtn.TensorNetwork):
             
             # initialize optimizer
             params = self.arrays
-            self.loss_func = jax.jit(loss_fn, backend=self.device)
+            self.loss_func = jax.jit(loss_fn, backend=self.device[0])
             self.step, self.opt_state = self.create_train_step(params=params, loss_func=self.loss_func)
         
         finish = False
@@ -608,7 +622,7 @@ class Model(qtn.TensorNetwork):
                             # Global strategy
                             params = self.arrays
                             _, self.opt_state, loss_curr = self.step(params, self.opt_state, batch_data, grad_clip_threshold=gradient_clip_threshold)
-
+                                                
                         loss_batch += loss_curr
 
                         if normalize:
@@ -652,6 +666,7 @@ class Model(qtn.TensorNetwork):
                             else:
                                 current = sum(self.history[earlystop.monitor][-num_batches:])/num_batches
                             return_value = earlystop.on_end_epoch(current, epoch, self)
+                
                 if epoch == 0:
                     outerbar.bar_format = "{l_bar}{bar} {n_fmt}/{total_fmt} {postfix}"
                 
@@ -758,13 +773,13 @@ class Model(qtn.TensorNetwork):
 
             # Choose vmap axis setup
             if evaluate_type == TrainingType.UNSUPERVISED:
-                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0,)), backend=self.device)   # only data needed
+                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0,)), backend=self.device[0])   # only data needed
                 return vmapped_loss(data)
             elif evaluate_type == TrainingType.SUPERVISED:
-                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0, 0)), backend=self.device)   # both data and targets batched
+                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0, 0)), backend=self.device[0])   # both data and targets batched
                 return vmapped_loss(data, targets)
             else:  # TARGET_TN
-                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0,)), backend=self.device) # only data needed
+                vmapped_loss = jax.jit(jax.vmap(single_loss, in_axes=(0,)), backend=self.device[0]) # only data needed
                 return vmapped_loss(data)
         
         if inputs is not None:
@@ -773,8 +788,11 @@ class Model(qtn.TensorNetwork):
                 if type(batch_data) == tuple and len(batch_data) == 2:
                     x, y = batch_data
                     x, y = jnp.array(x, dtype=dtype), jnp.array(y)
+                    x = jax.device_put(x, device=jax.devices(self.device[0])[self.device[1]])
+                    y = jax.device_put(y, device=jax.devices(self.device[0])[self.device[1]])
                 else:
                     x = jnp.array(batch_data, dtype=dtype)
+                    x = jax.device_put(x, device=jax.devices(self.device[0])[self.device[1]])
                     y = None
 
                 if isinstance(self.strategy, Sweeps):
