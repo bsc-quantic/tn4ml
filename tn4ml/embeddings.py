@@ -551,7 +551,7 @@ class GaussianRBFEmbedding(Embedding):
     @property
     def dim(self) -> int:
         """Get the output dimension (product of centers shape)."""
-        return jnp.prod(self.centers.shape)
+        return jnp.prod(onp.array(self.centers.shape))
     
     @property
     def input_dim(self) -> int:
