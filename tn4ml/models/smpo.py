@@ -602,8 +602,6 @@ def SMPO_initialize(L: int,
             raise ValueError("rand_unitary initializer does not support compress.")
         if insert:
             raise ValueError("rand_unitary initializer does not support insert.")
-        if canonical_center:
-            raise ValueError("rand_unitary initializer does not support canonization.")
         if boundary == 'obc':
                 boundary = None
 
