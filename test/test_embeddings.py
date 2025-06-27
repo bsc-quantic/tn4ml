@@ -36,7 +36,7 @@ def test_fourier(x):
     (5, [3], 1)
 ])
 def test_gaussian_basic(x, centers, gamma):
-    embedding = tn4ml.embeddings.gaussian_rbf(centers=centers, gamma=gamma)
+    embedding = tn4ml.embeddings.GaussianRBFEmbedding(centers=centers, gamma=gamma)
     phi: jnp.ndarray = embedding(x)
     assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
 
@@ -53,7 +53,7 @@ def test_gaussian_basic(x, centers, gamma):
     (10, [3,7], 0.5)
 ])
 def test_gaussian_multiple_centers(x, centers, gamma):
-    embedding = tn4ml.embeddings.gaussian_rbf(centers=centers, gamma=gamma)
+    embedding = tn4ml.embeddings.GaussianRBFEmbedding(centers=centers, gamma=gamma)
     phi: jnp.ndarray = embedding(x)
     assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
 
@@ -66,7 +66,7 @@ def test_gaussian_multiple_centers(x, centers, gamma):
     (6, [3,5], 10)
 ])
 def test_gaussian_high_gamma(x, centers, gamma):
-    embedding = tn4ml.embeddings.gaussian_rbf(centers=centers, gamma=gamma)
+    embedding = tn4ml.embeddings.GaussianRBFEmbedding(centers=centers, gamma=gamma)
     phi: jnp.ndarray = embedding(x)
     assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
 
@@ -84,7 +84,7 @@ def test_gaussian_high_gamma(x, centers, gamma):
     (5, [0], 0.1)
 ])
 def test_gaussian_low_gamma(x, centers, gamma):
-    embedding = tn4ml.embeddings.gaussian_rbf(centers=centers, gamma=gamma)
+    embedding = tn4ml.embeddings.GaussianRBFEmbedding(centers=centers, gamma=gamma)
     phi: jnp.ndarray = embedding(x)
     assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
 
@@ -94,20 +94,12 @@ def test_embed_trig_four(x, embedding):
     assert phi.norm() == pytest.approx(1.0)
 
 @pytest.mark.parametrize("x,embedding", [
-    (np.array([1,2,3,4,5,6]), tn4ml.embeddings.gaussian_rbf(np.array([3,5]), 10)),
-    (np.array([-5,-4,-3,-2,-1,0,1,2,3,4,5]), tn4ml.embeddings.gaussian_rbf(np.array([0]), 0.1)),
-    (np.array([1,2,3,4,5,6,7,8,9,10]), tn4ml.embeddings.gaussian_rbf(np.array([3,7]), 0.5)),
-    (np.array([1,2,3,4,5]), tn4ml.embeddings.gaussian_rbf(np.array([3]), 1))
+    (np.array([1,2,3,4,5,6]), tn4ml.embeddings.GaussianRBFEmbedding(np.array([3,5]), 10)),
+    (np.array([-5,-4,-3,-2,-1,0,1,2,3,4,5]), tn4ml.embeddings.GaussianRBFEmbedding(np.array([0]), 0.1)),
+    (np.array([1,2,3,4,5,6,7,8,9,10]), tn4ml.embeddings.GaussianRBFEmbedding(np.array([3,7]), 0.5)),
+    (np.array([1,2,3,4,5]), tn4ml.embeddings.GaussianRBFEmbedding(np.array([3]), 1))
 ])
 def test_embed_gauss(x, embedding):
     # zero entry makes problem if x starts with 0
     phi = tn4ml.embeddings.embed(x, phi=embedding)
     assert phi.norm() == pytest.approx(1.0)
-
-# @pytest.mark.parametrize("x,embedding", [
-#     (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.TrigonometricEmbedding_chain(input_shape=(1,3))),
-#     (np.array([[0,1,2], [3,4,5]]), tn4ml.embeddings.TrigonometricEmbedding_avg(input_shape=(1,3))),
-# ])
-# def test_embed_trig_chain_avg(x, embedding):
-#     phi = tn4ml.embeddings.embed(x, phi=embedding)
-#     assert phi.norm() == pytest.approx(1.0)
