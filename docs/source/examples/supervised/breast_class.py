@@ -203,13 +203,6 @@ if __name__ == "__main__":
         x = jnp.array(X_test, dtype=jnp.float64)
         total_num_samples = x.shape[0]
 
-        _, times = model.forward(x, embedding, batch_size=100, normalize=True, dtype=jnp.float64)
-        print('Inference times for 100 batch size:')
-        print(times)
-        total_time = np.mean(times)
-        throughput = 100 / total_time
-        print(f"Inference throughput: {throughput:.2f} events/sec")
-
         params = {
                 'embedding': 'PolynomialEmbedding(degree=2, n=1, include_bias=True)',
                 'initializer': 'randn(std=1e-2)',
@@ -224,15 +217,12 @@ if __name__ == "__main__":
                 'save_dir': args.save_dir,
                 'test_batch_size': args.test_batch_size,
                 'acc': str(acc),
-                'throughput': str(throughput),
                 'sensitivity': str(sensitivity),
                 'specificity': str(specificity),
                 'precision': str(precision),
                 'F_measure': str(F_measure),
-                'inference_times': str(times),
-                'inference_time_per_batch': str(total_time),
-                'batch_times': str(history['batch_time']),
-                'train_time': str(np.mean(history['batch_time'][:11])), # discard first 10 batches as they are usually slower due to initialization
+                # 'batch_times': str(history['batch_time']),
+                # 'train_time': str(np.mean(history['batch_time'][:11])), # discard first 10 batches as they are usually slower due to initialization
                 'num_train_samples': str(len(X_train)),
                 'num_test_samples': str(len(X_test)),
             }
