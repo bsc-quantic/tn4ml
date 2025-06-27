@@ -1,13 +1,18 @@
 import os
+
 from time import time, perf_counter
 import json
 import argparse
+
+import jax
 import jax.numpy as jnp
+from jax.nn.initializers import *
+
 import quimb.tensor as qtn
 import numpy as np
 import pandas as pd
-from jax.nn.initializers import *
 import matplotlib.pyplot as plt
+
 from sklearn.metrics import recall_score, precision_score, f1_score, confusion_matrix
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.model_selection import train_test_split
@@ -117,6 +122,7 @@ if __name__ == "__main__":
                             boundary='obc')
         
         print(f'Number of parameters: {model.nparams()}')
+
         # define training parameters
         optimizer = optax.adam
         strategy = 'global'
@@ -125,13 +131,12 @@ if __name__ == "__main__":
         learning_rate = args.lr
 
         # configure model
-        model.configure(optimizer=optimizer, strategy=strategy, loss=loss, train_type=train_type, learning_rate=learning_rate)
+        model.configure(optimizer=optimizer, strategy=strategy, loss=loss, train_type=train_type, learning_rate=learning_rate, device=(args.device, 0))
 
         earlystop = EarlyStopping(min_delta=args.min_delta, patience=args.patience, monitor='val_loss', mode='min')
         
         # ------ TRAIN ------
         print('Training model')
-        run_start = time()
         history = model.train(X_train, 
                             targets=y_train,
                             val_inputs=X_valid,
@@ -147,10 +152,6 @@ if __name__ == "__main__":
                             eval_metric = crossentropy_loss,
                             val_batch_size = args.batch_size,
                             )
-
-        run_end = time()
-        run_time = run_end - run_start
-        print(f"Training time: {run_time}")
         
         # ------ SAVE loss and model -------
         save_dir = args.save_dir + '/bond_' + str(bond_dim)
@@ -202,24 +203,12 @@ if __name__ == "__main__":
         x = jnp.array(X_test, dtype=jnp.float64)
         total_num_samples = x.shape[0]
 
-        start_time = perf_counter()
-        _ = model.forward(x, embedding, batch_size=args.test_batch_size, normalize=True, dtype=jnp.float64)
-        end_time = perf_counter()
-
-        total_time = end_time - start_time
-        throughput = total_num_samples / total_time
+        _, times = model.forward(x, embedding, batch_size=100, normalize=True, dtype=jnp.float64)
+        print('Inference times for 100 batch size:')
+        print(times)
+        total_time = np.mean(times)
+        throughput = 100 / total_time
         print(f"Inference throughput: {throughput:.2f} events/sec")
-
-        x = jnp.array(X_test[1], dtype=jnp.float64)
-        _ = model.predict(x, embedding, normalize=True)
-        inference_times = []
-        for i in range(100):
-            time_start = perf_counter()
-            _ = model.predict(x, embedding, normalize=True)
-            time_end = perf_counter()
-            inference_time = time_end - time_start
-            inference_times.append(inference_time)
-        print(f"Inference time for one sample: {inference_times}")
 
         params = {
                 'embedding': 'PolynomialEmbedding(degree=2, n=1, include_bias=True)',
@@ -235,17 +224,21 @@ if __name__ == "__main__":
                 'save_dir': args.save_dir,
                 'test_batch_size': args.test_batch_size,
                 'acc': str(acc),
-                'train_time': str(run_time),
                 'throughput': str(throughput),
                 'sensitivity': str(sensitivity),
                 'specificity': str(specificity),
                 'precision': str(precision),
                 'F_measure': str(F_measure),
-                'inference_times': str(inference_times),
+                'inference_times': str(times),
+                'inference_time_per_batch': str(total_time),
+                'batch_times': str(history['batch_time']),
+                'train_time': str(np.mean(history['batch_time'][:11])), # discard first 10 batches as they are usually slower due to initialization
+                'num_train_samples': str(len(X_train)),
+                'num_test_samples': str(len(X_test)),
             }
 
         # save parameters
-        with open(os.path.join(save_dir,("parameters.json")), "w") as f:
+        with open(os.path.join(save_dir,("execution_metrics.json")), "w") as f:
             json.dump(params, f, indent=4)
         f.close()
         
