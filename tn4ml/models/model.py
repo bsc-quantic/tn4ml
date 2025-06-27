@@ -570,7 +570,6 @@ class Model(qtn.TensorNetwork):
                 
                 params_i = self.select_tensors(self.sitetags)[0].data
                 params_i = jnp.expand_dims(params_i, axis=0) # add batch dimension
-                print(params_i.shape)
 
                 self.step, opt_state = self.create_train_step(params=params_i, loss_func=self.loss_func)
 
