@@ -298,3 +298,5 @@ $RECYCLE.BIN/
 # examples/*/results
 /docs/source/examples/supervised/results
 /docs/source/examples/unsupervised/results
+/docs/source/examples/supervised/results_*
+/docs/source/examples/supervised/plots
