@@ -153,17 +153,17 @@ def generate_ind(L: int, shape: tuple, position: int, cyclic: bool = False, clas
     if len(shape) == 3:
         if position == 1:
             if class_index == position:
-                ind = (f'bond_{position-1}', f'k{position-1}', f'b_{position-1}')
+                ind = (f'bond_{position-1}', f'k{position-1}', f'b{position-1}')
             else:
                 ind = (f'bond_{position-2}', f'bond_{position-1}', f'k{position-1}')
         elif position == L:
             if cyclic and class_index != position:
                 raise ValueError('Cyclic MPS cannot have class_dim')
-            ind = (f'bond_{position-2}', f'k{position-1}', f'b_{position-1}') if class_index == position else (f'bond_{position-2}', f'bond_{position-1}', f'k{position-1}')
+            ind = (f'bond_{position-2}', f'k{position-1}', f'b{position-1}') if class_index == position else (f'bond_{position-2}', f'bond_{position-1}', f'k{position-1}')
         else:
             ind = (f'bond_{position-2}', f'bond_{position-1}', f'k{position-1}')
     else:
-        ind = (f'bond_{position-2}', f'bond_{position-1}', f'k{position-1}', f'b_{position-1}')
+        ind = (f'bond_{position-2}', f'bond_{position-1}', f'k{position-1}', f'b{position-1}')
 
     return ind
 
