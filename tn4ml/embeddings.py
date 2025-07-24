@@ -589,7 +589,7 @@ class PolynomialEmbedding(Embedding):
         Whether to include constant term
     """
     
-    def __init__(self, degree: int, n: int, include_bias: bool = False, **kwargs):
+    def __init__(self, degree: int, n: int, include_bias: bool = False, include_cross_terms: bool = False, **kwargs):
         """Initialize the PolynomialEmbedding.
         
         Parameters
@@ -613,6 +613,7 @@ class PolynomialEmbedding(Embedding):
         self.degree = degree
         self.n = n
         self.include_bias = include_bias
+        self.include_cross_terms = include_cross_terms
         super().__init__(**kwargs)
 
     @property
@@ -644,11 +645,21 @@ class PolynomialEmbedding(Embedding):
             x = jnp.array([x])
         
         features = []
-        if self.include_bias:
-            features.append(1.0)        
         
+        # Add bias term if requested
+        if self.include_bias:
+            features.append(1.0)
+        
+        # Generate polynomial features
         for d in range(1, self.degree + 1):
             for combination in itertools.combinations_with_replacement(range(len(x)), d):
+                # Check if this is a cross term (involves multiple different variables)
+                is_cross_term = len(set(combination)) > 1
+                
+                # Skip cross terms if they're not wanted
+                if is_cross_term and not self.include_cross_terms:
+                    continue
+                
                 product = jnp.prod(x[jnp.array(combination)])
                 features.append(product)
         
