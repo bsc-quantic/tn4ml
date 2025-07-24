@@ -618,10 +618,24 @@ class PolynomialEmbedding(Embedding):
 
     @property
     def dim(self) -> int:
-        """Get the output dimension (sum of combinations)."""
+        """Get the output dimension based on degree, bias, and cross terms options."""
+        total_features = 0
+        
+        # Add bias term if requested
         if self.include_bias:
-            return sum(math.comb(self.input_dim + k - 1, k) for k in range(0, self.degree + 1))
-        return sum(math.comb(self.input_dim + k - 1, k) for k in range(1, self.degree + 1))
+            total_features += 1
+        
+        # Calculate features for each degree
+        for d in range(1, self.degree + 1):
+            if self.include_cross_terms:
+                # Include all combinations (pure and cross terms)
+                total_features += math.comb(self.input_dim + d - 1, d)
+            else:
+                # Only pure terms (no cross interactions)
+                # For degree d, we have input_dim terms (x₁^d, x₂^d, ..., xₙ^d)
+                total_features += self.input_dim
+    
+        return total_features
 
     @property
     def input_dim(self) -> int:
