@@ -1,4 +1,4 @@
-<img src="docs/_static/logo_light.png" position="center" alt="logo" width="500" height="200">
+<img src="docs/_static/logo_light.png" position="center" alt="logo" width="300" height="200">
 
 # Tensor Networks for Machine Learning
 ![Static Badge](https://img.shields.io/badge/tests-passing-blue)
