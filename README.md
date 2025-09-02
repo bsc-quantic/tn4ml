@@ -83,7 +83,8 @@ Visit [tn4ml.readthedocs.io](https://tn4ml.readthedocs.io/en/latest/)
 
 ## Examples from the paper
 [Breast Cancer Classification](docs/source/examples/supervised)<br>
-[Unsupervised learning with MNIST](docs/source/examples/unsupervised)
+[Unsupervised Learning with MNIST](docs/source/examples/unsupervised)<br>
+[MPS for Anomaly Detection in the Latent Space of Proton Collision Events at the LHC](docs/source/examples/tnad_latent)
 
 
 ## Citation
