@@ -835,15 +835,6 @@ class JaxArraysEmbedding(Embedding):
     """Simple embedding that converts input arrays to JAX arrays.
     
     Optionally adds a bias term to the input.
-    
-    Attributes
-    ----------
-    dim : Optional[int]
-        Output dimension
-    add_bias : bool
-        Whether to add bias term
-    input_dim : Optional[int]
-        Input dimension
     """
     
     def __init__(self, dim: Optional[int] = None, add_bias: bool = False, input_dim: Optional[int] = None, **kwargs):
@@ -1283,7 +1274,7 @@ def embed(x: onp.ndarray, phi: Union[Embedding, ComplexEmbedding, StateVectorToM
     Returns
     -------
     qtn.MatrixProductState
-        Product state representation
+        Embedded Product state representation
         
     Raises
     ------
