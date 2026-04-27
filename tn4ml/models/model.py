@@ -10,6 +10,7 @@ import quimb as qu
 import autoray
 import optax
 import jax
+from scipy.special import softmax
 
 from ..embeddings import *
 from ..strategy import *
@@ -47,7 +48,7 @@ class Model(qtn.TensorNetwork):
         self.train_type : int = TrainingType.UNSUPERVISED
         self.gradient_transforms : Sequence = None
         self.opt_state : Any = None
-        self.device: str = ('cpu', 0)
+        self.device: tuple = ('cpu', 0)
 
     def save(self, model_name: str, dir_name: str = '~', tn: bool = False):
         """ Saves :class:`tn4ml.models.Model` to pickle file.
@@ -83,30 +84,33 @@ class Model(qtn.TensorNetwork):
 
     def configure(self, **kwargs):
 
-        """ Configures model for training with specific parameters.
+        """
+        Configures model for training with specific parameters.
 
         Parameters
         ----------
         kwargs : dict
-            Configuration parameters.
+        Configuration parameters. Supported keys:
 
-            Including:
-            - strategy: str or Strategy object
-            Training strategy ('global', 'sweeps', 'local', 'dmrg', 'dmrg-like')
-            - optimizer: callable or optax optimizer
-                Optimization algorithm to use
-            - loss: callable
-                Loss function for training
-            - train_type: int
-                Type of training (from :class:`tn4ml.util.TrainingType`)
-            - learning_rate: float
-                Learning rate for optimizer
-            - gradient_transforms: sequence
-                Sequence of gradient transformations for optax
-            - device: (str, int)
-                Device for computation, e.g. ('cpu', 0) or ('gpu', 0).
-                [0] = device name, [1] = device index.
-        
+        - strategy: str or Strategy object
+        Training strategy ('global', 'sweeps', 'local', 'dmrg', 'dmrg-like')
+        - optimizer: callable or optax optimizer
+            Optimization algorithm to use.
+        - loss: callable
+            Loss function for training.
+        - train_type: int
+            Type of training (from :class:`tn4ml.util.TrainingType`)
+        - learning_rate: float
+            Learning rate for optimizer.
+        - gradient_transforms: sequence
+            Sequence of gradient transformations for optax
+        - device: (str, int)
+            Device for computation, e.g. ('cpu', 0) or ('gpu', 0). [0] = device name, [1] = device index.
+    
+        Returns
+        -------
+        None
+
         Examples
         --------
         >>> model.configure(strategy='global', optimizer=optax.adam, learning_rate=0.01, loss=tn4ml.metrics.LogQuadNorm, train_type=TrainingType.UNSUPERVISED)
@@ -116,8 +120,15 @@ class Model(qtn.TensorNetwork):
             if key == "strategy":
                 if isinstance(value, Strategy):
                     self.strategy = value
-                elif value in ['sweeps', 'local', 'dmrg', 'dmrg-like']:
-                    self.strategy = Sweeps()
+                elif value in ['sweeps', 'local', 'dmrg', 'dmrg-like', 'sweeps-one-way', 'sweeps-one-way-per-site', 'sweeps-per-site']:
+                    if value == 'sweeps-one-way-per-site':
+                        self.strategy = Sweeps(two_way=False, grouping=1) # one-way, grouping = 1
+                    elif value == 'sweeps-per-site':
+                        self.strategy = Sweeps(two_way=True, grouping=1) # two-way, grouping = 1
+                    elif value == 'sweeps-one-way':
+                        self.strategy = Sweeps(two_way=False, grouping=2) # one-way, grouping = 2
+                    else:
+                        self.strategy = Sweeps() # default is two-way, grouping = 2
                 elif value in ['global', 'sgd', 'gd', 'gradient_descent']:
                     self.strategy = 'global'
                 else:
@@ -254,6 +265,8 @@ class Model(qtn.TensorNetwork):
         
         correct_predictions = 0
         num_samples = 0
+        if not isinstance(self.device, tuple):
+            self.device = (self.device, 0) # ensure device is tuple
         for batch_data in _batch_iterator(data, y_true, batch_size=batch_size, shuffle=shuffle, dtype=dtype, seed=seed, alternate_flip=alternate_flip):
             x, y = batch_data
             x, y = jnp.array(x, dtype=dtype), jnp.array(y)
@@ -261,6 +274,7 @@ class Model(qtn.TensorNetwork):
             y = jax.device_put(y, device=jax.devices(self.device[0])[self.device[1]])
 
             y_pred = jnp.squeeze(jnp.array(jax.vmap(self.predict, in_axes=(0, None, None, None))(x, embedding, False, normalize)))
+            y_pred = softmax(y_pred, axis=-1)
             predicted = jnp.argmax(y_pred, axis=-1)
             true = jnp.argmax(y, axis=-1)
 
@@ -601,22 +615,37 @@ class Model(qtn.TensorNetwork):
                     loss_batch = 0
                     for batch_data in _batch_iterator(inputs, targets, batch_size, dtype=dtype, shuffle=shuffle, seed=seed, alternate_flip=alternate_flip):
                         if isinstance(self.strategy, Sweeps):
-                            # Sweeping strategy
                             loss_curr = 0
                             for s, sites in enumerate(self.strategy.iterate_sites(self)):
                                 self.strategy.prehook(self, sites)
-                                
-                                self.sitetags = [self.site_tag(site) for site in sites]
-                                
-                                params_i = self.select_tensors(self.sitetags)[0].data
-                                params_i = jnp.expand_dims(params_i, axis=0) # add batch dimension
 
-                                _, self.opt_states[s], loss_group = self.step(params_i, self.opt_states[s], batch_data, grad_clip_threshold=gradient_clip_threshold)
+                                # Always use left tensor (min site index)
+                                opt_index = min(sites)
+                                site_tag = self.site_tag(opt_index)
+                                tensor = self.select_tensors(site_tag)[0]
                                 
+                                if self.strategy.grouping == 2:
+                                    # Transpose tensor if needed to match expected ordering
+                                    key = tuple(sorted(sites))
+                                    expected_inds = self.strategy.inds_order[key]
+                                    if sorted(tensor.inds) == sorted(expected_inds) and tensor.inds != expected_inds:
+                                        tensor.transpose(*expected_inds, inplace=True)
+                                    
+                                    self.sitetags = [self.site_tag(site) for site in sorted(sites)]
+                                
+                                # Get params with batch dimension
+                                params_i = jnp.expand_dims(tensor.data, axis=0)
+                                
+                                # Optimizer step
+                                _, self.opt_states[opt_index], loss_group = self.step(
+                                    params_i, self.opt_states[opt_index], batch_data,
+                                    grad_clip_threshold=gradient_clip_threshold
+                                )
+
                                 self.strategy.posthook(self, sites)
-
                                 loss_curr += loss_group
-                            loss_curr /= (s+1)
+
+                            loss_curr /= (s + 1)
                         else:
                             # Global strategy
                             params = self.arrays
@@ -795,7 +824,6 @@ class Model(qtn.TensorNetwork):
                     y = None
 
                 if isinstance(self.strategy, Sweeps):
-                    
                     loss_curr = np.zeros((x.shape[0],))
                     for s, sites in enumerate(self.strategy.iterate_sites(self)):
                         self.strategy.prehook(self, sites)
