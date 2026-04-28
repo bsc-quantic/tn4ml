@@ -103,3 +103,129 @@ def test_embed_gauss(x, embedding):
     # zero entry makes problem if x starts with 0
     phi = tn4ml.embeddings.embed(x, phi=embedding)
     assert phi.norm() == pytest.approx(1.0)
+
+
+# --- LinearComplementEmbedding ---
+
+@pytest.mark.parametrize("x,p", [
+    (0.3, 2), (0.7, 2), (0.5, 3), (0.1, 3),
+])
+def test_LinearComplementEmbedding(x, p):
+    embedding = tn4ml.embeddings.LinearComplementEmbedding(p=p)
+    phi = embedding(x)
+    assert phi.shape == (p,)
+    assert np.linalg.norm(phi) == pytest.approx(1.0)
+
+def test_LinearComplementEmbedding_invalid_p():
+    with pytest.raises(ValueError):
+        tn4ml.embeddings.LinearComplementEmbedding(p=4)
+
+
+# --- QuantumBasisEmbedding ---
+
+@pytest.mark.parametrize("x", [0, 1])
+def test_QuantumBasisEmbedding(x):
+    basis = {0: [1.0, 0.0], 1: [0.0, 1.0]}
+    embedding = tn4ml.embeddings.QuantumBasisEmbedding(basis=basis)
+    phi = embedding(x)
+    assert phi.shape == (2,)
+
+
+# --- LegendreEmbedding ---
+
+@pytest.mark.parametrize("x,degree", [
+    (0.5, 2), (-0.5, 3), (0.0, 4), (1.0, 2),
+])
+def test_LegendreEmbedding(x, degree):
+    embedding = tn4ml.embeddings.LegendreEmbedding(degree=degree)
+    phi = embedding(x)
+    assert phi.shape == (degree + 1,)
+
+
+# --- LaguerreEmbedding ---
+
+@pytest.mark.parametrize("x,degree", [
+    (0.5, 2), (1.0, 3), (2.0, 4), (0.1, 2),
+])
+def test_LaguerreEmbedding(x, degree):
+    embedding = tn4ml.embeddings.LaguerreEmbedding(degree=degree)
+    phi = embedding(x)
+    assert phi.shape == (degree + 1,)
+
+
+# --- HermiteEmbedding ---
+
+@pytest.mark.parametrize("x,degree", [
+    (0.5, 2), (-0.5, 3), (0.0, 4), (1.0, 2),
+])
+def test_HermiteEmbedding(x, degree):
+    embedding = tn4ml.embeddings.HermiteEmbedding(degree=degree)
+    phi = embedding(x)
+    assert phi.shape == (degree + 1,)
+
+
+# --- JaxArraysEmbedding ---
+
+def test_JaxArraysEmbedding_basic():
+    embedding = tn4ml.embeddings.JaxArraysEmbedding(dim=3, input_dim=3)
+    x = jnp.array([1.0, 2.0, 3.0])
+    phi = embedding(x)
+    assert jnp.allclose(phi, x)
+
+def test_JaxArraysEmbedding_with_bias():
+    embedding = tn4ml.embeddings.JaxArraysEmbedding(dim=4, add_bias=True, input_dim=3)
+    x = jnp.array([1.0, 2.0, 3.0])
+    phi = embedding(x)
+    assert phi.shape == (4,)
+    assert phi[0] == 1.0  # bias term
+
+
+# --- PolynomialEmbedding ---
+
+@pytest.mark.parametrize("degree,n,include_bias", [
+    (1, 2, False), (2, 2, False), (2, 3, True), (3, 1, False),
+])
+def test_PolynomialEmbedding(degree, n, include_bias):
+    embedding = tn4ml.embeddings.PolynomialEmbedding(degree=degree, n=n, include_bias=include_bias)
+    x = jnp.ones(n) * 0.5
+    phi = embedding(x)
+    assert phi.shape == (embedding.dim,)
+
+def test_PolynomialEmbedding_invalid_degree():
+    with pytest.raises(ValueError):
+        tn4ml.embeddings.PolynomialEmbedding(degree=0, n=2)
+
+
+# --- TrigonometricEmbeddingChain ---
+
+def test_TrigonometricEmbeddingChain():
+    embedding = tn4ml.embeddings.TrigonometricEmbeddingChain(k=1, input_shape=(2, 2))
+    x = [0.5, 0.7]
+    phi = embedding(x)
+    assert phi.shape == (4,)  # k*2*input_shape[1] per feature
+
+
+# --- TrigonometricEmbeddingAvg ---
+
+def test_TrigonometricEmbeddingAvg():
+    embedding = tn4ml.embeddings.TrigonometricEmbeddingAvg(k=1, input_shape=(2, 2))
+    x = jnp.array([0.5, 0.7])
+    phi = embedding(x)
+    assert phi.shape == (2,)  # k*2
+
+
+# --- embed with different embedding types ---
+
+@pytest.mark.parametrize("x,embedding", [
+    (np.array([0.3, 0.5, 0.7, 0.9]), tn4ml.embeddings.LinearComplementEmbedding(p=2)),
+    (np.array([0.3, 0.5, 0.7, 0.9]), tn4ml.embeddings.LegendreEmbedding(degree=2)),
+    (np.array([0.3, 0.5, 0.7, 0.9]), tn4ml.embeddings.LaguerreEmbedding(degree=2)),
+    (np.array([0.3, 0.5, 0.7, 0.9]), tn4ml.embeddings.HermiteEmbedding(degree=2)),
+])
+def test_embed_various_embeddings(x, embedding):
+    phi = tn4ml.embeddings.embed(x, phi=embedding)
+    assert phi.norm() == pytest.approx(1.0)
+
+def test_embed_invalid_type():
+    with pytest.raises(TypeError):
+        tn4ml.embeddings.embed(np.array([0.5]), phi="not_an_embedding")
