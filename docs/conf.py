@@ -55,10 +55,15 @@ if os.environ.get("READTHEDOCS", "") == "True":
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+from importlib.metadata import version as _pkg_version, PackageNotFoundError
+
 project = 'tn4ml'
-copyright = '2024, Barcelona Supercomputing Center - Centro Nacional de Supercomputación'
-author = 'Ema Puljak, Sergio Sánchez Ramírez, Sergi Masor Llima, Jofre Vallès-Muns'
-release = '1.0.5'
+copyright = '2026, Barcelona Supercomputing Center - Centro Nacional de Supercomputación'
+author = 'tn4ml contributors'
+try:
+    release = _pkg_version("tn4ml")
+except PackageNotFoundError:
+    release = "unknown"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -105,21 +110,57 @@ copybutton_only_copy_prompt_lines = False  # Copy all code lines, not just the o
 copybutton_remove_prompts = True  # Remove the prompts before copying
 
 templates_path = ['_templates']
-exclude_patterns = ['build', 'Thumbs.db', '.DS_Store', 'test', '.ipynb_checkpoints']
+exclude_patterns = ['build', 'Thumbs.db', '.DS_Store', 'test', '.ipynb_checkpoints', 'examples/tnad_latent/README.md']
 
 mathjax3_config = {
     'TeX': {'equationNumbers': {'autoNumber': 'AMS', 'useLabelIds': True}},
+}
+
+source_suffix = {
+    '.rst': 'restructuredtext',
 }
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_permalinks_icon = '<span>#</span>'
-html_theme = 'sphinx_book_theme'
+html_theme = 'pydata_sphinx_theme'
 html_title = 'tn4ml'
 html_logo = "_static/logo.png"
+html_favicon = "_static/logo.png"
 html_static_path = ['_static']
 html_css_files = ['custom.css']
+ 
+html_theme_options = {
+    "use_edit_page_button": False,
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/bsc-quantic/tn4ml",
+            "icon": "fa-brands fa-github",
+        },
+        {
+            "name": "Paper",
+            "url": "https://arxiv.org/abs/2502.13090",
+            "icon": "fa-solid fa-file-pdf",
+        },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/tn4ml/",
+            "icon": "fa-custom fa-pypi",
+        },
+    ],
+    "logo": {
+        "text": "tn4ml",
+        "image_dark": "_static/logo_dark.png",
+    },
+    "show_toc_level": 1,
+    # place icons in the top-right navbar next to the theme toggle
+    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "navbar_align": "left",
+    "search_as_you_type": True,
+}
+
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/', None),
@@ -129,3 +170,14 @@ intersphinx_mapping = {
     'functools': ('https://docs.python.org/3/library/functools.html#module-functools', None),
     'tensorflow': ('https://www.tensorflow.org/', None)
 }
+
+# Ensure github edit links work (required for use_edit_page_button)
+html_context = globals().get("html_context", {})
+html_context.update(
+    {
+        "github_user": "bsc-quantic",
+        "github_repo": "tn4ml",
+        "github_version": "master",
+        "doc_path": "docs",
+    }
+)
