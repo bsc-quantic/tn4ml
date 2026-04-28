@@ -30,6 +30,7 @@ setup(
     install_requires=[
         "autoray>=0.3.0",
         "dask",
+        "scipy",
         "funcy",
         "numpy",
         "opt_einsum",
@@ -39,17 +40,15 @@ setup(
         "optax",
         "flax",
         "pandas",
-        "nevergrad", 
-        "chocolate",
-        "baytune",
+        "nevergrad",
         "optuna",
-        "scikit-optimize",
-        "kahypar"
+        "scikit-optimize"
     ],
     extras_require={
         "docs": [
-            "sphinx<8.0.0",
+            "sphinx",
             "sphinx-book-theme",
+            #"pydata-sphinx-theme",
             "ipykernel",
             "nbsphinx",
             'myst-parser',
