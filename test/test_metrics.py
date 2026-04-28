@@ -346,4 +346,71 @@ def test_CrossEntropySoftmax_with_embedded_numpy_array():
 #     loss_value = loss(model, data, targets=targets).mean()
 #     assert isinstance(jax.device_get(loss_value), Number)
 
-# TODO add tests for CombinedLoss: SMPO, TrainableMPS, TrainableMPO
+# --- NoReg ---
+
+def test_NoReg():
+    result = metrics.NoReg(42)
+    assert result == 0
+
+def test_NoReg_with_model():
+    model = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
+    result = metrics.NoReg(model)
+    assert result == 0
+
+
+# --- LogPowFrobNorm ---
+
+@pytest.mark.parametrize("model", [
+    qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2),
+    qtn.MPO_rand(10, bond_dim=2, phys_dim=2),
+])
+def test_LogPowFrobNorm(model):
+    loss = metrics.LogPowFrobNorm(model)
+    assert isinstance(jax.device_get(loss), np.ndarray)
+
+
+# --- Softmax ---
+
+def test_Softmax_basic():
+    z = jnp.array([1.0, 2.0, 3.0])
+    result = metrics.Softmax(z, 2)
+    assert isinstance(float(result), float)
+    assert 0.0 <= float(result) <= 1.0
+
+def test_Softmax_sums_to_one():
+    z = jnp.array([1.0, 2.0, 3.0])
+    total = sum(float(metrics.Softmax(z, i)) for i in range(3))
+    assert total == pytest.approx(1.0)
+
+
+# --- MeanSquaredError ---
+
+@pytest.mark.xfail(
+    raises=(AttributeError, ValueError),
+    reason="Library bug: MeanSquaredError calls output.tensors[0] but model.apply returns a Tensor (not TN) when len(model)==len(data); and raises ValueError when len(data) < len(model)"
+)
+def test_MeanSquaredError():
+    model = tn4ml.models.smpo.SMPO_initialize(L=10, initializer=jax.nn.initializers.orthogonal(),
+                                              key=jax.random.key(42), shape_method='even',
+                                              spacing=10, bond_dim=4,
+                                              phys_dim=(2, 3), cyclic=False)
+    data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
+    targets = jnp.array([0.5, 0.3, 0.2])
+    loss = metrics.MeanSquaredError(model, data, targets)
+    assert float(loss) >= 0.0
+
+
+# --- SemiSupervisedLoss ---
+
+@pytest.mark.xfail(
+    raises=IndexError,
+    reason="Library bug: SemiSupervisedLoss calls loss_value[0] but SupervisedLoss returns a 0-dim scalar"
+)
+def test_SemiSupervisedLoss():
+    model = tn4ml.models.smpo.SMPO_initialize(L=10, initializer=jax.nn.initializers.orthogonal(),
+                                              key=jax.random.key(42), shape_method='even',
+                                              spacing=2, bond_dim=4,
+                                              phys_dim=(2, 2), cyclic=False)
+    data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
+    loss = metrics.SemiSupervisedLoss(model, data, y_true=0.5)
+    assert isinstance(float(loss), float)

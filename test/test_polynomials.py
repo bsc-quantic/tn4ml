@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 import numpy as np
-from tn4ml.scipy.special import eval_laguerre, eval_hermite
+from tn4ml.scipy.special import eval_laguerre, eval_hermite, eval_legendre
 
 def test_laguerre_polynomials():
     """Test Laguerre polynomials against known values"""
@@ -111,3 +111,55 @@ def test_hermite_polynomials():
     assert jnp.allclose(eval_hermite(4, 0.0), 12.0)  # (-1)²·2⁴·2! = 1·16·2 = 32
     
     print("All Hermite polynomial tests passed!")
+
+def test_legendre_polynomials():
+    """Test Legendre polynomials against known values"""
+
+    # Test 1: Basic known values
+    # P₀(x) = 1 for any x
+    assert jnp.allclose(eval_legendre(0, 1.5), 1.0)
+    assert jnp.allclose(eval_legendre(0, 0.0), 1.0)
+
+    # P₁(x) = x
+    assert jnp.allclose(eval_legendre(1, 0.5), 0.5)
+    assert jnp.allclose(eval_legendre(1, -1.0), -1.0)
+
+    # P₂(x) = (3x² - 1) / 2
+    x = 0.5
+    expected = (3 * x**2 - 1) / 2  # (0.75 - 1)/2 = -0.125
+    assert jnp.allclose(eval_legendre(2, x), expected)
+
+    # P₃(x) = (5x³ - 3x) / 2
+    x = 1.0
+    expected = (5 * x**3 - 3 * x) / 2  # (5 - 3)/2 = 1
+    assert jnp.allclose(eval_legendre(3, x), expected)
+
+    # Test 2: Array input for x
+    x_values = jnp.array([0.0, 0.5, 1.0])
+    expected = x_values  # P₁(x) = x
+    assert jnp.allclose(eval_legendre(1, x_values), expected)
+
+    # Test 3: Array input for n
+    n_values = jnp.array([0, 1, 2])
+    x = 0.5
+    expected = jnp.array([
+        1.0,     # P₀(0.5) = 1
+        0.5,     # P₁(0.5) = 0.5
+        -0.125   # P₂(0.5) = (3*0.25 - 1)/2 = -0.125
+    ])
+    assert jnp.allclose(eval_legendre(n_values, x), expected)
+
+    # Test 4: Verify recurrence relation
+    # (n+1)P_{n+1}(x) = (2n+1)xP_n(x) - nP_{n-1}(x)
+    x = 0.7
+    n = 3
+    P_nm1 = eval_legendre(n - 1, x)
+    P_n = eval_legendre(n, x)
+    P_np1_expected = ((2 * n + 1) * x * P_n - n * P_nm1) / (n + 1)
+    assert jnp.allclose(eval_legendre(n + 1, x), P_np1_expected)
+
+    # Test 5: P_n(1) = 1 for all n
+    for n in range(6):
+        assert jnp.allclose(eval_legendre(n, 1.0), 1.0)
+
+    print("All Legendre polynomial tests passed!")
