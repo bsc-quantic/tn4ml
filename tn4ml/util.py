@@ -8,6 +8,16 @@ import numpy as np
 
 def return_digits(array):
     """Helper function to convert array of string numbers to integers.
+
+    Parameters
+    ----------
+    array : list of str
+        An array of strings containing numbers.
+
+    Returns
+    -------
+    list of int
+        An array of integers extracted from the input strings.
     """
     digits=[]
     for text in array:
@@ -39,7 +49,7 @@ def normalize(v, p=2, atol=1e-9):
         return v / norm
     else:
         # Handle the case where the vector is near-zero or the algorithm encounters linear dependence.
-        return None # Indicate that the vector should be skipped
+        return None
 
 def gramschmidt_row(A, atol=1e-10):
     """
@@ -76,7 +86,6 @@ def gramschmidt_row(A, atol=1e-10):
     return Q
 
 def gramschmidt_col(A, atol=1e-10):
-    # TODO - fix, not sure if it works
     """
     Performs the Modified Gram-Schmidt process on matrix A, skipping near-zero norm vectors.
     By column.
