@@ -20,11 +20,13 @@ Tensor Networks for Machine Learning
    source/strategy
    source/eval
 
-.. nbgallery::
-   :maxdepth: 2
+.. toctree::
+   :maxdepth: 1
+   :titlesonly:
    :caption: Examples
-   :name: example-gallery
 
+   source/examples/tn_tutorial
    source/examples/mnist_classification
    source/examples/mnist_ad
    source/examples/mnist_ad_sweeps
+   source/examples/tnad_latent/index.rst
