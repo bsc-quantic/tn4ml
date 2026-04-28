@@ -1,3 +1,8 @@
 [build-system]
 requires = ["setuptools>=38.3.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff.lint]
+# F401 – re-exports in __init__.py are intentional public API surface
+# F403/F405 – star imports are used throughout the codebase as a design pattern
+ignore = ["F401", "F403", "F405", "F811"]
