@@ -2,6 +2,7 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
+
 def eval_legendre_scalar(n, x, dtype=jnp.float64):
     """Helper function for scalar n value"""
     x = jnp.asarray(x, dtype=dtype)
@@ -21,15 +22,16 @@ def eval_legendre_scalar(n, x, dtype=jnp.float64):
             n == 1,
             lambda _: P1,
             lambda _: lax.fori_loop(1, n, body_fn, (P0, P1))[1],
-            operand=None
+            operand=None,
         ),
-        operand=None
+        operand=None,
     )
+
 
 def eval_legendre(n, x, dtype=jnp.float64):
     """
     Evaluates the Legendre polynomial of degree n at points x.
-    
+
     Parameters
     ----------
     n : int or array-like of ints
@@ -38,7 +40,7 @@ def eval_legendre(n, x, dtype=jnp.float64):
         Point(s) at which to evaluate.
     dtype : jax.numpy.dtype, optional
         Data type of the output.
-    
+
     Returns
     -------
         float or array-like: P_n(x)
@@ -47,14 +49,15 @@ def eval_legendre(n, x, dtype=jnp.float64):
     try:
         n_shape = jnp.shape(n)
         is_array = len(n_shape) > 0
-    except:
+    except Exception:
         is_array = False
-    
+
     if is_array:
         # Vectorize over n using vmap
         return jax.vmap(lambda n_i: eval_legendre_scalar(n_i, x, dtype))(jnp.asarray(n))
     else:
         return eval_legendre_scalar(n, x, dtype)
+
 
 def eval_laguerre_scalar(n, x, dtype=jnp.float64):
     """Helper function for scalar n value"""
@@ -75,10 +78,11 @@ def eval_laguerre_scalar(n, x, dtype=jnp.float64):
             n == 1,
             lambda _: L1,
             lambda _: lax.fori_loop(2, n + 1, body_fn, (L0, L1))[1],
-            operand=None
+            operand=None,
         ),
-        operand=None
+        operand=None,
     )
+
 
 def eval_laguerre(n, x, dtype=jnp.float64):
     """
@@ -101,14 +105,15 @@ def eval_laguerre(n, x, dtype=jnp.float64):
     try:
         n_shape = jnp.shape(n)
         is_array = len(n_shape) > 0
-    except:
+    except Exception:
         is_array = False
-    
+
     if is_array:
         # Vectorize over n using vmap
         return jax.vmap(lambda n_i: eval_laguerre_scalar(n_i, x, dtype))(jnp.asarray(n))
     else:
         return eval_laguerre_scalar(n, x, dtype)
+
 
 def eval_hermite_scalar(n, x, dtype=jnp.float64):
     """Helper function for scalar n value"""
@@ -129,10 +134,11 @@ def eval_hermite_scalar(n, x, dtype=jnp.float64):
             n == 1,
             lambda _: H1,
             lambda _: lax.fori_loop(2, n + 1, body_fn, (H0, H1))[1],
-            operand=None
+            operand=None,
         ),
-        operand=None
+        operand=None,
     )
+
 
 def eval_hermite(n, x, dtype=jnp.float64):
     """
@@ -155,9 +161,9 @@ def eval_hermite(n, x, dtype=jnp.float64):
     try:
         n_shape = jnp.shape(n)
         is_array = len(n_shape) > 0
-    except:
+    except Exception:
         is_array = False
-    
+
     if is_array:
         # Vectorize over n using vmap
         return jax.vmap(lambda n_i: eval_hermite_scalar(n_i, x, dtype))(jnp.asarray(n))

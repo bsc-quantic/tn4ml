@@ -20,7 +20,7 @@ from .embeddings import (
     PatchEmbedding,
     TrigonometricEmbeddingAvg,
     TrigonometricEmbeddingChain,
-    embed
+    embed,
 )
 
 from .metrics import (
@@ -40,14 +40,10 @@ from .metrics import (
     CrossEntropySoftmax,
     OptaxWrapper,
     CrossEntropyWeighted,
-    CombinedLoss
+    CombinedLoss,
 )
 
-from .strategy import (
-    Strategy,
-    Sweeps,
-    Global
-)
+from .strategy import Strategy, Sweeps, Global
 
 from .util import (
     gramschmidt_row,
@@ -59,7 +55,7 @@ from .util import (
     divide_into_patches,
     from_dense_to_mps,
     from_mps_to_dense,
-    TrainingType
+    TrainingType,
 )
 
 from .eval import (
@@ -75,5 +71,5 @@ from .eval import (
     plot_PR_curve,
     compare_AUC,
     compare_TPR_per_FPR,
-    compare_FPR_per_TPR
+    compare_FPR_per_TPR,
 )

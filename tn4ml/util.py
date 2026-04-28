@@ -6,6 +6,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+
 def return_digits(array):
     """Helper function to convert array of string numbers to integers.
 
@@ -19,13 +20,16 @@ def return_digits(array):
     list of int
         An array of integers extracted from the input strings.
     """
-    digits=[]
+    digits = []
     for text in array:
-        split_text = re.split(r'(\d+)', text)
+        split_text = re.split(r"(\d+)", text)
         for t in split_text:
-            if t.isdigit(): digits.append(int(t))
-            else: continue
+            if t.isdigit():
+                digits.append(int(t))
+            else:
+                continue
     return digits
+
 
 def normalize(v, p=2, atol=1e-9):
     """
@@ -50,6 +54,7 @@ def normalize(v, p=2, atol=1e-9):
     else:
         # Handle the case where the vector is near-zero or the algorithm encounters linear dependence.
         return None
+
 
 def gramschmidt_row(A, atol=1e-10):
     """
@@ -85,6 +90,7 @@ def gramschmidt_row(A, atol=1e-10):
     Q = jnp.stack(tuple(Q), axis=0)
     return Q
 
+
 def gramschmidt_col(A, atol=1e-10):
     """
     Performs the Modified Gram-Schmidt process on matrix A, skipping near-zero norm vectors.
@@ -119,8 +125,9 @@ def gramschmidt_col(A, atol=1e-10):
     Q = jnp.stack(tuple(Q), axis=1)
     return Q
 
+
 def gradient_clip(grads, threshold=1.0):
-    """ Clip gradients to a maximum threshold value.
+    """Clip gradients to a maximum threshold value.
 
     Parameters
     ----------
@@ -140,13 +147,14 @@ def gradient_clip(grads, threshold=1.0):
     new_grads = []
     for gradients in grads:
         grad_norm = jnp.linalg.norm(gradients)
-        scale_factor = min(1., threshold / (grad_norm + 1e-6))
+        scale_factor = min(1.0, threshold / (grad_norm + 1e-6))
         scaled_gradients = [g * scale_factor for g in gradients]
         new_grads.append(scaled_gradients)
     return new_grads
 
+
 def zigzag_order(data):
-    """ Rearrange pixels in zig-zag order (from https://arxiv.org/pdf/1605.05775.pdf).
+    """Rearrange pixels in zig-zag order (from https://arxiv.org/pdf/1605.05775.pdf).
 
     Parameters
     ----------
@@ -162,8 +170,9 @@ def zigzag_order(data):
     data_zigzag = data.reshape(data.shape[0], -1)
     return data_zigzag
 
+
 def integer_to_one_hot(labels, num_classes=None):
-    """ Convert integer labels to one-hot encoded labels.
+    """Convert integer labels to one-hot encoded labels.
 
     Parameters
     ----------
@@ -188,6 +197,7 @@ def integer_to_one_hot(labels, num_classes=None):
 
     return one_hot_encoded
 
+
 def pad_image_alternately(image: np.ndarray, k: int) -> np.ndarray:
     """
     Pad the image alternately from the right and left sides in a single step.
@@ -210,18 +220,23 @@ def pad_image_alternately(image: np.ndarray, k: int) -> np.ndarray:
     pad = (k - H % k) % k
 
     # Alternate padding by adding to left or right as necessary
-    top_pad, bottom_pad = (pad//2, pad//2) if pad % 2 == 0 else (pad//2 + 1, pad//2)
-    left_pad, right_pad = (pad//2, pad//2) if pad % 2 == 0 else (pad//2 + 1, pad//2)
+    top_pad, bottom_pad = (
+        (pad // 2, pad // 2) if pad % 2 == 0 else (pad // 2 + 1, pad // 2)
+    )
+    left_pad, right_pad = (
+        (pad // 2, pad // 2) if pad % 2 == 0 else (pad // 2 + 1, pad // 2)
+    )
 
     # Apply padding in a single operation
     padded_image = jnp.pad(
         image,
         ((top_pad, bottom_pad), (left_pad, right_pad)),
-        mode='constant',
-        constant_values=0
+        mode="constant",
+        constant_values=0,
     )
 
     return padded_image
+
 
 def divide_into_patches(image: np.ndarray, k: int) -> np.ndarray:
     """
@@ -245,11 +260,16 @@ def divide_into_patches(image: np.ndarray, k: int) -> np.ndarray:
     H, W = padded_image.shape
 
     # Reshape and move axes to create kxk patches
-    patches = padded_image.reshape(H // k, k, W // k, k).swapaxes(1, 2).reshape(-1, k, k)
+    patches = (
+        padded_image.reshape(H // k, k, W // k, k).swapaxes(1, 2).reshape(-1, k, k)
+    )
 
     return jnp.array(patches)
 
-def from_dense_to_mps(statevector: jnp.ndarray, n_qubits: int, max_bond: int = None) -> List[jnp.ndarray]:
+
+def from_dense_to_mps(
+    statevector: jnp.ndarray, n_qubits: int, max_bond: int = None
+) -> List[jnp.ndarray]:
     """
     Convert a dense statevector to a Matrix Product State (MPS) representation in JAX.
 
@@ -292,7 +312,9 @@ def from_dense_to_mps(statevector: jnp.ndarray, n_qubits: int, max_bond: int = N
 
         # Reshape `u` to the `LRP` format
         right_bond = bond_dim
-        mps_tensor = u.reshape(left_bond, physical_dim, right_bond).transpose([0, 2, 1]) # (l, p, r) -> (l, r, p)
+        mps_tensor = u.reshape(left_bond, physical_dim, right_bond).transpose(
+            [0, 2, 1]
+        )  # (l, p, r) -> (l, r, p)
         mps.append(mps_tensor)
 
         # Move the singular values into the next tensor
@@ -334,12 +356,15 @@ def from_mps_to_dense(mps: List[jnp.ndarray], n_qubits: int) -> jnp.ndarray:
 
     # Iterate over the remaining MPS tensors and contract them.
     for i in range(1, n_qubits):
-        next_tensor = mps[i].transpose([0, 2, 1]) # (l, r, p) -> (l, p, r)
+        next_tensor = mps[i].transpose([0, 2, 1])  # (l, r, p) -> (l, p, r)
 
-        statevector = jnp.tensordot(statevector, next_tensor, axes=[-1, 0])  # (l, p, p, p, bond) (bond, p, r) -> (l, p, p, p, p, r)
+        statevector = jnp.tensordot(
+            statevector, next_tensor, axes=[-1, 0]
+        )  # (l, p, p, p, bond) (bond, p, r) -> (l, p, p, p, p, r)
 
     # Flatten the resulting tensor to form the dense statevector.
     return statevector.flatten()
+
 
 class TrainingType(IntEnum):
     UNSUPERVISED = 0
@@ -348,7 +373,7 @@ class TrainingType(IntEnum):
 
 
 class EarlyStopping:
-    """ Variation of `EarlyStopping` class from :class:`tensorflow`.
+    """Variation of `EarlyStopping` class from :class:`tensorflow`.
 
     Attributes
     ----------
@@ -361,6 +386,7 @@ class EarlyStopping:
     mode: str
         Two options are valid: `min` - minimization, `max` - maximization of objective function
     """
+
     def __init__(self, monitor, min_delta, patience, mode):
         self.monitor = monitor
         self.min_delta = min_delta
@@ -384,21 +410,23 @@ class EarlyStopping:
             If the mode is not `min` or `max`.
         """
         if self.monitor not in history.keys():
-            raise ValueError(f'This metric {self.monitor} is not monitored. Change metric for EarlyStopping.monitor')
-        if self.mode not in ['min', 'max']:
-            raise ValueError(f'EarlyStopping mode can be either "min" or "max".')
+            raise ValueError(
+                f"This metric {self.monitor} is not monitored. Change metric for EarlyStopping.monitor"
+            )
+        if self.mode not in ["min", "max"]:
+            raise ValueError('EarlyStopping mode can be either "min" or "max".')
 
         self.memory = dict()
-        self.memory['best'] = np.inf if self.mode == 'min' else -np.inf
-        self.memory['best_epoch'] = 0 # track on each epoch
-        if self.mode == 'min':
-            self.min_delta = self.min_delta*(-1)
+        self.memory["best"] = np.inf if self.mode == "min" else -np.inf
+        self.memory["best_epoch"] = 0  # track on each epoch
+        if self.mode == "min":
+            self.min_delta = self.min_delta * (-1)
             self.operator = np.less
         else:
-            self.min_delta = self.min_delta*1
+            self.min_delta = self.min_delta * 1
             self.operator = np.greater
         self.best_model = model
-        self.memory['wait'] = 0
+        self.memory["wait"] = 0
 
     def on_end_epoch(self, loss_current, epoch, current_model):
         """
@@ -417,21 +445,24 @@ class EarlyStopping:
             A flag to indicate if the training should be stopped.
         """
 
-        if self.memory['wait'] == 0 and epoch == 0:
-            self.memory['best'] = loss_current
-            self.memory['best_model'] = current_model
-            self.memory['best_epoch'] = epoch
-        if epoch > 0: self.memory['wait'] += 1
-        if self.operator(loss_current - self.min_delta, self.memory['best']):
-            self.memory['best'] = loss_current
-            self.memory['best_model'] = current_model
-            self.memory['best_epoch'] = epoch
-            self.memory['wait'] = 0
-        if self.memory['wait'] >= self.patience and epoch > 0:
-            best_epoch = self.memory['best_epoch']
-            print(f'Training stopped by EarlyStopping on epoch: {best_epoch}', flush=True)
+        if self.memory["wait"] == 0 and epoch == 0:
+            self.memory["best"] = loss_current
+            self.memory["best_model"] = current_model
+            self.memory["best_epoch"] = epoch
+        if epoch > 0:
+            self.memory["wait"] += 1
+        if self.operator(loss_current - self.min_delta, self.memory["best"]):
+            self.memory["best"] = loss_current
+            self.memory["best_model"] = current_model
+            self.memory["best_epoch"] = epoch
+            self.memory["wait"] = 0
+        if self.memory["wait"] >= self.patience and epoch > 0:
+            best_epoch = self.memory["best_epoch"]
+            print(
+                f"Training stopped by EarlyStopping on epoch: {best_epoch}", flush=True
+            )
             return 1
-        if self.memory['wait'] > 0:
-            print('Waiting for ' + str(self.memory['wait']) + ' epochs.', flush=True)
+        if self.memory["wait"] > 0:
+            print("Waiting for " + str(self.memory["wait"]) + " epochs.", flush=True)
 
         return 0
