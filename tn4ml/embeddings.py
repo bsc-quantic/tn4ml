@@ -26,7 +26,7 @@ class Embedding(abc.ABC):
         Data type for computations. Defaults to float32.
     """
 
-    def __init__(self, dtype: onp.dtype = onp.float32):
+    def __init__(self, dtype: Any = onp.float32):
         """Initialize the embedding.
 
         Parameters
@@ -61,7 +61,7 @@ class Embedding(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Any) -> jnp.ndarray:
         """Apply the embedding to input data.
 
         Parameters
@@ -89,7 +89,7 @@ class ComplexEmbedding(abc.ABC):
         Data type for computations. Defaults to float32.
     """
 
-    def __init__(self, dtype: onp.dtype = onp.float32):
+    def __init__(self, dtype: Any = onp.float32):
         """Initialize the complex embedding.
 
         Parameters
@@ -101,7 +101,7 @@ class ComplexEmbedding(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def dims(self) -> Collection[int]:
+    def dims(self) -> Any:
         """Get the output dimensions for each feature.
 
         Returns
@@ -125,7 +125,7 @@ class ComplexEmbedding(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def embeddings(self) -> Collection[Embedding]:
+    def embeddings(self) -> Any:
         """Get the embedding functions for each feature.
 
         Returns
@@ -136,7 +136,7 @@ class ComplexEmbedding(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Any) -> jnp.ndarray:
         """Apply the complex embedding to input data.
 
         Parameters
@@ -166,7 +166,7 @@ class StateVectorToMPSEmbedding(abc.ABC):
         Maximum bond dimension for MPS decomposition
     """
 
-    def __init__(self, dtype: onp.dtype = onp.float32, max_bond: Optional[int] = None):
+    def __init__(self, dtype: Any = onp.float32, max_bond: Optional[int] = None):
         """Initialize the state vector to MPS embedding.
 
         Parameters
@@ -191,9 +191,8 @@ class StateVectorToMPSEmbedding(abc.ABC):
         """
         pass
 
-    @property
     @abc.abstractmethod
-    def create_statevector(self, x: jnp.ndarray) -> jnp.ndarray:
+    def create_statevector(self, x: jnp.ndarray) -> Any:
         """Create a state vector from input data.
 
         Parameters
@@ -239,7 +238,7 @@ class MPSEmbedding(abc.ABC):
         Maximum bond dimension for MPS decomposition
     """
 
-    def __init__(self, dtype: onp.dtype = onp.float32, max_bond: Optional[int] = None):
+    def __init__(self, dtype: Any = onp.float32, max_bond: Optional[int] = None):
         """Initialize the MPS embedding.
 
         Parameters
@@ -264,7 +263,6 @@ class MPSEmbedding(abc.ABC):
         """
         pass
 
-    @property
     @abc.abstractmethod
     def decompose(self, x: Any, *args) -> jnp.ndarray:
         """Decompose input data into MPS format.
@@ -340,7 +338,7 @@ class TrigonometricEmbedding(Embedding):
         """Get the input dimension (1 for scalar input)."""
         return 1
 
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Any) -> jnp.ndarray:
         """Apply TrigonometricEmbedding to input.
 
         Parameters
@@ -407,7 +405,7 @@ class FourierEmbedding(Embedding):
         """Get the input dimension (1 for scalar input)."""
         return 1
 
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Any) -> jnp.ndarray:
         """Apply Fourier embedding to input.
 
         Parameters
@@ -487,7 +485,7 @@ class LinearComplementEmbedding(Embedding):
         """Get the input dimension (1 for scalar input)."""
         return 1
 
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Any) -> jnp.ndarray:
         """Apply linear complement embedding to input.
 
         Parameters
@@ -541,7 +539,7 @@ class QuantumBasisEmbedding(Embedding):
         """Get the input dimension (1 for scalar input)."""
         return 1
 
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Any) -> jnp.ndarray:
         """Apply quantum basis embedding to input.
 
         Parameters
@@ -601,7 +599,7 @@ class GaussianRBFEmbedding(Embedding):
     @property
     def dim(self) -> int:
         """Get the output dimension (product of centers shape)."""
-        return jnp.prod(onp.array(self.centers.shape))
+        return int(jnp.prod(onp.array(self.centers.shape)))
 
     @property
     def input_dim(self) -> int:
@@ -700,7 +698,7 @@ class PolynomialEmbedding(Embedding):
         """Get the input dimension."""
         return self.n
 
-    def __call__(self, x: Union[Number, onp.array]) -> jnp.ndarray:
+    def __call__(self, x: Any) -> jnp.ndarray:
         """Apply PolynomialEmbedding embedding to input.
 
         Parameters
@@ -716,7 +714,7 @@ class PolynomialEmbedding(Embedding):
         if x.ndim == 0:
             x = jnp.array([x])
 
-        features = []
+        features: list = []
 
         # Add bias term if requested
         if self.include_bias:
@@ -774,7 +772,7 @@ class LegendreEmbedding(Embedding):
         """Get the input dimension (1 for scalar input)."""
         return 1
 
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Any) -> jnp.ndarray:
         """Apply Legendre PolynomialEmbedding embedding to input.
 
         Parameters
@@ -825,7 +823,7 @@ class LaguerreEmbedding(Embedding):
         """Get the input dimension (1 for scalar input)."""
         return 1
 
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Any) -> jnp.ndarray:
         """Apply weighted Laguerre PolynomialEmbedding embedding to input.
 
         Parameters
@@ -879,7 +877,7 @@ class HermiteEmbedding(Embedding):
         """Get the input dimension (1 for scalar input)."""
         return 1
 
-    def __call__(self, x: Number) -> jnp.ndarray:
+    def __call__(self, x: Any) -> jnp.ndarray:
         """Apply weighted Hermite PolynomialEmbedding embedding to input.
 
         Parameters
@@ -1021,7 +1019,7 @@ class TrigonometricEmbeddingChain(ComplexEmbedding):
         :class:`jax.numpy.ndarray`
             Concatenated TrigonometricEmbedding features
         """
-        embedded = []
+        embedded: list = []
         for f, xi in zip(self.embeddings, x):
             embedded.extend(f(xi))
         return jnp.array(embedded)
@@ -1063,7 +1061,7 @@ class TrigonometricEmbeddingAvg(ComplexEmbedding):
         super().__init__(**kwargs)
 
     @property
-    def dims(self) -> int:
+    def dims(self) -> list:
         """Get output dimensions for each feature."""
         return [self.k * 2] * self.input_shape[0]
 
@@ -1090,7 +1088,7 @@ class TrigonometricEmbeddingAvg(ComplexEmbedding):
         :class:`jax.numpy.ndarray`
             TrigonometricEmbedding features of mean
         """
-        return self.embeddings(jnp.mean(features))
+        return self.embeddings(jnp.mean(jnp.array(features)))
 
 
 class BasePatchEmbedding(StateVectorToMPSEmbedding):
@@ -1121,7 +1119,11 @@ class BasePatchEmbedding(StateVectorToMPSEmbedding):
     @property
     def dims(self) -> list:
         """Get dimensions of the MPS tensors."""
-        return list([tensor.shape for tensor in self.mps.tensors])
+        return (
+            list([tensor.shape for tensor in self.mps.tensors])
+            if self.mps is not None
+            else []
+        )
 
     def pad_or_truncate_statevector(
         self, statevector: jnp.ndarray, target_size: int
@@ -1150,9 +1152,7 @@ class BasePatchEmbedding(StateVectorToMPSEmbedding):
 
         return statevector
 
-    def combine_mps_patches(
-        self, mps_patches: onp.ndarray, n_qubits: int
-    ) -> jnp.ndarray:
+    def combine_mps_patches(self, mps_patches: Any, n_qubits: int) -> list:
         """Combine MPS patches into single MPS.
 
         Parameters
@@ -1184,9 +1184,8 @@ class BasePatchEmbedding(StateVectorToMPSEmbedding):
 
         return new_arrays
 
-    @property
     @abc.abstractmethod
-    def create_statevector(self, x: jnp.ndarray) -> jnp.ndarray:
+    def create_statevector(self, x: jnp.ndarray) -> Any:
         """Create statevector from input data.
 
         Parameters
@@ -1268,7 +1267,7 @@ class PatchEmbedding(BasePatchEmbedding):
         )
         return image.reshape(-1)
 
-    def create_statevector(self, x: jnp.ndarray) -> Tuple[jnp.ndarray, int]:
+    def create_statevector(self, x: jnp.ndarray) -> Any:
         """Create statevector using basis encoding.
 
         Parameters
@@ -1321,7 +1320,7 @@ class PatchEmbedding(BasePatchEmbedding):
 class PatchAmplitudeEmbedding(BasePatchEmbedding):
     """Embedding that converts image patches to MPS using amplitude encoding."""
 
-    def create_statevector(self, x: jnp.ndarray) -> Tuple[jnp.ndarray, int]:
+    def create_statevector(self, x: jnp.ndarray) -> Any:
         """Create statevector using amplitude encoding.
 
         Parameters
@@ -1381,13 +1380,13 @@ def embed(
     ):
         raise TypeError("Invalid embedding type")
 
-    if issubclass(type(phi), Embedding):
+    if isinstance(phi, Embedding):
         arrays = [phi(xi).reshape((1, 1, phi.dim)) for xi in x]
         for i in [0, -1]:
             arrays[i] = arrays[i].reshape((1, phi.dim))
         mps = qtn.MatrixProductState(arrays, **mps_opts)
 
-    elif issubclass(type(phi), ComplexEmbedding) and x.ndim == 2:
+    elif isinstance(phi, ComplexEmbedding) and x.ndim == 2:
         if isinstance(phi.dims, int):
             arrays = [phi(xi).reshape((1, 1, phi.dims)) for xi in x]
             for i in [0, -1]:
@@ -1399,7 +1398,7 @@ def embed(
 
         mps = qtn.MatrixProductState(arrays, **mps_opts)
     else:
-        mps = phi(x)
+        mps = phi(x)  # type: ignore[arg-type]
 
     # Normalize
     if len(mps.tensors) > 200:  # For large systems

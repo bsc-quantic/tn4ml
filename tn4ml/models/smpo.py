@@ -106,7 +106,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         # process tags
         self._site_tag_id = site_tag_id
-        site_tags = map(site_tag_id.format, range(self.L))
+        site_tags: Any = map(site_tag_id.format, range(self.L))
         if tags is not None:
             tags = (tags,) if isinstance(tags, str) else tuple(tags)
             site_tags = tuple((st,) + tags for st in site_tags)
@@ -543,6 +543,7 @@ def generate_shape(
         tuple
     """
 
+    shape: tuple
     if method == "even":
         # supported both for cyclic and non-cyclic
         if has_out:
@@ -599,7 +600,7 @@ def SMPO_initialize(
     spacing: int = 2,
     bond_dim: int = 4,
     phys_dim: Tuple[int, int] = (2, 2),
-    output_inds: Collection = [],
+    output_inds: list = [],
     add_identity: bool = False,
     add_to_output: bool = False,
     boundary: str = "obc",
@@ -663,7 +664,7 @@ def SMPO_initialize(
     if (
         initializer is not None
         and callable(initializer)
-        and "rand_unitary" in initializer.__qualname__
+        and "rand_unitary" in getattr(initializer, "__qualname__", "")
     ):
         if add_identity:
             raise ValueError("rand_unitary initializer does not support add_identity.")
@@ -674,6 +675,7 @@ def SMPO_initialize(
         if boundary == "obc":
             boundary = None
 
+    hasoutput: Any
     if output_inds:
         hasoutput = []
         for i in range(L):

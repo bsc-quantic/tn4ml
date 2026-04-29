@@ -1,15 +1,15 @@
-from typing import Any
+from typing import Any, Callable
 import numpy as np
 import jax
 from jax._src import core, dtypes
 from jax import random
 import jax.numpy as jnp
 from jax.typing import ArrayLike
-from jax.nn.initializers import *
+from jax.nn.initializers import Initializer
 from .util import gramschmidt_col, gramschmidt_row
 
 
-def zeros(std: Any = 1e-9, dtype: Any = jnp.float_) -> Initializer:
+def zeros(std: Any = 1e-9, dtype: Any = jnp.float_) -> Callable:
     """Builds an initializer that initializes tensors with zeros. Plus small noise.
 
     Examples
@@ -46,7 +46,7 @@ def zeros(std: Any = 1e-9, dtype: Any = jnp.float_) -> Initializer:
     return init
 
 
-def ones(std: Any = 1e-9, dtype: Any = jnp.float_) -> Initializer:
+def ones(std: Any = 1e-9, dtype: Any = jnp.float_) -> Callable:
     """Builds an initializer that initializes tensors with ones. Plus small noise.
 
     Examples
@@ -83,7 +83,7 @@ def ones(std: Any = 1e-9, dtype: Any = jnp.float_) -> Initializer:
     return init
 
 
-def gramschmidt(dist: str, scale: Any = 1e-2, dtype: Any = jnp.float_) -> Initializer:
+def gramschmidt(dist: str, scale: Any = 1e-2, dtype: Any = jnp.float_) -> Callable:
     """Builds an initializer that initializes tensors with Gram-Schmidt orthogonalization procedure.
     First, arrays are sampled from uniform or normal distribution (specified by `dist` argument)
 
@@ -125,7 +125,7 @@ def gramschmidt(dist: str, scale: Any = 1e-2, dtype: Any = jnp.float_) -> Initia
         """
         dtype = dtypes.canonicalize_dtype(dtype)
 
-        matrix_shape = shape[0], np.prod(shape[1:])
+        matrix_shape: tuple = (shape[0], int(np.prod(shape[1:])))
 
         if dist == "uniform":
             arrays = random.uniform(key, matrix_shape, dtype) * jnp.array(scale, dtype)
@@ -142,7 +142,7 @@ def gramschmidt(dist: str, scale: Any = 1e-2, dtype: Any = jnp.float_) -> Initia
     return init
 
 
-def identity(type: str, std: Any = None, dtype: Any = jnp.float_) -> Initializer:
+def identity(type: str, std: Any = None, dtype: Any = jnp.float_) -> Callable:
     """Builds an initializer that initializes tensors with identity either on diagonal elements, or in bond dimensions.
 
     Parameters
@@ -203,7 +203,7 @@ def identity(type: str, std: Any = None, dtype: Any = jnp.float_) -> Initializer
             tensor = jnp.zeros(shape, dtype=dtype)
             rank = len(shape)
             if rank <= 1:
-                i = 0
+                i: Any = 0
             else:
                 i = np.arange(min(shape), dtype=int)
             tensor = tensor.at[(i,) * rank].set(1.0)
@@ -226,7 +226,7 @@ def randn(
     noise_std: Any = None,
     noise_mean: Any = None,
     dtype: Any = jnp.float_,
-) -> Initializer:
+) -> Callable:
     """Builds an initializer that initializes tensor values with normal distribution.
 
     Parameters
@@ -317,7 +317,7 @@ def unitary_matrix(key: Any, shape: core.Shape, dtype: Any = jnp.float_) -> jnp.
     return q
 
 
-def rand_unitary(dtype: Any = jnp.float_) -> Initializer:
+def rand_unitary(dtype: Any = jnp.float_) -> Callable:
     """Builds an initializer that initializes tensor with stack of random unitary matrices.
 
     Parameters

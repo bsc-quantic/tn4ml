@@ -4,7 +4,7 @@ import autoray as a
 
 from quimb import *
 import quimb.tensor as qtn
-from quimb.tensor.tensor_1d import MatrixProductOperator
+from quimb.tensor.tensor_1d import MatrixProductOperator as _MPOBase
 
 from jax.nn.initializers import Initializer
 import jax.numpy as jnp
@@ -12,7 +12,7 @@ import jax.numpy as jnp
 from .model import Model
 
 
-class MatrixProductOperator(Model, qtn.MatrixProductOperator):
+class MatrixProductOperator(Model, _MPOBase):
     """A Trainable MatrixProductOperator class.
     See :class:`quimb.tensor.tensor_1d.MatrixProductOperator` for explanation of other attributes and methods.
     """
@@ -98,6 +98,7 @@ def generate_shape(
         tuple
     """
 
+    shape: tuple
     if method == "even":
         shape = (bond_dim, bond_dim, *phys_dim)
         if position == 1:

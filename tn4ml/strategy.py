@@ -107,7 +107,7 @@ class Sweeps(Strategy):
 
         if self.grouping == 2:
             self.split_opts = split_opts
-            self.inds_order = dict()  # remember order of inds
+            self.inds_order: dict = dict()  # remember order of inds
             self.bond_dim_split = None  # remember bond size
             self.bond_name = None  # remember bond name
 

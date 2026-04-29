@@ -1,5 +1,5 @@
 import re
-from typing import List
+from typing import Any, List
 from enum import IntEnum
 
 import jax
@@ -198,7 +198,7 @@ def integer_to_one_hot(labels, num_classes=None):
     return one_hot_encoded
 
 
-def pad_image_alternately(image: np.ndarray, k: int) -> np.ndarray:
+def pad_image_alternately(image: np.ndarray, k: int) -> jnp.ndarray:
     """
     Pad the image alternately from the right and left sides in a single step.
 
@@ -238,7 +238,7 @@ def pad_image_alternately(image: np.ndarray, k: int) -> np.ndarray:
     return padded_image
 
 
-def divide_into_patches(image: np.ndarray, k: int) -> np.ndarray:
+def divide_into_patches(image: Any, k: int) -> jnp.ndarray:
     """
     Divide the image into patches of size kxk.
 

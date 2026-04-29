@@ -137,7 +137,7 @@ def TN_initialize(
     shapes: list = None,
     key: Any = None,
     initializer: Initializer = None,
-    inds: Collection[Collection[str]] = None,
+    inds: list = None,
     tags_id: str = "I{}",
     cyclic: bool = False,
     dtype: Any = jnp.float_,

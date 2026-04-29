@@ -178,6 +178,7 @@ def generate_ind(
         String names of indices.
 
     """
+    ind: tuple
     if len(shape) == 3:
         if position == 1:
             if class_index == position:
@@ -284,7 +285,7 @@ def MPS_initialize(
     if (
         initializer is not None
         and callable(initializer)
-        and "rand_unitary" in initializer.__qualname__
+        and "rand_unitary" in getattr(initializer, "__qualname__", "")
     ):
         if add_identity:
             raise ValueError("rand_unitary initializer does not support add_identity.")
@@ -328,7 +329,9 @@ def MPS_initialize(
                 )
                 ind = generate_ind(L, shape, i, cyclic, class_index)
 
-                if callable(initializer) and "rand_unitary" in initializer.__qualname__:
+                if callable(initializer) and "rand_unitary" in getattr(
+                    initializer, "__qualname__", ""
+                ):
                     if i < class_index or i > class_index:
                         array = initializer(key, shape, dtype)
                     elif i == class_index:
@@ -418,9 +421,8 @@ def MPS_initialize(
 
                 tensor = initializer(key, shape, dtype)
 
-                if (
-                    callable(initializer)
-                    and "rand_unitary" not in initializer.__qualname__
+                if callable(initializer) and "rand_unitary" not in getattr(
+                    initializer, "__qualname__", ""
                 ):
                     if add_identity:
                         if len(tensor.shape) == 3:
@@ -448,7 +450,8 @@ def MPS_initialize(
                 tensors.append(jnp.squeeze(tensor))
 
             if not (
-                callable(initializer) and "rand_unitary" in initializer.__qualname__
+                callable(initializer)
+                and "rand_unitary" in getattr(initializer, "__qualname__", "")
             ):
                 if insert and insert < L and shape_method == "even":
                     tensors[insert] /= jnp.sqrt(phys_dim)

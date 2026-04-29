@@ -84,9 +84,9 @@ class Model(qtn.TensorNetwork):
                         tags=self._site_tag_id.format(i),
                     )
                 )
-            model = type(self)(tensors)
+            model = type(self)(tensors)  # type: ignore[call-arg]
         else:
-            model = type(self)(arrays)
+            model = type(self)(arrays)  # type: ignore[call-arg]
         qu.save_to_disk(model, f"{dir_name}/{model_name}.pkl")
 
     def nparams(self) -> int:
@@ -257,7 +257,7 @@ class Model(qtn.TensorNetwork):
         dtype: Any = jnp.float_,
         seed: int = 42,
         alternate_flip: bool = False,
-    ) -> Collection:
+    ) -> jnp.ndarray:
         """Forward pass of the model.
 
         Parameters
@@ -308,7 +308,7 @@ class Model(qtn.TensorNetwork):
     def accuracy(
         self,
         data: jnp.ndarray,
-        y_true: jnp.array = None,
+        y_true: Optional[jnp.ndarray] = None,
         embedding: Embedding = TrigonometricEmbedding(),
         batch_size: int = 64,
         shuffle: bool = False,
@@ -346,7 +346,7 @@ class Model(qtn.TensorNetwork):
         if y_true is None:
             raise ValueError("For unsupervised learning you must provide target data!")
 
-        correct_predictions = 0
+        correct_predictions: Any = 0
         num_samples = 0
         if not isinstance(self.device, tuple):
             self.device = (self.device, 0)  # ensure device is tuple
@@ -547,9 +547,9 @@ class Model(qtn.TensorNetwork):
     def train(
         self,
         inputs: Collection = None,
-        val_inputs: Optional[Collection] = None,
-        targets: Optional[Collection] = None,
-        val_targets: Optional[Collection] = None,
+        val_inputs: Optional[Any] = None,
+        targets: Optional[Any] = None,
+        val_targets: Optional[Any] = None,
         tn_target: Optional[qtn.TensorNetwork] = None,
         batch_size: Optional[int] = None,
         epochs: Optional[int] = 1,
@@ -626,7 +626,7 @@ class Model(qtn.TensorNetwork):
             n_batches = len(inputs) // self.batch_size
 
         if not hasattr(self, "history"):
-            self.history = dict()
+            self.history: dict = dict()
             self.history["loss"] = []
             self.history["epoch_time"] = []
             self.history["unfinished"] = False
@@ -638,7 +638,7 @@ class Model(qtn.TensorNetwork):
                     self.history["val_acc"] = []
 
         if earlystop:
-            return_value = 0
+            return_value: Any = 0
             earlystop.on_begin_train(self.history, self)
 
         self.sitetags = None  # for sweeping strategy
@@ -737,7 +737,7 @@ class Model(qtn.TensorNetwork):
                     self.history["loss"].append(loss_epoch)
                     self.history["epoch_time"].append(time() - time_epoch)
                 else:
-                    loss_batch = 0
+                    loss_batch: Any = 0
                     for batch_data in _batch_iterator(
                         inputs,
                         targets,
@@ -748,7 +748,7 @@ class Model(qtn.TensorNetwork):
                         alternate_flip=alternate_flip,
                     ):
                         if isinstance(self.strategy, Sweeps):
-                            loss_curr = 0
+                            loss_curr: Any = 0
                             for s, sites in enumerate(
                                 self.strategy.iterate_sites(self)
                             ):
@@ -807,7 +807,7 @@ class Model(qtn.TensorNetwork):
                             self.canonicalize(canonize[1], inplace=True)
 
                     loss_epoch = loss_batch / n_batches
-                    loss_epoch = loss_epoch.item()
+                    loss_epoch = float(loss_epoch)
 
                     self.history["loss"].append(loss_epoch)
 
@@ -904,7 +904,7 @@ class Model(qtn.TensorNetwork):
     def evaluate(
         self,
         inputs: Collection = None,
-        targets: Optional[Collection] = None,
+        targets: Optional[Any] = None,
         tn_target: Optional[qtn.TensorNetwork] = None,
         batch_size: Optional[int] = None,
         embedding: Embedding = TrigonometricEmbedding(),
@@ -966,7 +966,7 @@ class Model(qtn.TensorNetwork):
             self.batch_size = batch_size
 
         if return_list:
-            loss = []
+            loss: list = []
 
         def loss_fn(data=None, targets=None, *params):
             """
@@ -1012,7 +1012,7 @@ class Model(qtn.TensorNetwork):
                 return vmapped_loss(data)
 
         if inputs is not None:
-            loss_value = 0
+            loss_value: Any = 0
             for batch_data in _batch_iterator(
                 inputs,
                 targets,
@@ -1075,8 +1075,9 @@ class Model(qtn.TensorNetwork):
                 tn_target is not None
             )  # If inputs are not provided, target tensor network must be provided!
 
+            params = self.arrays
             loss_value = loss_fn(None, None, *params)
-        return loss_value.item()
+        return float(loss_value)
 
     def convert_to_pytree(self):
         """Converts tensor network to pytree structure and returns its skeleon.
@@ -1110,7 +1111,7 @@ def load_model(model_name, dir_name=None):
     return qu.load_from_disk(f"{dir_name}/{model_name}.pkl")
 
 
-def _check_chunks(chunked: Collection, batch_size: int = 2) -> Collection:
+def _check_chunks(chunked: Any, batch_size: int = 2) -> Any:
     """Checks if the last chunk has lower size then batch size.
 
     Parameters
@@ -1130,8 +1131,8 @@ def _check_chunks(chunked: Collection, batch_size: int = 2) -> Collection:
 
 
 def _batch_iterator(
-    x: Collection,
-    y: Optional[Collection] = None,
+    x: Any,
+    y: Optional[Any] = None,
     batch_size: int = 2,
     dtype: Any = jnp.float_,
     shuffle: bool = True,
