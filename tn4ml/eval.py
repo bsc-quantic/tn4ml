@@ -7,7 +7,7 @@ from sklearn.metrics import (
     precision_recall_curve,
     average_precision_score,
 )
-from typing import Collection
+from typing import Collection, Sequence
 
 
 def plot_loss(
@@ -390,7 +390,7 @@ def compare_AUC(
     save_dir: str = ".",
     bond_dims: Collection[int] = None,
     spacings: Collection[int] = None,
-    initializers: Collection[str] = None,
+    initializers: Sequence[str] = None,
     embedding: str = "trigonometric",
     nruns: int = 0,
     fig_size: tuple = (6, 5),
@@ -524,7 +524,7 @@ def compare_TPR_per_FPR(
     FPR_fixed: float = 0.1,
     bond_dims: Collection[int] = None,
     spacings: Collection[int] = None,
-    initializers: Collection[str] = None,
+    initializers: Sequence[str] = None,
     embedding: str = "trigonometric",
     nruns: int = 0,
     fig_size: tuple = (6, 5),
@@ -666,7 +666,7 @@ def compare_FPR_per_TPR(
     TPR_fixed: float = 0.95,
     bond_dims: Collection[int] = None,
     spacings: Collection[int] = None,
-    initializers: Collection[str] = None,
+    initializers: Sequence[str] = None,
     embedding: str = "trigonometric",
     nruns: int = 0,
     fig_size: tuple = (6, 5),
