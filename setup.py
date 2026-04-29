@@ -66,6 +66,7 @@ setup(
         ],
         "test": [
             "pytest",
+            "matplotlib"
         ],
         "examples": [
             "matplotlib",
