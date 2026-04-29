@@ -174,7 +174,7 @@ def test_batch_iterator_shuffle():
 
 def test_predict_smpo():
     key = jax.random.PRNGKey(42)
-    model = SMPO_initialize(L=5, initializer=jax.nn.initializers.orthogonal(),
+    model = SMPO_initialize(L=5, initializer=randn(1e-1),
                             key=key, shape_method='even',
                             spacing=5, bond_dim=3, phys_dim=(2, 2), cyclic=False)
     sample = np.random.rand(5)
