@@ -479,6 +479,8 @@ class Model(qtn.TensorNetwork):
             )(data, targets, *params)
             return loss, grads
 
+        jit_value_and_grad = jax.jit(value_and_grad, backend=self.device[0])
+
         def train_step(params, opt_state, data=None, grad_clip_threshold=None):
             """Performs one training step.
 
@@ -489,37 +491,19 @@ class Model(qtn.TensorNetwork):
             opt_state : tuple
                 State of optimizer.
             data : sequence of :class:`jax.numpy.ndarray`
-                Input data.
-            sitetags : sequence of str
-                Names of tensors for differentiation (for Sweeping strategy).
+                Input data — must already be on the correct device.
 
             Returns
             -------
             float, :class:`jax.numpy.ndarray`
             """
 
-            if data is not None:
-                if isinstance(data, tuple) and len(data) == 2:
-                    data, targets = data
-                    data, targets = jnp.array(data), jnp.array(targets)
-                    data = jax.device_put(
-                        data, device=jax.devices(self.device[0])[self.device[1]]
-                    )
-                    targets = jax.device_put(
-                        targets, device=jax.devices(self.device[0])[self.device[1]]
-                    )
-                else:
-                    data = jax.device_put(
-                        jnp.array(data),
-                        device=jax.devices(self.device[0])[self.device[1]],
-                    )
-                    targets = None
+            if data is not None and isinstance(data, tuple) and len(data) == 2:
+                data, targets = data
             else:
                 targets = None
 
-            loss, grads = jax.jit(value_and_grad, backend=self.device[0])(
-                params, data, targets
-            )
+            loss, grads = jit_value_and_grad(params, data, targets)
 
             if grad_clip_threshold:
                 grads = gradient_clip(grads, grad_clip_threshold)
@@ -669,22 +653,12 @@ class Model(qtn.TensorNetwork):
                     )
                     return self.loss(tn, tn_target)
 
-            # Choose vmap axis setup
             if self.train_type == TrainingType.UNSUPERVISED:
-                vmapped_loss = jax.jit(
-                    jax.vmap(single_loss, in_axes=(0,)), backend=self.device[0]
-                )  # only data needed
-                return jnp.mean(vmapped_loss(data))
+                return jnp.mean(jax.vmap(single_loss, in_axes=(0,))(data))
             elif self.train_type == TrainingType.SUPERVISED:
-                vmapped_loss = jax.jit(
-                    jax.vmap(single_loss, in_axes=(0, 0)), backend=self.device[0]
-                )  # both data and targets batched
-                return jnp.mean(vmapped_loss(data, targets))
+                return jnp.mean(jax.vmap(single_loss, in_axes=(0, 0))(data, targets))
             else:  # TARGET_TN
-                vmapped_loss = jax.jit(
-                    jax.vmap(single_loss, in_axes=(0,)), backend=self.device[0]
-                )  # only data needed
-                return jnp.mean(vmapped_loss(data))
+                return jnp.mean(jax.vmap(single_loss, in_axes=(0,))(data))
 
         if isinstance(self.strategy, Sweeps):
             # initialize optimizers
@@ -738,6 +712,7 @@ class Model(qtn.TensorNetwork):
                     self.history["epoch_time"].append(time() - time_epoch)
                 else:
                     loss_batch: Any = 0
+                    _target_device = jax.devices(self.device[0])[self.device[1]]
                     for batch_data in _batch_iterator(
                         inputs,
                         targets,
@@ -747,6 +722,16 @@ class Model(qtn.TensorNetwork):
                         seed=seed,
                         alternate_flip=alternate_flip,
                     ):
+                        if isinstance(batch_data, tuple) and len(batch_data) == 2:
+                            _x, _y = batch_data
+                            batch_data = (
+                                jax.device_put(jnp.array(_x, dtype=dtype), _target_device),
+                                jax.device_put(jnp.array(_y), _target_device),
+                            )
+                        else:
+                            batch_data = jax.device_put(
+                                jnp.array(batch_data, dtype=dtype), _target_device
+                            )
                         if isinstance(self.strategy, Sweeps):
                             loss_curr: Any = 0
                             for s, sites in enumerate(
