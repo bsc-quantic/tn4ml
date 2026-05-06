@@ -2,6 +2,10 @@ from typing import Any, Collection, Optional, Sequence, Tuple, Callable
 from tqdm import tqdm
 import funcy
 import math
+import logging
+import os
+
+logger = logging.getLogger(__name__)
 from time import time
 import numpy as np
 
@@ -15,6 +19,26 @@ from scipy.special import softmax
 from ..embeddings import *
 from ..strategy import *
 from ..util import gradient_clip, EarlyStopping, TrainingType
+
+
+def _enable_cpu_multithreading() -> None:
+    """Enable XLA multi-threading for CPU backend.
+
+    JAX on CPU defaults to single-threaded XLA kernels.
+    Setting XLA_FLAGS before the first jax call unlocks all cores.
+    Call this at the top of your training script when running CPU-only.
+
+    Example
+    -------
+    >>> from tn4ml.models.model import _enable_cpu_multithreading
+    >>> _enable_cpu_multithreading()
+    """
+    current = os.environ.get("XLA_FLAGS", "")
+    flags = []
+    if "--xla_cpu_multi_thread_eigen_intra_op_parallelism=1" not in current:
+        flags.append("--xla_cpu_multi_thread_eigen_intra_op_parallelism=1")
+    if flags:
+        os.environ["XLA_FLAGS"] = current + " " + " ".join(flags)
 
 
 class Model(qtn.TensorNetwork):
@@ -202,6 +226,25 @@ class Model(qtn.TensorNetwork):
         if self.device[0] not in ["cpu", "gpu"]:
             raise AttributeError("Device must be 'cpu' or 'gpu'!")
 
+        available = jax.devices(self.device[0]) if self.device[0] in [
+            d.platform for d in jax.devices()
+        ] else []
+        if not available:
+            raise RuntimeError(
+                f"Device '{self.device[0]}' was requested but no such device is available. "
+                f"Available devices: {jax.devices()}"
+            )
+        if self.device[0] == "cpu":
+            _enable_cpu_multithreading()
+
+        logger.info(
+            "backend=%s | requested=%s:%s | all devices=%s",
+            jax.default_backend(),
+            self.device[0],
+            self.device[1],
+            jax.devices(),
+        )
+
     def predict(
         self,
         sample: np.ndarray,
@@ -282,6 +325,14 @@ class Model(qtn.TensorNetwork):
         :class:`jax.numpy.ndarray`
             Output of the model.
         """
+        _target_device = jax.devices(self.device[0])[self.device[1]]
+
+        with jax.default_device(_target_device):
+            _predict_batch = jax.jit(
+                jax.vmap(self.predict, in_axes=(0, None, None, None)),
+                static_argnums=(1, 2, 3),
+            )
+
         outputs = []
         for batch_data in _batch_iterator(
             data,
@@ -291,17 +342,8 @@ class Model(qtn.TensorNetwork):
             seed=seed,
             alternate_flip=alternate_flip,
         ):
-            x = jnp.array(batch_data, dtype=jnp.float64)
-            x = jax.device_put(x, device=jax.devices(self.device[0])[self.device[1]])
-
-            output = jnp.squeeze(
-                jnp.array(
-                    jax.vmap(self.predict, in_axes=(0, None, None, None))(
-                        x, embedding, False, normalize
-                    )
-                )
-            )
-            outputs.append(output)
+            x = jax.device_put(jnp.array(batch_data, dtype=dtype), _target_device)
+            outputs.append(jnp.squeeze(_predict_batch(x, embedding, False, normalize)))
 
         return jnp.concatenate(outputs, axis=0)
 
@@ -350,6 +392,14 @@ class Model(qtn.TensorNetwork):
         num_samples = 0
         if not isinstance(self.device, tuple):
             self.device = (self.device, 0)  # ensure device is tuple
+        _target_device = jax.devices(self.device[0])[self.device[1]]
+        with jax.default_device(_target_device):
+            _predict_batch = jax.jit(
+                jax.vmap(self.predict, in_axes=(0, None, None, None)),
+                static_argnums=(1, 2, 3),
+            )
+
+        correct_predictions: Any = jnp.array(0)
         for batch_data in _batch_iterator(
             data,
             y_true,
@@ -360,26 +410,17 @@ class Model(qtn.TensorNetwork):
             alternate_flip=alternate_flip,
         ):
             x, y = batch_data
-            x, y = jnp.array(x, dtype=dtype), jnp.array(y)
-            x = jax.device_put(x, device=jax.devices(self.device[0])[self.device[1]])
-            y = jax.device_put(y, device=jax.devices(self.device[0])[self.device[1]])
+            x = jax.device_put(jnp.array(x, dtype=dtype), _target_device)
+            y = jax.device_put(jnp.array(y), _target_device)
 
-            y_pred = jnp.squeeze(
-                jnp.array(
-                    jax.vmap(self.predict, in_axes=(0, None, None, None))(
-                        x, embedding, False, normalize
-                    )
-                )
+            y_pred = softmax(
+                jnp.squeeze(_predict_batch(x, embedding, False, normalize)), axis=-1
             )
-            y_pred = softmax(y_pred, axis=-1)
-            predicted = jnp.argmax(y_pred, axis=-1)
-            true = jnp.argmax(y, axis=-1)
 
-            correct_predictions += jnp.sum(predicted == true).item()
+            correct_predictions += jnp.sum(jnp.argmax(y_pred, axis=-1) == jnp.argmax(y, axis=-1))
             num_samples += y_pred.shape[0]
 
-        accuracy = correct_predictions / num_samples
-        return accuracy
+        return float(jax.block_until_ready(correct_predictions)) / num_samples
 
     def update_tensors(self, params):
         """Updates tensors of the model with new parameters.
@@ -479,7 +520,8 @@ class Model(qtn.TensorNetwork):
             )(data, targets, *params)
             return loss, grads
 
-        jit_value_and_grad = jax.jit(value_and_grad, backend=self.device[0])
+        with jax.default_device(jax.devices(self.device[0])[self.device[1]]):
+            jit_value_and_grad = jax.jit(value_and_grad)
 
         def train_step(params, opt_state, data=None, grad_clip_threshold=None):
             """Performs one training step.
@@ -662,7 +704,8 @@ class Model(qtn.TensorNetwork):
 
         if isinstance(self.strategy, Sweeps):
             # initialize optimizers
-            self.loss_func = jax.jit(loss_fn, backend=self.device[0])
+            with jax.default_device(jax.devices(self.device[0])[self.device[1]]):
+                self.loss_func = jax.jit(loss_fn)
             self.opt_states = []
 
             for s, sites in enumerate(self.strategy.iterate_sites(self)):
@@ -688,7 +731,8 @@ class Model(qtn.TensorNetwork):
 
             # initialize optimizer
             params = self.arrays
-            self.loss_func = jax.jit(loss_fn, backend=self.device[0])
+            with jax.default_device(jax.devices(self.device[0])[self.device[1]]):
+                self.loss_func = jax.jit(loss_fn)
             self.step, self.opt_state = self.create_train_step(
                 params=params, loss_func=self.loss_func
             )
@@ -792,7 +836,8 @@ class Model(qtn.TensorNetwork):
                             self.canonicalize(canonize[1], inplace=True)
 
                     loss_epoch = loss_batch / n_batches
-                    loss_epoch = float(loss_epoch)
+
+                    loss_epoch = float(jax.block_until_ready(loss_epoch))
 
                     self.history["loss"].append(loss_epoch)
 
@@ -979,22 +1024,12 @@ class Model(qtn.TensorNetwork):
                     )
                     return self.loss(tn, tn_target)
 
-            # Choose vmap axis setup
             if evaluate_type == TrainingType.UNSUPERVISED:
-                vmapped_loss = jax.jit(
-                    jax.vmap(single_loss, in_axes=(0,)), backend=self.device[0]
-                )  # only data needed
-                return vmapped_loss(data)
+                return jax.vmap(single_loss, in_axes=(0,))(data)
             elif evaluate_type == TrainingType.SUPERVISED:
-                vmapped_loss = jax.jit(
-                    jax.vmap(single_loss, in_axes=(0, 0)), backend=self.device[0]
-                )  # both data and targets batched
-                return vmapped_loss(data, targets)
+                return jax.vmap(single_loss, in_axes=(0, 0))(data, targets)
             else:  # TARGET_TN
-                vmapped_loss = jax.jit(
-                    jax.vmap(single_loss, in_axes=(0,)), backend=self.device[0]
-                )  # only data needed
-                return vmapped_loss(data)
+                return jax.vmap(single_loss, in_axes=(0,))(data)
 
         if inputs is not None:
             loss_value: Any = 0
