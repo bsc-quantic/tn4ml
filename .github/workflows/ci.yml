@@ -131,6 +131,4 @@ jobs:
         run: |
           pytest --nbmake docs/source/examples/ \
             --nbmake-timeout=300 \
-            --ignore=docs/source/examples/supervised \
-            --ignore=docs/source/examples/unsupervised \
             -v
