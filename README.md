@@ -3,17 +3,10 @@
 # Tensor Networks for Machine Learning
 [![CI](https://github.com/bsc-quantic/tn4ml/actions/workflows/ci.yml/badge.svg)](https://github.com/bsc-quantic/tn4ml/actions/workflows/ci.yml)
 [![Pre-merge checks](https://github.com/bsc-quantic/tn4ml/actions/workflows/pre-merge.yml/badge.svg)](https://github.com/bsc-quantic/tn4ml/actions/workflows/pre-merge.yml)
-[![Docs](https://readthedocs.org/projects/tn4ml/badge/?version=latest)](https://tn4ml.readthedocs.io/en/latest/)
-![tests](https://img.shields.io/badge/tests-pytest-blue)
-![notebooks](https://img.shields.io/badge/notebooks-nbmake-blue)
-![lint](https://img.shields.io/badge/lint-ruff-blue)
-![format](https://img.shields.io/badge/format-ruff-blue)
-![types](https://img.shields.io/badge/types-mypy-blue)
-![security](https://img.shields.io/badge/security-bandit-blue)
-![coverage](https://img.shields.io/badge/coverage-pytest--cov-blue)<br>
+[![Docs](https://readthedocs.org/projects/tn4ml/badge/?version=latest)](https://tn4ml.readthedocs.io/en/latest/)<br>
 **tn4ml** is a Python library that handles tensor networks for machine learning applications.<br>
 It is built on top of **Quimb**, for Tensor Network objects, and **JAX**, for optimization pipeline.<br>
-For now, the library supports 1D Tensor Network structures: 
+For now, the library supports 1D Tensor Network structures:
 - **Matrix Product State**
 - **Matrix Product Operator**
 - **Spaced Matrix Product Operator**
@@ -116,13 +109,13 @@ If you use **tn4ml** in your work, please cite the following paper: [arXiv:2502.
 
 ```bibtex
 @article{puljak2025tn4mltensornetworktraining,
-      title={tn4ml: Tensor Network Training and Customization for Machine Learning}, 
+      title={tn4ml: Tensor Network Training and Customization for Machine Learning},
       author={Ema Puljak and Sergio Sanchez-Ramirez and Sergi Masot-Llima and Jofre Vallès-Muns and Artur Garcia-Saez and Maurizio Pierini},
       year={2025},
       eprint={2502.13090},
       archivePrefix={arXiv},
       primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2502.13090}, 
+      url={https://arxiv.org/abs/2502.13090},
       }
 ```
 
