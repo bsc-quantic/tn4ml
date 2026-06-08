@@ -54,6 +54,21 @@ pip install "tn4ml[test]"
 pip install "tn4ml[examples]"
 ```
 
+**Developer checks**<br>
+
+Install the pre-commit hooks before contributing:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Run all hooks manually:
+```bash
+pre-commit run --all-files
+```
+
+The hooks run fast local checks from CI/CD (`ruff`, `mypy`, `bandit`) and strip notebook outputs/local metadata with `nbstripout`, including notebook kernel display names such as local environment names.
+
 
 **Accelerated runtime** <br>
 
