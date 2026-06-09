@@ -111,6 +111,10 @@ class Model(qtn.TensorNetwork):
             model = type(self)(tensors)  # type: ignore[call-arg]
         else:
             model = type(self)(arrays)  # type: ignore[call-arg]
+
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+
         qu.save_to_disk(model, f"{dir_name}/{model_name}.pkl")
 
     def nparams(self) -> int:
