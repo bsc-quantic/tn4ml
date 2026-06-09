@@ -4,8 +4,6 @@ import funcy
 import math
 import logging
 import os
-
-logger = logging.getLogger(__name__)
 from time import time
 import numpy as np
 
@@ -19,6 +17,8 @@ from scipy.special import softmax
 from ..embeddings import *
 from ..strategy import *
 from ..util import gradient_clip, EarlyStopping, TrainingType
+
+logger = logging.getLogger(__name__)
 
 
 def _enable_cpu_multithreading() -> None:
@@ -64,7 +64,7 @@ class Model(qtn.TensorNetwork):
         State of optimizer.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Constructor method for :class:`tn4ml.models.Model` class."""
         self.loss: Callable = None
         self.strategy: Any = "global"
@@ -226,9 +226,11 @@ class Model(qtn.TensorNetwork):
         if self.device[0] not in ["cpu", "gpu"]:
             raise AttributeError("Device must be 'cpu' or 'gpu'!")
 
-        available = jax.devices(self.device[0]) if self.device[0] in [
-            d.platform for d in jax.devices()
-        ] else []
+        available = (
+            jax.devices(self.device[0])
+            if self.device[0] in [d.platform for d in jax.devices()]
+            else []
+        )
         if not available:
             raise RuntimeError(
                 f"Device '{self.device[0]}' was requested but no such device is available. "
@@ -358,7 +360,7 @@ class Model(qtn.TensorNetwork):
         dtype: Any = jnp.float_,
         seed: int = 42,
         alternate_flip: bool = False,
-    ) -> Number:
+    ) -> float:
         """Calculates accuracy for supervised learning.
 
         Parameters
@@ -388,7 +390,6 @@ class Model(qtn.TensorNetwork):
         if y_true is None:
             raise ValueError("For unsupervised learning you must provide target data!")
 
-        correct_predictions: Any = 0
         num_samples = 0
         if not isinstance(self.device, tuple):
             self.device = (self.device, 0)  # ensure device is tuple
@@ -399,7 +400,7 @@ class Model(qtn.TensorNetwork):
                 static_argnums=(1, 2, 3),
             )
 
-        correct_predictions: Any = jnp.array(0)
+        correct_predictions = jnp.array(0)
         for batch_data in _batch_iterator(
             data,
             y_true,
@@ -417,7 +418,9 @@ class Model(qtn.TensorNetwork):
                 jnp.squeeze(_predict_batch(x, embedding, False, normalize)), axis=-1
             )
 
-            correct_predictions += jnp.sum(jnp.argmax(y_pred, axis=-1) == jnp.argmax(y, axis=-1))
+            correct_predictions += jnp.sum(
+                jnp.argmax(y_pred, axis=-1) == jnp.argmax(y, axis=-1)
+            )
             num_samples += y_pred.shape[0]
 
         return float(jax.block_until_ready(correct_predictions)) / num_samples
@@ -769,7 +772,9 @@ class Model(qtn.TensorNetwork):
                         if isinstance(batch_data, tuple) and len(batch_data) == 2:
                             _x, _y = batch_data
                             batch_data = (
-                                jax.device_put(jnp.array(_x, dtype=dtype), _target_device),
+                                jax.device_put(
+                                    jnp.array(_x, dtype=dtype), _target_device
+                                ),
                                 jax.device_put(jnp.array(_y), _target_device),
                             )
                         else:

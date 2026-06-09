@@ -4,101 +4,156 @@ import pytest
 import tn4ml
 import itertools
 
+
 @pytest.mark.parametrize("x", [0.0, 1.0, -1.0, 0.3, 0.7, 2.0])
 def test_TrigonometricEmbedding(x):
     embedding = tn4ml.embeddings.TrigonometricEmbedding()
     phi: jnp.ndarray = embedding(x)
-    assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
+    assert np.linalg.norm(phi) == pytest.approx(1.0), (
+        "Norm of embedded data should be 1.0"
+    )
+
 
 @pytest.mark.parametrize("x", [0.0, 1.0, -1.0, 0.3, 0.7, 2.0])
 def test_fourier(x):
     embedding = tn4ml.embeddings.FourierEmbedding()
     phi: jnp.ndarray = embedding(x)
-    assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
+    assert np.linalg.norm(phi) == pytest.approx(1.0), (
+        "Norm of embedded data should be 1.0"
+    )
+
 
 @pytest.mark.parametrize("x", [0.003, 1.45, 2.998, 0.332, 0.3984, 4.83, 6.0])
 def test_fourier(x):
     embedding = tn4ml.embeddings.TrigonometricEmbedding()
     phi: jnp.ndarray = embedding(x)
-    assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
+    assert np.linalg.norm(phi) == pytest.approx(1.0), (
+        "Norm of embedded data should be 1.0"
+    )
+
 
 @pytest.mark.parametrize("x", [0.003, 1.45, 2.998, 0.332, 0.3984, 4.83, 6.0])
 def test_fourier(x):
     embedding = tn4ml.embeddings.FourierEmbedding()
     phi: jnp.ndarray = embedding(x)
-    assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
+    assert np.linalg.norm(phi) == pytest.approx(1.0), (
+        "Norm of embedded data should be 1.0"
+    )
 
-@pytest.mark.parametrize("x,centers,gamma", [
-    (1, [3], 1),
-    (2, [3], 1),
-    (3, [3], 1),
-    (4, [3], 1),
-    (5, [3], 1)
-])
+
+@pytest.mark.parametrize(
+    "x,centers,gamma", [(1, [3], 1), (2, [3], 1), (3, [3], 1), (4, [3], 1), (5, [3], 1)]
+)
 def test_gaussian_basic(x, centers, gamma):
     embedding = tn4ml.embeddings.GaussianRBFEmbedding(centers=centers, gamma=gamma)
     phi: jnp.ndarray = embedding(x)
-    assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
+    assert np.linalg.norm(phi) == pytest.approx(1.0), (
+        "Norm of embedded data should be 1.0"
+    )
 
-@pytest.mark.parametrize("x,centers,gamma", [
-    (1, [3,7], 0.5),
-    (2, [3,7], 0.5),
-    (3, [3,7], 0.5),
-    (4, [3,7], 0.5),
-    (5, [3,7], 0.5),
-    (6, [3,7], 0.5),
-    (7, [3,7], 0.5),
-    (8, [3,7], 0.5),
-    (9, [3,7], 0.5),
-    (10, [3,7], 0.5)
-])
+
+@pytest.mark.parametrize(
+    "x,centers,gamma",
+    [
+        (1, [3, 7], 0.5),
+        (2, [3, 7], 0.5),
+        (3, [3, 7], 0.5),
+        (4, [3, 7], 0.5),
+        (5, [3, 7], 0.5),
+        (6, [3, 7], 0.5),
+        (7, [3, 7], 0.5),
+        (8, [3, 7], 0.5),
+        (9, [3, 7], 0.5),
+        (10, [3, 7], 0.5),
+    ],
+)
 def test_gaussian_multiple_centers(x, centers, gamma):
     embedding = tn4ml.embeddings.GaussianRBFEmbedding(centers=centers, gamma=gamma)
     phi: jnp.ndarray = embedding(x)
-    assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
+    assert np.linalg.norm(phi) == pytest.approx(1.0), (
+        "Norm of embedded data should be 1.0"
+    )
 
-@pytest.mark.parametrize("x,centers,gamma", [
-    (1, [3,5], 10),
-    (2, [3,5], 10),
-    (3, [3,5], 10),
-    (4, [3,5], 10),
-    (5, [3,5], 10),
-    (6, [3,5], 10)
-])
+
+@pytest.mark.parametrize(
+    "x,centers,gamma",
+    [
+        (1, [3, 5], 10),
+        (2, [3, 5], 10),
+        (3, [3, 5], 10),
+        (4, [3, 5], 10),
+        (5, [3, 5], 10),
+        (6, [3, 5], 10),
+    ],
+)
 def test_gaussian_high_gamma(x, centers, gamma):
     embedding = tn4ml.embeddings.GaussianRBFEmbedding(centers=centers, gamma=gamma)
     phi: jnp.ndarray = embedding(x)
-    assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
+    assert np.linalg.norm(phi) == pytest.approx(1.0), (
+        "Norm of embedded data should be 1.0"
+    )
 
-@pytest.mark.parametrize("x,centers,gamma", [
-    (-5, [0], 0.1),
-    (-4, [0], 0.1),
-    (-3, [0], 0.1),
-    (-2, [0], 0.1),
-    (-1, [0], 0.1),
-    (0, [0], 0.1),
-    (1, [0], 0.1),
-    (2, [0], 0.1),
-    (3, [0], 0.1),
-    (4, [0], 0.1),
-    (5, [0], 0.1)
-])
+
+@pytest.mark.parametrize(
+    "x,centers,gamma",
+    [
+        (-5, [0], 0.1),
+        (-4, [0], 0.1),
+        (-3, [0], 0.1),
+        (-2, [0], 0.1),
+        (-1, [0], 0.1),
+        (0, [0], 0.1),
+        (1, [0], 0.1),
+        (2, [0], 0.1),
+        (3, [0], 0.1),
+        (4, [0], 0.1),
+        (5, [0], 0.1),
+    ],
+)
 def test_gaussian_low_gamma(x, centers, gamma):
     embedding = tn4ml.embeddings.GaussianRBFEmbedding(centers=centers, gamma=gamma)
     phi: jnp.ndarray = embedding(x)
-    assert np.linalg.norm(phi) == pytest.approx(1.0), "Norm of embedded data should be 1.0"
+    assert np.linalg.norm(phi) == pytest.approx(1.0), (
+        "Norm of embedded data should be 1.0"
+    )
 
-@pytest.mark.parametrize("x,embedding", itertools.product((np.random.rand(4) for _ in range(5)), [tn4ml.embeddings.TrigonometricEmbedding(), tn4ml.embeddings.FourierEmbedding()]))
+
+@pytest.mark.parametrize(
+    "x,embedding",
+    itertools.product(
+        (np.random.rand(4) for _ in range(5)),
+        [
+            tn4ml.embeddings.TrigonometricEmbedding(),
+            tn4ml.embeddings.FourierEmbedding(),
+        ],
+    ),
+)
 def test_embed_trig_four(x, embedding):
     phi = tn4ml.embeddings.embed(x, phi=embedding)
     assert phi.norm() == pytest.approx(1.0)
 
-@pytest.mark.parametrize("x,embedding", [
-    (np.array([1,2,3,4,5,6]), tn4ml.embeddings.GaussianRBFEmbedding(np.array([3,5]), 10)),
-    (np.array([-5,-4,-3,-2,-1,0,1,2,3,4,5]), tn4ml.embeddings.GaussianRBFEmbedding(np.array([0]), 0.1)),
-    (np.array([1,2,3,4,5,6,7,8,9,10]), tn4ml.embeddings.GaussianRBFEmbedding(np.array([3,7]), 0.5)),
-    (np.array([1,2,3,4,5]), tn4ml.embeddings.GaussianRBFEmbedding(np.array([3]), 1))
-])
+
+@pytest.mark.parametrize(
+    "x,embedding",
+    [
+        (
+            np.array([1, 2, 3, 4, 5, 6]),
+            tn4ml.embeddings.GaussianRBFEmbedding(np.array([3, 5]), 10),
+        ),
+        (
+            np.array([-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]),
+            tn4ml.embeddings.GaussianRBFEmbedding(np.array([0]), 0.1),
+        ),
+        (
+            np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+            tn4ml.embeddings.GaussianRBFEmbedding(np.array([3, 7]), 0.5),
+        ),
+        (
+            np.array([1, 2, 3, 4, 5]),
+            tn4ml.embeddings.GaussianRBFEmbedding(np.array([3]), 1),
+        ),
+    ],
+)
 def test_embed_gauss(x, embedding):
     # zero entry makes problem if x starts with 0
     phi = tn4ml.embeddings.embed(x, phi=embedding)
@@ -107,14 +162,22 @@ def test_embed_gauss(x, embedding):
 
 # --- LinearComplementEmbedding ---
 
-@pytest.mark.parametrize("x,p", [
-    (0.3, 2), (0.7, 2), (0.5, 3), (0.1, 3),
-])
+
+@pytest.mark.parametrize(
+    "x,p",
+    [
+        (0.3, 2),
+        (0.7, 2),
+        (0.5, 3),
+        (0.1, 3),
+    ],
+)
 def test_LinearComplementEmbedding(x, p):
     embedding = tn4ml.embeddings.LinearComplementEmbedding(p=p)
     phi = embedding(x)
     assert phi.shape == (p,)
     assert np.linalg.norm(phi) == pytest.approx(1.0)
+
 
 def test_LinearComplementEmbedding_invalid_p():
     with pytest.raises(ValueError):
@@ -122,6 +185,7 @@ def test_LinearComplementEmbedding_invalid_p():
 
 
 # --- QuantumBasisEmbedding ---
+
 
 @pytest.mark.parametrize("x", [0, 1])
 def test_QuantumBasisEmbedding(x):
@@ -133,9 +197,16 @@ def test_QuantumBasisEmbedding(x):
 
 # --- LegendreEmbedding ---
 
-@pytest.mark.parametrize("x,degree", [
-    (0.5, 2), (-0.5, 3), (0.0, 4), (1.0, 2),
-])
+
+@pytest.mark.parametrize(
+    "x,degree",
+    [
+        (0.5, 2),
+        (-0.5, 3),
+        (0.0, 4),
+        (1.0, 2),
+    ],
+)
 def test_LegendreEmbedding(x, degree):
     embedding = tn4ml.embeddings.LegendreEmbedding(degree=degree)
     phi = embedding(x)
@@ -144,9 +215,16 @@ def test_LegendreEmbedding(x, degree):
 
 # --- LaguerreEmbedding ---
 
-@pytest.mark.parametrize("x,degree", [
-    (0.5, 2), (1.0, 3), (2.0, 4), (0.1, 2),
-])
+
+@pytest.mark.parametrize(
+    "x,degree",
+    [
+        (0.5, 2),
+        (1.0, 3),
+        (2.0, 4),
+        (0.1, 2),
+    ],
+)
 def test_LaguerreEmbedding(x, degree):
     embedding = tn4ml.embeddings.LaguerreEmbedding(degree=degree)
     phi = embedding(x)
@@ -155,9 +233,16 @@ def test_LaguerreEmbedding(x, degree):
 
 # --- HermiteEmbedding ---
 
-@pytest.mark.parametrize("x,degree", [
-    (0.5, 2), (-0.5, 3), (0.0, 4), (1.0, 2),
-])
+
+@pytest.mark.parametrize(
+    "x,degree",
+    [
+        (0.5, 2),
+        (-0.5, 3),
+        (0.0, 4),
+        (1.0, 2),
+    ],
+)
 def test_HermiteEmbedding(x, degree):
     embedding = tn4ml.embeddings.HermiteEmbedding(degree=degree)
     phi = embedding(x)
@@ -166,11 +251,13 @@ def test_HermiteEmbedding(x, degree):
 
 # --- JaxArraysEmbedding ---
 
+
 def test_JaxArraysEmbedding_basic():
     embedding = tn4ml.embeddings.JaxArraysEmbedding(dim=3, input_dim=3)
     x = jnp.array([1.0, 2.0, 3.0])
     phi = embedding(x)
     assert jnp.allclose(phi, x)
+
 
 def test_JaxArraysEmbedding_with_bias():
     embedding = tn4ml.embeddings.JaxArraysEmbedding(dim=4, add_bias=True, input_dim=3)
@@ -182,14 +269,24 @@ def test_JaxArraysEmbedding_with_bias():
 
 # --- PolynomialEmbedding ---
 
-@pytest.mark.parametrize("degree,n,include_bias", [
-    (1, 2, False), (2, 2, False), (2, 3, True), (3, 1, False),
-])
+
+@pytest.mark.parametrize(
+    "degree,n,include_bias",
+    [
+        (1, 2, False),
+        (2, 2, False),
+        (2, 3, True),
+        (3, 1, False),
+    ],
+)
 def test_PolynomialEmbedding(degree, n, include_bias):
-    embedding = tn4ml.embeddings.PolynomialEmbedding(degree=degree, n=n, include_bias=include_bias)
+    embedding = tn4ml.embeddings.PolynomialEmbedding(
+        degree=degree, n=n, include_bias=include_bias
+    )
     x = jnp.ones(n) * 0.5
     phi = embedding(x)
     assert phi.shape == (embedding.dim,)
+
 
 def test_PolynomialEmbedding_invalid_degree():
     with pytest.raises(ValueError):
@@ -197,6 +294,7 @@ def test_PolynomialEmbedding_invalid_degree():
 
 
 # --- TrigonometricEmbeddingChain ---
+
 
 def test_TrigonometricEmbeddingChain():
     embedding = tn4ml.embeddings.TrigonometricEmbeddingChain(k=1, input_shape=(2, 2))
@@ -207,6 +305,7 @@ def test_TrigonometricEmbeddingChain():
 
 # --- TrigonometricEmbeddingAvg ---
 
+
 def test_TrigonometricEmbeddingAvg():
     embedding = tn4ml.embeddings.TrigonometricEmbeddingAvg(k=1, input_shape=(2, 2))
     x = jnp.array([0.5, 0.7])
@@ -216,15 +315,23 @@ def test_TrigonometricEmbeddingAvg():
 
 # --- embed with different embedding types ---
 
-@pytest.mark.parametrize("x,embedding", [
-    (np.array([0.3, 0.5, 0.7, 0.9]), tn4ml.embeddings.LinearComplementEmbedding(p=2)),
-    (np.array([0.3, 0.5, 0.7, 0.9]), tn4ml.embeddings.LegendreEmbedding(degree=2)),
-    (np.array([0.3, 0.5, 0.7, 0.9]), tn4ml.embeddings.LaguerreEmbedding(degree=2)),
-    (np.array([0.3, 0.5, 0.7, 0.9]), tn4ml.embeddings.HermiteEmbedding(degree=2)),
-])
+
+@pytest.mark.parametrize(
+    "x,embedding",
+    [
+        (
+            np.array([0.3, 0.5, 0.7, 0.9]),
+            tn4ml.embeddings.LinearComplementEmbedding(p=2),
+        ),
+        (np.array([0.3, 0.5, 0.7, 0.9]), tn4ml.embeddings.LegendreEmbedding(degree=2)),
+        (np.array([0.3, 0.5, 0.7, 0.9]), tn4ml.embeddings.LaguerreEmbedding(degree=2)),
+        (np.array([0.3, 0.5, 0.7, 0.9]), tn4ml.embeddings.HermiteEmbedding(degree=2)),
+    ],
+)
 def test_embed_various_embeddings(x, embedding):
     phi = tn4ml.embeddings.embed(x, phi=embedding)
     assert phi.norm() == pytest.approx(1.0)
+
 
 def test_embed_invalid_type():
     with pytest.raises(TypeError):

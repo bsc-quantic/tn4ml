@@ -23,10 +23,8 @@ setup(
         "Programming Language :: Python :: 3.12",
     ],
     packages=find_packages(),
-    python_requires='>=3.8',
-    setup_requires=[
-        "setuptools >= 38.3.0"
-    ],
+    python_requires=">=3.8",
+    setup_requires=["setuptools >= 38.3.0"],
     install_requires=[
         "autoray>=0.3.0",
         "dask",
@@ -42,16 +40,16 @@ setup(
         "pandas",
         "nevergrad",
         "optuna",
-        "scikit-optimize"
+        "scikit-optimize",
     ],
     extras_require={
         "docs": [
             "sphinx",
             "sphinx-book-theme",
-            #"pydata-sphinx-theme",
+            # "pydata-sphinx-theme",
             "ipykernel",
             "nbsphinx",
-            'myst-parser',
+            "myst-parser",
             "sphinxcontrib-bibtex",
             "sphinxcontrib-devhelp",
             "sphinxcontrib-htmlhelp",
@@ -64,16 +62,7 @@ setup(
             "tensorflow",
             "matplotlib",
         ],
-        "test": [
-            "pytest",
-            "matplotlib"
-        ],
-        "examples": [
-            "matplotlib",
-            "scikit-learn",
-            "argparse",
-            "tensorflow",
-            "seaborn"
-        ],
+        "test": ["pytest", "matplotlib"],
+        "examples": ["matplotlib", "scikit-learn", "argparse", "tensorflow", "seaborn"],
     },
 )

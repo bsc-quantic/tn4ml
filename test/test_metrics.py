@@ -13,269 +13,539 @@ import tn4ml.embeddings as embeddings
 import quimb.tensor as qtn
 from tn4ml.initializers import randn
 
-@pytest.mark.parametrize("model,data", [(qtn.MPS_rand_state(20, bond_dim=2, phys_dim=2), qtn.MPS_rand_state(20, bond_dim=5, phys_dim=2))])
+
+@pytest.mark.parametrize(
+    "model,data",
+    [
+        (
+            qtn.MPS_rand_state(20, bond_dim=2, phys_dim=2),
+            qtn.MPS_rand_state(20, bond_dim=5, phys_dim=2),
+        )
+    ],
+)
 def test_NegLogLikelihood_1(model, data):
     loss = tn4ml.metrics.NegLogLikelihood(model, data)
     assert loss >= 0.0
-    # check if physical dimensions match 
+    # check if physical dimensions match
     assert model.tensors[0].shape[-1] == data.tensors[0].shape[-1]
     assert len(model.tensors) == len(data.tensors)
 
-@pytest.mark.parametrize("model,data", [(qtn.MPS_rand_state(20, bond_dim=2, phys_dim=2, cyclic=True), qtn.MPS_rand_state(20, bond_dim=5, phys_dim=2))])
+
+@pytest.mark.parametrize(
+    "model,data",
+    [
+        (
+            qtn.MPS_rand_state(20, bond_dim=2, phys_dim=2, cyclic=True),
+            qtn.MPS_rand_state(20, bond_dim=5, phys_dim=2),
+        )
+    ],
+)
 def test_NegLogLikelihood_2(model, data):
     loss = tn4ml.metrics.NegLogLikelihood(model, data)
     assert loss >= 0.0
-    # check if physical dimensions match 
+    # check if physical dimensions match
     assert model.tensors[0].shape[-1] == data.tensors[0].shape[-1]
     assert len(model.tensors) == len(data.tensors)
 
-@pytest.mark.parametrize("model,data", [(qtn.MPS_rand_state(20, bond_dim=2, phys_dim=2, cyclic=True), qtn.MPS_rand_state(20, bond_dim=5, phys_dim=2, cyclic=True))])
+
+@pytest.mark.parametrize(
+    "model,data",
+    [
+        (
+            qtn.MPS_rand_state(20, bond_dim=2, phys_dim=2, cyclic=True),
+            qtn.MPS_rand_state(20, bond_dim=5, phys_dim=2, cyclic=True),
+        )
+    ],
+)
 def test_NegLogLikelihood_3(model, data):
     loss = tn4ml.metrics.NegLogLikelihood(model, data)
     assert loss >= 0.0
-    # check if physical dimensions match 
+    # check if physical dimensions match
     assert model.tensors[0].shape[-1] == data.tensors[0].shape[-1]
     assert len(model.tensors) == len(data.tensors)
 
-@pytest.mark.parametrize("model,data", [(qtn.MPS_rand_state(10, bond_dim=2, phys_dim=3), np.random.rand(10,))])
-def test_NegLogLikelihood_4(model,data):
+
+@pytest.mark.parametrize(
+    "model,data",
+    [
+        (
+            qtn.MPS_rand_state(10, bond_dim=2, phys_dim=3),
+            np.random.rand(
+                10,
+            ),
+        )
+    ],
+)
+def test_NegLogLikelihood_4(model, data):
     embedding = tn4ml.embeddings.FourierEmbedding(p=3)
     phi = tn4ml.embeddings.embed(data, phi=embedding)
     loss = tn4ml.metrics.NegLogLikelihood(model, phi)
     assert loss >= 0.0
-    # check if physical dimensions match 
+    # check if physical dimensions match
     assert model.tensors[0].shape[-1] == phi.tensors[0].shape[-1]
     assert len(model.tensors) == len(phi.tensors)
 
+
 # TODO - when SMPO is fully working!
-@pytest.mark.parametrize("model,data", [(tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                                                            key=jax.random.key(42), shape_method='even',
-                                                                            spacing=2, bond_dim=4,
-                                                                            phys_dim=(2,2), cyclic=False),
-                                        np.random.rand(10,))])
-def test_transformed_squared_norm(model,data):
+@pytest.mark.parametrize(
+    "model,data",
+    [
+        (
+            tn4ml.models.smpo.SMPO_initialize(
+                L=10,
+                initializer=randn(1e-1),
+                key=jax.random.key(42),
+                shape_method="even",
+                spacing=2,
+                bond_dim=4,
+                phys_dim=(2, 2),
+                cyclic=False,
+            ),
+            np.random.rand(
+                10,
+            ),
+        )
+    ],
+)
+def test_transformed_squared_norm(model, data):
     embedding = tn4ml.embeddings.TrigonometricEmbedding()
     phi = tn4ml.embeddings.embed(data, phi=embedding)
     loss = tn4ml.metrics.TransformedSquaredNorm(model, phi)
     assert loss >= 0.0
-    # check if physical dimensions match 
+    # check if physical dimensions match
     assert model.tensors[0].shape[-1] == phi.tensors[0].shape[-1]
     assert len(model.tensors) == len(phi.tensors)
 
-@pytest.mark.parametrize("model,data", [(tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                                                            key=jax.random.key(42), shape_method='even',
-                                                                            spacing=2, bond_dim=4,
-                                                                            phys_dim=(2,2), cyclic=False),
-                                        qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2))])
-def test_transformed_squared_norm_2(model,data):
+
+@pytest.mark.parametrize(
+    "model,data",
+    [
+        (
+            tn4ml.models.smpo.SMPO_initialize(
+                L=10,
+                initializer=randn(1e-1),
+                key=jax.random.key(42),
+                shape_method="even",
+                spacing=2,
+                bond_dim=4,
+                phys_dim=(2, 2),
+                cyclic=False,
+            ),
+            qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2),
+        )
+    ],
+)
+def test_transformed_squared_norm_2(model, data):
     loss = tn4ml.metrics.TransformedSquaredNorm(model, data)
     assert loss >= 0.0
-    # check if physical dimensions match 
+    # check if physical dimensions match
     assert model.tensors[0].shape[-1] == data.tensors[0].shape[-1]
     assert len(model.tensors) == len(data.tensors)
 
-# TODO add more MPO initializations from quimb   
-@pytest.mark.parametrize("model", [
+
+# TODO add more MPO initializations from quimb
+@pytest.mark.parametrize(
+    "model",
+    [
         (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)),
-        (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2, cyclic=True))])
+        (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2, cyclic=True)),
+    ],
+)
 def test_LogFrobNorm_MPS(model):
     loss = tn4ml.metrics.LogFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
+
 # TODO add more MPO initializations from quimb
-@pytest.mark.parametrize("model", [
-    (qtn.MPO_rand(10, bond_dim=2, phys_dim=2)),
-    (qtn.MPO_rand(10, bond_dim=2, phys_dim=2, cyclic=True))])
+@pytest.mark.parametrize(
+    "model",
+    [
+        (qtn.MPO_rand(10, bond_dim=2, phys_dim=2)),
+        (qtn.MPO_rand(10, bond_dim=2, phys_dim=2, cyclic=True)),
+    ],
+)
 def test_LogFrobNorm_MPO(model):
     loss = tn4ml.metrics.LogFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
-@pytest.mark.parametrize("model", [
-    (tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                    key=jax.random.key(42), shape_method='even',
-                                    spacing=2, bond_dim=4,
-                                    phys_dim=(2,2), cyclic=False)),
-    (tn4ml.models.smpo.SMPO_initialize(L=15, initializer=tn4ml.initializers.randn(1e-9, dtype=jnp.float64),
-                                    key=jax.random.key(42), shape_method='even',
-                                    spacing=5, bond_dim=4,
-                                    phys_dim=(2,2), cyclic=False))])
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        (
+            tn4ml.models.smpo.SMPO_initialize(
+                L=10,
+                initializer=randn(1e-1),
+                key=jax.random.key(42),
+                shape_method="even",
+                spacing=2,
+                bond_dim=4,
+                phys_dim=(2, 2),
+                cyclic=False,
+            )
+        ),
+        (
+            tn4ml.models.smpo.SMPO_initialize(
+                L=15,
+                initializer=tn4ml.initializers.randn(1e-9, dtype=jnp.float64),
+                key=jax.random.key(42),
+                shape_method="even",
+                spacing=5,
+                bond_dim=4,
+                phys_dim=(2, 2),
+                cyclic=False,
+            )
+        ),
+    ],
+)
 def test_LogFrobNorm_SMPO(model):
     loss = tn4ml.metrics.LogFrobNorm(model)
     print(jax.device_get(loss))
     assert isinstance(jax.device_get(loss), np.ndarray)
 
-@pytest.mark.parametrize("model", [
-    (tn4ml.models.mps.MPS_initialize(L=10, initializer=randn(1e-1),
-                                    key=jax.random.key(42), shape_method='even',
-                                    bond_dim=4, phys_dim=2, cyclic=False)),
-    (tn4ml.models.mps.MPS_initialize(L=20, initializer=tn4ml.initializers.randn(1e-9, dtype=jnp.float64),
-                                    key=jax.random.key(42), shape_method='noteven',
-                                    bond_dim=4, phys_dim=2, cyclic=False))])
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        (
+            tn4ml.models.mps.MPS_initialize(
+                L=10,
+                initializer=randn(1e-1),
+                key=jax.random.key(42),
+                shape_method="even",
+                bond_dim=4,
+                phys_dim=2,
+                cyclic=False,
+            )
+        ),
+        (
+            tn4ml.models.mps.MPS_initialize(
+                L=20,
+                initializer=tn4ml.initializers.randn(1e-9, dtype=jnp.float64),
+                key=jax.random.key(42),
+                shape_method="noteven",
+                bond_dim=4,
+                phys_dim=2,
+                cyclic=False,
+            )
+        ),
+    ],
+)
 def test_LogFrobNorm_TrainableMPS(model):
     loss = tn4ml.metrics.LogFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
-@pytest.mark.parametrize("model", [
-    (tn4ml.models.mpo.MPO_initialize(L=10, initializer=randn(1e-1),
-                                    key=jax.random.key(42), shape_method='even',
-                                    bond_dim=4, phys_dim=(2,2), cyclic=False)),
-    (tn4ml.models.mpo.MPO_initialize(L=20, initializer=tn4ml.initializers.randn(1e-9, dtype=jnp.float64),
-                                    key=jax.random.key(42), shape_method='noteven',
-                                    bond_dim=4, phys_dim=(2,2), cyclic=False))])
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        (
+            tn4ml.models.mpo.MPO_initialize(
+                L=10,
+                initializer=randn(1e-1),
+                key=jax.random.key(42),
+                shape_method="even",
+                bond_dim=4,
+                phys_dim=(2, 2),
+                cyclic=False,
+            )
+        ),
+        (
+            tn4ml.models.mpo.MPO_initialize(
+                L=20,
+                initializer=tn4ml.initializers.randn(1e-9, dtype=jnp.float64),
+                key=jax.random.key(42),
+                shape_method="noteven",
+                bond_dim=4,
+                phys_dim=(2, 2),
+                cyclic=False,
+            )
+        ),
+    ],
+)
 def test_LogFrobNorm_TrainableMP0(model):
     loss = tn4ml.metrics.LogFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
-    
-# TODO add more MPS initializations from quimb   
-@pytest.mark.parametrize("model", [
+
+
+# TODO add more MPS initializations from quimb
+@pytest.mark.parametrize(
+    "model",
+    [
         (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)),
-        (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2, cyclic=True))])
+        (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2, cyclic=True)),
+    ],
+)
 def test_LogReLUFrobNorm_MPS(model):
     loss = tn4ml.metrics.LogReLUFrobNorm(model)
     assert jax.device_get(loss) >= 0.0
 
+
 # TODO add more MPO initializations from quimb
-@pytest.mark.parametrize("model", [
-    (qtn.MPO_rand(10, bond_dim=2, phys_dim=2)),
-    (qtn.MPO_rand(10, bond_dim=2, phys_dim=2, cyclic=True))])
+@pytest.mark.parametrize(
+    "model",
+    [
+        (qtn.MPO_rand(10, bond_dim=2, phys_dim=2)),
+        (qtn.MPO_rand(10, bond_dim=2, phys_dim=2, cyclic=True)),
+    ],
+)
 def test_LogReLUFrobNorm_MPO(model):
     loss = tn4ml.metrics.LogReLUFrobNorm(model)
     assert jax.device_get(loss) >= 0.0
 
-@pytest.mark.parametrize("model", [
-    (tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                    key=jax.random.key(42), shape_method='even',
-                                    spacing=2, bond_dim=4,
-                                    phys_dim=(2,2), cyclic=False)),
-    (tn4ml.models.smpo.SMPO_initialize(L=15, initializer=tn4ml.initializers.randn(1e-9, dtype=jnp.float64),
-                                    key=jax.random.key(42), shape_method='even',
-                                    spacing=5, bond_dim=4,
-                                    phys_dim=(2,2), cyclic=False))])
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        (
+            tn4ml.models.smpo.SMPO_initialize(
+                L=10,
+                initializer=randn(1e-1),
+                key=jax.random.key(42),
+                shape_method="even",
+                spacing=2,
+                bond_dim=4,
+                phys_dim=(2, 2),
+                cyclic=False,
+            )
+        ),
+        (
+            tn4ml.models.smpo.SMPO_initialize(
+                L=15,
+                initializer=tn4ml.initializers.randn(1e-9, dtype=jnp.float64),
+                key=jax.random.key(42),
+                shape_method="even",
+                spacing=5,
+                bond_dim=4,
+                phys_dim=(2, 2),
+                cyclic=False,
+            )
+        ),
+    ],
+)
 def test_LogReLUFrobNorm_SMPO(model):
     loss = tn4ml.metrics.LogReLUFrobNorm(model)
     print(jax.device_get(loss))
     assert jax.device_get(loss) >= 0.0
 
-@pytest.mark.parametrize("model", [
-    (tn4ml.models.mps.MPS_initialize(L=10, initializer=randn(1e-1),
-                                    key=jax.random.key(42), shape_method='even',
-                                    bond_dim=4, phys_dim=2, cyclic=False)),
-    # (tn4ml.models.mps.MPS_initialize(L=20, initializer=tn4ml.initializers.randn(1e-2, dtype=jnp.float64),
-    #                                 key=jax.random.key(42), shape_method='noteven',
-    #                                 bond_dim=4, phys_dim=2, cyclic=False))
-                                    ])
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        (
+            tn4ml.models.mps.MPS_initialize(
+                L=10,
+                initializer=randn(1e-1),
+                key=jax.random.key(42),
+                shape_method="even",
+                bond_dim=4,
+                phys_dim=2,
+                cyclic=False,
+            )
+        ),
+        # (tn4ml.models.mps.MPS_initialize(L=20, initializer=tn4ml.initializers.randn(1e-2, dtype=jnp.float64),
+        #                                 key=jax.random.key(42), shape_method='noteven',
+        #                                 bond_dim=4, phys_dim=2, cyclic=False))
+    ],
+)
 def test_LogReLUFrobNorm_TrainableMPS(model):
     loss = tn4ml.metrics.LogReLUFrobNorm(model)
     assert jax.device_get(loss) >= 0.0
 
-@pytest.mark.parametrize("model", [
-    (tn4ml.models.mpo.MPO_initialize(L=10, initializer=randn(1e-1),
-                                    key=jax.random.key(42), shape_method='even',
-                                    bond_dim=4, phys_dim=(2,2), cyclic=False)),
-    # (tn4ml.models.mpo.MPO_initialize(L=20, initializer=tn4ml.initializers.randn(1e-2, dtype=jnp.float64),
-    #                                 key=jax.random.key(42), shape_method='noteven',
-    #                                 bond_dim=4, phys_dim=(2,2), cyclic=False))
-    ])
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        (
+            tn4ml.models.mpo.MPO_initialize(
+                L=10,
+                initializer=randn(1e-1),
+                key=jax.random.key(42),
+                shape_method="even",
+                bond_dim=4,
+                phys_dim=(2, 2),
+                cyclic=False,
+            )
+        ),
+        # (tn4ml.models.mpo.MPO_initialize(L=20, initializer=tn4ml.initializers.randn(1e-2, dtype=jnp.float64),
+        #                                 key=jax.random.key(42), shape_method='noteven',
+        #                                 bond_dim=4, phys_dim=(2,2), cyclic=False))
+    ],
+)
 def test_LogReLUFrobNorm_TrainableMPO(model):
     loss = tn4ml.metrics.LogReLUFrobNorm(model)
     assert jax.device_get(loss) >= 0.0
-    
-# TODO add more MPO initializations from quimb   
-@pytest.mark.parametrize("model", [
+
+
+# TODO add more MPO initializations from quimb
+@pytest.mark.parametrize(
+    "model",
+    [
         (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)),
-        (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2, cyclic=True))])
+        (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2, cyclic=True)),
+    ],
+)
 def test_reg_norm_quad_MPS(model):
     loss = tn4ml.metrics.QuadFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
+
 # TODO add more MPO initializations from quimb
-@pytest.mark.parametrize("model", [
-    (qtn.MPO_rand(10, bond_dim=2, phys_dim=2)),
-    (qtn.MPO_rand(10, bond_dim=2, phys_dim=2, cyclic=True))])
+@pytest.mark.parametrize(
+    "model",
+    [
+        (qtn.MPO_rand(10, bond_dim=2, phys_dim=2)),
+        (qtn.MPO_rand(10, bond_dim=2, phys_dim=2, cyclic=True)),
+    ],
+)
 def test_reg_norm_quad_MPO(model):
     loss = tn4ml.metrics.QuadFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
+
 def test_reg_norm_quad_SMPO():
-    model = tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                              key=jax.random.key(42), shape_method='even',
-                                              spacing=2, bond_dim=4,
-                                              phys_dim=(2,2), cyclic=False)
+    model = tn4ml.models.smpo.SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=jax.random.key(42),
+        shape_method="even",
+        spacing=2,
+        bond_dim=4,
+        phys_dim=(2, 2),
+        cyclic=False,
+    )
     loss = tn4ml.metrics.LogFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
+
 
 def test_reg_norm_quad_TrainableMPS():
-    model = tn4ml.models.mps.MPS_initialize(L=10, initializer=randn(1e-1),
-                                            key=jax.random.key(42), shape_method='even',
-                                            bond_dim=4, phys_dim=2, cyclic=False)
+    model = tn4ml.models.mps.MPS_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=jax.random.key(42),
+        shape_method="even",
+        bond_dim=4,
+        phys_dim=2,
+        cyclic=False,
+    )
     loss = tn4ml.metrics.LogFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
+
 
 def test_reg_norm_quad_TrainableMPO():
-    model = tn4ml.models.mpo.MPO_initialize(L=10, initializer=randn(1e-1),
-                                            key=jax.random.key(42), shape_method='even',
-                                            bond_dim=4, phys_dim=(2,2), cyclic=False)
+    model = tn4ml.models.mpo.MPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=jax.random.key(42),
+        shape_method="even",
+        bond_dim=4,
+        phys_dim=(2, 2),
+        cyclic=False,
+    )
     loss = tn4ml.metrics.LogFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
+
 def test_LogQuadNorm_SMPO_with_MPS_rand_state():
-    model = smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                 key=jax.random.key(42), shape_method='even',
-                                 spacing=2, bond_dim=4,
-                                 phys_dim=(2,2), cyclic=False)
+    model = smpo.SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=jax.random.key(42),
+        shape_method="even",
+        spacing=2,
+        bond_dim=4,
+        phys_dim=(2, 2),
+        cyclic=False,
+    )
     data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
     error = metrics.LogQuadNorm(model, data)
     assert isinstance(jax.device_get(error), np.ndarray)
 
+
 def test_LogQuadNorm_SMPO_with_embedded_numpy_array():
-    model = smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                 key=jax.random.key(42), shape_method='even',
-                                 spacing=2, bond_dim=4,
-                                 phys_dim=(2,2), cyclic=False)
+    model = smpo.SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=jax.random.key(42),
+        shape_method="even",
+        spacing=2,
+        bond_dim=4,
+        phys_dim=(2, 2),
+        cyclic=False,
+    )
     data = np.random.rand(10)
     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
     error = metrics.LogQuadNorm(model, embedded_data)
     assert isinstance(jax.device_get(error), np.ndarray)
 
+
 def test_error_quad_SMPO_with_MPS_rand_state():
-    model = smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                 key=jax.random.key(42), shape_method='even',
-                                 spacing=2, bond_dim=4,
-                                 phys_dim=(2,2), cyclic=False)
+    model = smpo.SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=jax.random.key(42),
+        shape_method="even",
+        spacing=2,
+        bond_dim=4,
+        phys_dim=(2, 2),
+        cyclic=False,
+    )
     data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
     error = metrics.QuadNorm(model, data)
     assert isinstance(jax.device_get(error), np.ndarray)
 
+
 def test_error_quad_SMPO_with_embedded_numpy_array():
-    model = smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                 key=jax.random.key(42), shape_method='even',
-                                 spacing=2, bond_dim=4,
-                                 phys_dim=(2,2), cyclic=False)
+    model = smpo.SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=jax.random.key(42),
+        shape_method="even",
+        spacing=2,
+        bond_dim=4,
+        phys_dim=(2, 2),
+        cyclic=False,
+    )
     data = np.random.rand(10)
     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
     error = metrics.QuadNorm(model, embedded_data)
     assert isinstance(jax.device_get(error), np.ndarray)
 
+
 def test_CrossEntropySoftmax():
-    model = tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                              key=jax.random.key(42), shape_method='even',
-                                              spacing=10, bond_dim=4,
-                                              phys_dim=(2,3), cyclic=False)
+    model = tn4ml.models.smpo.SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=jax.random.key(42),
+        shape_method="even",
+        spacing=10,
+        bond_dim=4,
+        phys_dim=(2, 3),
+        cyclic=False,
+    )
     data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
     targets = jnp.array([0, 1, 0])
     loss = tn4ml.metrics.CrossEntropySoftmax(model, data, targets)
     assert isinstance(loss, jnp.ndarray)
 
+
 def test_CrossEntropySoftmax_with_embedded_numpy_array():
-    model = tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                              key=jax.random.key(42), shape_method='even',
-                                              spacing=10, bond_dim=4,
-                                              phys_dim=(2,3), cyclic=False)
+    model = tn4ml.models.smpo.SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=jax.random.key(42),
+        shape_method="even",
+        spacing=10,
+        bond_dim=4,
+        phys_dim=(2, 3),
+        cyclic=False,
+    )
     data = np.random.rand(10)
     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
     targets = jnp.array([0, 1, 0])
     loss = tn4ml.metrics.CrossEntropySoftmax(model, embedded_data, targets)
     assert isinstance(loss, jnp.ndarray)
+
 
 # def test_OptaxWrapper():
 #     # Test for SMPO with numpy data
@@ -349,9 +619,11 @@ def test_CrossEntropySoftmax_with_embedded_numpy_array():
 
 # --- NoReg ---
 
+
 def test_NoReg():
     result = metrics.NoReg(42)
     assert result == 0
+
 
 def test_NoReg_with_model():
     model = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
@@ -361,10 +633,14 @@ def test_NoReg_with_model():
 
 # --- LogPowFrobNorm ---
 
-@pytest.mark.parametrize("model", [
-    qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2),
-    qtn.MPO_rand(10, bond_dim=2, phys_dim=2),
-])
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2),
+        qtn.MPO_rand(10, bond_dim=2, phys_dim=2),
+    ],
+)
 def test_LogPowFrobNorm(model):
     loss = metrics.LogPowFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
@@ -372,11 +648,13 @@ def test_LogPowFrobNorm(model):
 
 # --- Softmax ---
 
+
 def test_Softmax_basic():
     z = jnp.array([1.0, 2.0, 3.0])
     result = metrics.Softmax(z, 2)
     assert isinstance(float(result), float)
     assert 0.0 <= float(result) <= 1.0
+
 
 def test_Softmax_sums_to_one():
     z = jnp.array([1.0, 2.0, 3.0])
@@ -386,15 +664,22 @@ def test_Softmax_sums_to_one():
 
 # --- MeanSquaredError ---
 
+
 @pytest.mark.xfail(
     raises=(AttributeError, ValueError),
-    reason="Library bug: MeanSquaredError calls output.tensors[0] but model.apply returns a Tensor (not TN) when len(model)==len(data); and raises ValueError when len(data) < len(model)"
+    reason="Library bug: MeanSquaredError calls output.tensors[0] but model.apply returns a Tensor (not TN) when len(model)==len(data); and raises ValueError when len(data) < len(model)",
 )
 def test_MeanSquaredError():
-    model = tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                              key=jax.random.key(42), shape_method='even',
-                                              spacing=10, bond_dim=4,
-                                              phys_dim=(2, 3), cyclic=False)
+    model = tn4ml.models.smpo.SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=jax.random.key(42),
+        shape_method="even",
+        spacing=10,
+        bond_dim=4,
+        phys_dim=(2, 3),
+        cyclic=False,
+    )
     data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
     targets = jnp.array([0.5, 0.3, 0.2])
     loss = metrics.MeanSquaredError(model, data, targets)
@@ -403,15 +688,22 @@ def test_MeanSquaredError():
 
 # --- SemiSupervisedLoss ---
 
+
 @pytest.mark.xfail(
     raises=IndexError,
-    reason="Library bug: SemiSupervisedLoss calls loss_value[0] but SupervisedLoss returns a 0-dim scalar"
+    reason="Library bug: SemiSupervisedLoss calls loss_value[0] but SupervisedLoss returns a 0-dim scalar",
 )
 def test_SemiSupervisedLoss():
-    model = tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
-                                              key=jax.random.key(42), shape_method='even',
-                                              spacing=2, bond_dim=4,
-                                              phys_dim=(2, 2), cyclic=False)
+    model = tn4ml.models.smpo.SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=jax.random.key(42),
+        shape_method="even",
+        spacing=2,
+        bond_dim=4,
+        phys_dim=(2, 2),
+        cyclic=False,
+    )
     data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
     loss = metrics.SemiSupervisedLoss(model, data, y_true=0.5)
     assert isinstance(float(loss), float)
