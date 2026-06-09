@@ -5,6 +5,7 @@ import h5py
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.font_manager import FontProperties
 from sklearn.metrics import auc
 from utils import *
 
@@ -584,7 +585,7 @@ def compare_anomaly_scores_per_embedding(
     )
 
     plt.tight_layout(
-        rect=[0, 0.05, 1, 0.95]
+        rect=(0, 0.05, 1, 0.95)
     )  # Adjust layout to make room for the legends
 
     # Create save directory if it doesn't exist
@@ -900,7 +901,7 @@ def compare_ROC_by_signal(  # noqa: N802
     )
 
     # Add the column headers with AUC first
-    legend.set_title("    AUC               BSM Scenario", prop={"size": 12})
+    legend.set_title("    AUC               BSM Scenario", prop=FontProperties(size=12))
 
     # Add vertical dotted lines at TPR = 0.6 and TPR = 0.8
     ax.axvline(x=0.6, color="black", linestyle=":", linewidth=1.5, alpha=0.3)
@@ -998,7 +999,8 @@ def compare_ROC_by_latent(  # noqa: N802
         # Generate more colors if needed
         from matplotlib.cm import get_cmap
 
-        palette = get_cmap("tab10").colors
+        cmap = get_cmap("tab10")
+        palette = [cmap(i) for i in np.linspace(0, 1, len(latent_spaces))]
 
     fig, ax = plt.subplots(figsize=(7, 7))
 
@@ -1068,7 +1070,9 @@ def compare_ROC_by_latent(  # noqa: N802
     )
 
     # Add the column headers with AUC first
-    legend.set_title("    AUC               Configuration", prop={"size": 12})
+    legend.set_title(
+        "    AUC               Configuration", prop=FontProperties(size=12)
+    )
 
     # Add vertical dotted lines at TPR = 0.6 and TPR = 0.8
     ax.axvline(x=0.6, color="black", linestyle=":", linewidth=1.5, alpha=0.3)
