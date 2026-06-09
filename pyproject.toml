@@ -9,6 +9,7 @@ ignore = ["F401", "F403", "F405", "F811"]
 
 [tool.mypy]
 exclude = [
+    "^build/",
     "^docs/build/",
 ]
 ignore_missing_imports = true
