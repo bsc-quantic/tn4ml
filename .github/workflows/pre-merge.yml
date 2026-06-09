@@ -80,7 +80,7 @@ jobs:
           pip install -e ".[test]"
           pip install pytest
       - name: Run tests
-        run: pytest test/ -v --tb=short
+        run: pytest tests/ -v --tb=short
 
   # ──────────────────────────────────────────────
   # Summary gate job – required status check target
