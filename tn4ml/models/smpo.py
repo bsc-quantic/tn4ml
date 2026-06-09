@@ -342,6 +342,11 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
 
         arrays = [tensor.data for tensor in sorted_tensors]
 
+        def _boundary_tensor(array):
+            if len(array.shape) == 2 and array.shape[1] == 1 and array.shape[0] != 1:
+                return a.do("transpose", array, (1, 0))
+            return array
+
         if len(arrays[0].shape) == 3:
             if arrays[0].shape[0] != 1:
                 arr = np.squeeze(arrays[0])
@@ -352,6 +357,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             else:
                 arr = np.squeeze(arrays[0])
                 arrays[0] = arr
+        arrays[0] = _boundary_tensor(arrays[0])
 
         if len(arrays[-1].shape) == 3:
             arr = np.squeeze(arrays[-1])
@@ -361,6 +367,7 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
                 arrays[-1] = arr
         elif len(arrays[-1].shape) == 1:
             arrays[-1] = a.do("reshape", arrays[-1], (*arrays[-1].shape, 1))
+        arrays[-1] = _boundary_tensor(arrays[-1])
 
         for i, arr in enumerate(arrays):
             if len(arr.shape) >= 4:
@@ -375,10 +382,10 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             if len(arr.shape) == 0:
                 arr = a.do("reshape", arr, (1,))
             if len(arr.shape) == 1:
-                arr = a.do("reshape", arr, (*arr.shape, 1))
-            arrays[0] = arr
+                arr = a.do("reshape", arr, (1, *arr.shape))
+            arrays[0] = _boundary_tensor(arr)
 
-        shape = "pr" if len(arrays) == 1 else "lrp"
+        shape = "rp" if len(arrays) == 1 else "lrp"
         vec = MatrixProductState(arrays, shape=shape)
 
         # optionally compress
