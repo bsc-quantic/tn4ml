@@ -29,7 +29,7 @@ repos:
     rev: v2.1.0
     hooks:
       - id: mypy
-        args: ["tn4ml/", "--ignore-missing-imports", "--no-strict-optional"]
+        args: ["."]
         pass_filenames: false
         additional_dependencies:
           - numpy

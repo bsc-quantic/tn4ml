@@ -28,8 +28,8 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install ruff
-      - run: ruff check tn4ml/
-      - run: ruff format --check tn4ml/
+      - run: ruff check .
+      - run: ruff format --check .
 
   # ──────────────────────────────────────────────
   # 2. Mypy – type check (catches obvious breakage)
@@ -47,7 +47,7 @@ jobs:
           pip install --upgrade pip
           pip install -e ".[test]"
           pip install mypy types-setuptools numpy
-      - run: mypy tn4ml/ --ignore-missing-imports --no-strict-optional
+      - run: mypy .
 
   # ──────────────────────────────────────────────
   # 3. Bandit – security scan

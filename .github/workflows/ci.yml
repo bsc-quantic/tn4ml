@@ -24,9 +24,9 @@ jobs:
       - name: Install ruff
         run: pip install ruff
       - name: Run ruff check
-        run: ruff check tn4ml/
+        run: ruff check .
       - name: Run ruff format check
-        run: ruff format --check tn4ml/
+        run: ruff format --check .
 
   # ──────────────────────────────────────────────
   # 2. Mypy – static type checking
@@ -45,7 +45,7 @@ jobs:
           pip install -e ".[test]"
           pip install mypy types-setuptools numpy
       - name: Run mypy
-        run: mypy tn4ml/ --ignore-missing-imports --no-strict-optional
+        run: mypy .
 
   # ──────────────────────────────────────────────
   # 3. Bandit – security vulnerability scanner
