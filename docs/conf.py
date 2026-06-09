@@ -9,15 +9,16 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
 import inspect
+import os
 import sys
-from importlib.metadata import PackageNotFoundError, version as _pkg_version
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 
-sys.path.insert(0, os.path.abspath("./source"))
+sys.path.insert(0, os.path.abspath("./source"))  # noqa: PTH100
 
 
-def linkcode_resolve(domain, info):
+def linkcode_resolve(domain, info):  # noqa: D103
     if domain != "py" or not info["module"]:
         return None
 
@@ -42,7 +43,7 @@ def linkcode_resolve(domain, info):
 
         # Format the GitHub URL
         return f"https://github.com/bsc-quantic/tn4ml/blob/master/tn4ml/{filename}.py#L{lineno}"
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -55,14 +56,14 @@ if os.environ.get("READTHEDOCS", "") == "True":
         html_context = {}
     html_context["READTHEDOCS"] = True
 
-# import sys
-# sys.path.insert(0, os.path.abspath('../../'))
+# import sys  # noqa: ERA001
+# sys.path.insert(0, os.path.abspath('../../'))  # noqa: ERA001
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "tn4ml"
-copyright = (
+copyright = (  # noqa: A001
     "2026, Barcelona Supercomputing Center - Centro Nacional de Supercomputación"
 )
 author = "tn4ml contributors"
@@ -85,13 +86,6 @@ extensions = [
     "sphinx.ext.linkcode",  # For custom links to source code
     # "sphinx_gallery.gen_gallery",
 ]
-
-# path to the examples scripts
-# sphinx_gallery_conf = {
-#     'examples_dirs': ['examples'],   # path to your example scripts
-#     'gallery_dirs': ['auto_examples'],  # path to where to save gallery generated output
-#     'filename_pattern': r'\.ipynb$'
-# }
 
 # Automatically extract typehints when specified and place them in
 # descriptions of the relevant function/method.

@@ -1,13 +1,11 @@
 """Test strategy classes."""
 
-import pytest
 import jax
-import jax.numpy as jnp
-import numpy as np
-from tn4ml.strategy import Strategy, Sweeps, Global, _check_model, _get_inds_for_split
-from tn4ml.models.mps import MPS_initialize
-from tn4ml.models.smpo import SMPO_initialize
+import pytest
+
 from tn4ml.initializers import randn
+from tn4ml.models.mps import MPS_initialize
+from tn4ml.strategy import Strategy, Sweeps, _check_model, _get_inds_for_split
 
 jax.config.update("jax_enable_x64", True)
 
@@ -15,13 +13,18 @@ jax.config.update("jax_enable_x64", True)
 # --- Strategy base class ---
 
 
+class _ConcreteStrategy(Strategy):
+    def iterate_sites(self, sites):
+        return iter(())
+
+
 def test_strategy_default():
-    s = Strategy()
+    s = _ConcreteStrategy()
     assert s.renormalize is False
 
 
 def test_strategy_renormalize():
-    s = Strategy(renormalize=True)
+    s = _ConcreteStrategy(renormalize=True)
     assert s.renormalize is True
 
 

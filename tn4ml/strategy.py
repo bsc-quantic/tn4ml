@@ -1,4 +1,5 @@
 import abc
+
 import quimb.tensor as qtn
 
 
@@ -24,7 +25,6 @@ class Strategy:
         sites : sequence of `str`
             List of tensors' tags.
         """
-        pass
 
     def posthook(self, model, sites):
         """Modify `model` after optimizing tensors. Usually split tensors.
@@ -36,22 +36,21 @@ class Strategy:
         sites : sequence of `str`
             List of tensors' tags.
         """
-        pass
 
     @abc.abstractmethod
     def iterate_sites(self, sites):
-        """Function for iterating selected tensors.
+        """Iterate over selected tensors.
 
         Parameters
         ----------
         sites : sequence of `str`
             List of tensors' tags.
         """
-        pass
 
 
 class Sweeps(Strategy):
-    """
+    """Sweeping DMRG strategy.
+
     The sweeping DMRG (Density Matrix Renormalization Group) technique is an algorithm used to efficiently find the ground state of large quantum systems.
     But in general in Machine Learning, it is used to optimize the parameters of a tensor network model.
     It works by iteratively optimizing the parameters, focusing on local regions and gradually improving the accuracy of the solution.
@@ -73,10 +72,8 @@ class Sweeps(Strategy):
         The process continues until the changes in the parameters become negligible.
     """
 
-    def __init__(
-        self, grouping: int = 2, two_way=True, split_opts={"cutoff": 0.0}, **kwargs
-    ):
-        """Constructor for Sweeps strategy.
+    def __init__(self, grouping: int = 2, two_way=True, split_opts=None, **kwargs):
+        """Initialize Sweeps strategy.
 
         Attributes
         ----------
@@ -97,6 +94,8 @@ class Sweeps(Strategy):
             If `grouping` == 1.
         """
         # TODO right now only support grouping <= 2
+        if split_opts is None:
+            split_opts = {"cutoff": 0.0}
         if grouping > 2:
             raise ValueError(f"grouping - {grouping=} > 2")
         if grouping == 1:
@@ -107,26 +106,27 @@ class Sweeps(Strategy):
 
         if self.grouping == 2:
             self.split_opts = split_opts
-            self.inds_order: dict = dict()  # remember order of inds
+            self.inds_order: dict = {}  # remember order of inds
             self.bond_dim_split = None  # remember bond size
             self.bond_name = None  # remember bond name
 
         super().__init__(**kwargs)
 
     def iterate_sites(self, model):
+        """Iterate over grouped sites in sweep order."""
         _check_model(model)
-        sites = []
-        # forward
-        for i in model.sites[: len(model.sites) - self.grouping + 1]:
-            sites.append(tuple(model.sites[i + j] for j in range(self.grouping)))
+        sites = [
+            tuple(model.sites[i + j] for j in range(self.grouping))
+            for i in model.sites[: len(model.sites) - self.grouping + 1]
+        ]
 
-        # backward
         if self.two_way:
-            for i in list(reversed(model.sites[self.grouping - 1 :])):
-                sites.append(tuple(model.sites[i - j] for j in range(self.grouping)))
+            sites.extend(
+                tuple(model.sites[i - j] for j in range(self.grouping))
+                for i in reversed(model.sites[self.grouping - 1 :])
+            )
 
-        for site in sites:
-            yield site
+        yield from sites
 
     def prehook(self, model, sites):
         """Contract tensors before computing gradients.
@@ -148,7 +148,7 @@ class Sweeps(Strategy):
         if self.grouping > 2:
             raise NotImplementedError("Not implememented for grouping > 2.")
 
-        model.canonicalize(set(sites), inplace=True)
+        model.canonize(set(sites), inplace=True)
 
         if self.grouping == 2:
             self.bond_dim_split = model.bond_size(sites[0], sites[1])
@@ -170,8 +170,8 @@ class Sweeps(Strategy):
             # Always refresh inds_order after contraction so posthook and
             # model.py see the current bond names, not stale ones.
             key = sites
-            sitetags = [model.site_tag(site) for site in sites]
-            self.inds_order[key] = model.select_tensors(sitetags)[0].inds
+            selected_tags = [model.site_tag(site) for site in sites]
+            self.inds_order[key] = model.select_tensors(selected_tags)[0].inds
 
     def posthook(self, model, sites):
         """Split tensors after computing gradients.
@@ -203,7 +203,7 @@ class Sweeps(Strategy):
             if self.two_way and sitel > siter:
                 siter, sitel = sites
 
-            bond_ind = "bond_{}".format(sitel)
+            bond_ind = f"bond_{sitel}"
 
             # Use the index sets saved in prehook (captured after canonicalize).
             # _get_inds_for_split looks up bond names by convention (bond_N) but
@@ -248,7 +248,7 @@ class Sweeps(Strategy):
                     splited_tensors[i].transpose(*new_order, inplace=True)
 
             # fix tags BEFORE adding back
-            for site, tensor in zip(sorted(sites), splited_tensors):
+            for site, tensor in zip(sorted(sites), splited_tensors, strict=False):
                 tensor.drop_tags()
                 tensor.add_tag(model.site_tag(site))
                 model.add_tensor(tensor)
@@ -262,10 +262,11 @@ class Global(Strategy):
         super().__init__(**kwargs)
 
     def iterate_sites(self, model):
+        """Yield all model sites as one global optimization group."""
         yield model.sites
 
-    def posthook(self, model, sites):
-        # renormalize
+    def posthook(self, model, _sites):
+        """Normalize the model after optimization if configured."""
         if self.renormalize:
             model.normalize(inplace=True)
 
@@ -306,7 +307,7 @@ def _get_inds_for_split(
     ul = upper_ind_id.format(sitel)
     ur = upper_ind_id.format(siter)
 
-    # lower (optional)
+    # Optional lower indices.
     ll = lower_ind_id.format(sitel)
     lr = lower_ind_id.format(siter)
 

@@ -1,30 +1,23 @@
-import os
-
-from time import time, perf_counter
-import json
 import argparse
+import json
+import os
+import warnings
 
 import jax
 import jax.numpy as jnp
-from jax.nn.initializers import *
-
-import quimb.tensor as qtn
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-
-from sklearn.metrics import recall_score, precision_score, f1_score, confusion_matrix
-from sklearn.utils.class_weight import compute_class_weight
+import numpy as np
+import optax
+import pandas as pd
+from sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
+from sklearn.utils.class_weight import compute_class_weight
 
-from tn4ml.util import *
-from tn4ml.initializers import *
-from tn4ml.models.mps import *
-from tn4ml.models.model import *
-from tn4ml.embeddings import *
-from tn4ml.metrics import *
-
-import warnings
+from tn4ml.embeddings import PolynomialEmbedding
+from tn4ml.initializers import randn
+from tn4ml.metrics import CrossEntropyWeighted, OptaxWrapper
+from tn4ml.models.mps import MPS_initialize
+from tn4ml.util import EarlyStopping, TrainingType, integer_to_one_hot
 
 warnings.filterwarnings("ignore", message="Couldn't import `kahypar`")
 warnings.filterwarnings(
@@ -32,7 +25,7 @@ warnings.filterwarnings(
 )
 
 
-def crossentropy_loss(*args, **kwargs):
+def crossentropy_loss(*args, **kwargs):  # noqa: D103
     return OptaxWrapper(optax.softmax_cross_entropy)(*args, **kwargs).mean()
 
 
@@ -105,7 +98,7 @@ if __name__ == "__main__":
     y_valid = integer_to_one_hot(y_valid, n_classes)
     y_test = integer_to_one_hot(y_test, n_classes)
 
-    def weighted_crossentropy_loss(*args, **kwargs):
+    def weighted_crossentropy_loss(*args, **kwargs):  # noqa: D103
         return CrossEntropyWeighted(class_weights=class_weights)(*args, **kwargs).mean()
 
     # ------ MODEL ------
@@ -189,8 +182,8 @@ if __name__ == "__main__":
         # ------ SAVE loss and model -------
         save_dir = args.save_dir + "/bond_" + str(bond_dim)
 
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        if not os.path.exists(save_dir):  # noqa: PTH110
+            os.makedirs(save_dir)  # noqa: PTH103
 
         # plot loss
         plt.figure()
@@ -241,10 +234,10 @@ if __name__ == "__main__":
         precision = precision_score(true, predicted)
         F_measure = f1_score(true, predicted)
 
-        print("Sensitivity=%.3f" % sensitivity)  # as the same as recall
-        print("Specificity=%.3f" % specificity)
-        print("Precision=%.3f" % precision)
-        print("F-measure=%.3f" % F_measure)
+        print(f"Sensitivity={sensitivity:.3f}")  # as the same as recall
+        print(f"Specificity={specificity:.3f}")
+        print(f"Precision={precision:.3f}")
+        print(f"F-measure={F_measure:.3f}")
 
         # measure inference time
         x = jnp.array(X_test, dtype=jnp.float64)
@@ -268,13 +261,13 @@ if __name__ == "__main__":
             "specificity": str(specificity),
             "precision": str(precision),
             "F_measure": str(F_measure),
-            # 'batch_times': str(history['batch_time']),
-            # 'train_time': str(np.mean(history['batch_time'][:11])), # discard first 10 batches as they are usually slower due to initialization
+            # 'batch_times': str(history['batch_time']),  # noqa: ERA001
+            # 'train_time': str(np.mean(history['batch_time'][:11])), # discard first 10 batches as they are usually slower due to initialization  # noqa: ERA001
             "num_train_samples": str(len(X_train)),
             "num_test_samples": str(len(X_test)),
         }
 
         # save parameters
-        with open(os.path.join(save_dir, ("execution_metrics.json")), "w") as f:
+        with open(os.path.join(save_dir, ("execution_metrics.json")), "w") as f:  # noqa: PTH118, PTH123
             json.dump(params, f, indent=4)
         f.close()

@@ -1,17 +1,16 @@
 import abc
 import itertools
 import math
-from numbers import Number
-from typing import Collection, Any, Union, Optional, Dict, List, Tuple
+from collections.abc import Collection
+from typing import Any
 
-import numpy as onp
-import jax
 import jax.numpy as jnp
-from jax import lax
+import numpy as np
 import quimb.tensor as qtn
+from jax import lax
 
 import tn4ml.util as u
-from tn4ml.scipy.special import eval_legendre, eval_laguerre, eval_hermite
+from tn4ml.scipy.special import eval_hermite, eval_laguerre, eval_legendre
 
 
 class Embedding(abc.ABC):
@@ -26,7 +25,7 @@ class Embedding(abc.ABC):
         Data type for computations. Defaults to float32.
     """
 
-    def __init__(self, dtype: Any = onp.float32):
+    def __init__(self, dtype: Any = np.float32):
         """Initialize the embedding.
 
         Parameters
@@ -46,7 +45,6 @@ class Embedding(abc.ABC):
         int
             The dimension of the output vector
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -58,7 +56,6 @@ class Embedding(abc.ABC):
         int
             The dimension of the input (1 for scalar, 2 for vector)
         """
-        pass
 
     @abc.abstractmethod
     def __call__(self, x: Any) -> jnp.ndarray:
@@ -74,7 +71,6 @@ class Embedding(abc.ABC):
         :class:`jax.numpy.ndarray`
             Embedded vector
         """
-        pass
 
 
 class ComplexEmbedding(abc.ABC):
@@ -89,7 +85,7 @@ class ComplexEmbedding(abc.ABC):
         Data type for computations. Defaults to float32.
     """
 
-    def __init__(self, dtype: Any = onp.float32):
+    def __init__(self, dtype: Any = np.float32):
         """Initialize the complex embedding.
 
         Parameters
@@ -109,7 +105,6 @@ class ComplexEmbedding(abc.ABC):
         Collection[int]
             List of dimensions for each feature's output
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -121,7 +116,6 @@ class ComplexEmbedding(abc.ABC):
         :class:`jax.numpy.ndarray`
             Array of input dimensions (1 for scalar, 2 for vector)
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -133,7 +127,6 @@ class ComplexEmbedding(abc.ABC):
         Collection[Embedding]
             List of embedding functions
         """
-        pass
 
     @abc.abstractmethod
     def __call__(self, x: Any) -> jnp.ndarray:
@@ -149,7 +142,6 @@ class ComplexEmbedding(abc.ABC):
         :class:`jax.numpy.ndarray`
             Embedded vector
         """
-        pass
 
 
 class StateVectorToMPSEmbedding(abc.ABC):
@@ -166,7 +158,7 @@ class StateVectorToMPSEmbedding(abc.ABC):
         Maximum bond dimension for MPS decomposition
     """
 
-    def __init__(self, dtype: Any = onp.float32, max_bond: Optional[int] = None):
+    def __init__(self, dtype: Any = np.float32, max_bond: int | None = None):
         """Initialize the state vector to MPS embedding.
 
         Parameters
@@ -189,7 +181,6 @@ class StateVectorToMPSEmbedding(abc.ABC):
         list
             List of tensor shapes
         """
-        pass
 
     @abc.abstractmethod
     def create_statevector(self, x: jnp.ndarray) -> Any:
@@ -205,7 +196,6 @@ class StateVectorToMPSEmbedding(abc.ABC):
         :class:`jax.numpy.ndarray`
             State vector representation
         """
-        pass
 
     @abc.abstractmethod
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
@@ -221,7 +211,6 @@ class StateVectorToMPSEmbedding(abc.ABC):
         :class:`jax.numpy.ndarray`
             MPS representation
         """
-        pass
 
 
 class MPSEmbedding(abc.ABC):
@@ -238,7 +227,7 @@ class MPSEmbedding(abc.ABC):
         Maximum bond dimension for MPS decomposition
     """
 
-    def __init__(self, dtype: Any = onp.float32, max_bond: Optional[int] = None):
+    def __init__(self, dtype: Any = np.float32, max_bond: int | None = None):
         """Initialize the MPS embedding.
 
         Parameters
@@ -261,7 +250,6 @@ class MPSEmbedding(abc.ABC):
         list
             List of tensor shapes
         """
-        pass
 
     @abc.abstractmethod
     def decompose(self, x: Any, *args) -> jnp.ndarray:
@@ -279,7 +267,6 @@ class MPSEmbedding(abc.ABC):
         :class:`jax.numpy.ndarray`
             Decomposed data in MPS format
         """
-        pass
 
     @abc.abstractmethod
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
@@ -295,11 +282,10 @@ class MPSEmbedding(abc.ABC):
         :class:`jax.numpy.ndarray`
             MPS representation
         """
-        pass
 
 
 class TrigonometricEmbedding(Embedding):
-    """TrigonometricEmbedding feature map with multiple frequency components.
+    r"""TrigonometricEmbedding feature map with multiple frequency components.
 
     Maps input x to :math:`\\phi(x) = \\frac{1}{\\sqrt{k}}[\\cos(\\frac{\\pi}{2}x), \\sin(\\frac{\\pi}{2}x), ..., \\cos(\\frac{\\pi}{2^k}x), \\sin(\\frac{\\pi}{2^k}x)]`
 
@@ -356,7 +342,7 @@ class TrigonometricEmbedding(Embedding):
             / jnp.sqrt(self.k)
             * jnp.array(
                 [
-                    f((onp.pi * x / 2**i))
+                    f(np.pi * x / 2**i)
                     for f, i in itertools.product(
                         [jnp.cos, jnp.sin], range(1, self.k + 1)
                     )
@@ -366,7 +352,7 @@ class TrigonometricEmbedding(Embedding):
 
 
 class FourierEmbedding(Embedding):
-    """Fourier feature map with multiple frequency components.
+    r"""Fourier feature map with multiple frequency components.
 
     Maps input x to :math:`\\phi(x) = \\frac{1}{\\sqrt{p}}[\\cos(2\\pi 0 x), ..., \\cos(2\\pi (p-1) x), \\sin(2\\pi 0 x), ..., \\sin(2\\pi (p-1) x)]`
 
@@ -425,17 +411,10 @@ class FourierEmbedding(Embedding):
                 [
                     jnp.abs(
                         sum(
-                            (
-                                jnp.exp(
-                                    1j
-                                    * 2
-                                    * jnp.pi
-                                    * k
-                                    * ((self.p - 1) * x - j)
-                                    / self.p
-                                )
-                                for k in range(self.p)
+                            jnp.exp(
+                                1j * 2 * jnp.pi * k * ((self.p - 1) * x - j) / self.p
                             )
+                            for k in range(self.p)
                         )
                     )
                     for j in range(self.p)
@@ -516,7 +495,7 @@ class QuantumBasisEmbedding(Embedding):
         Dictionary mapping input values to quantum states
     """
 
-    def __init__(self, basis: Dict[int, List[float]], **kwargs):
+    def __init__(self, basis: dict[int, list[float]], **kwargs):
         """Initialize the quantum basis embedding.
 
         Parameters
@@ -563,7 +542,7 @@ class QuantumBasisEmbedding(Embedding):
 
 
 class GaussianRBFEmbedding(Embedding):
-    """Gaussian Radial Basis Function embedding.
+    r"""Gaussian Radial Basis Function embedding.
 
     Maps input x to Gaussian RBF features centered at specified points.
 
@@ -577,8 +556,8 @@ class GaussianRBFEmbedding(Embedding):
 
     def __init__(
         self,
-        centers: Optional[onp.ndarray] = None,
-        gamma: Optional[float] = None,
+        centers: np.ndarray | None = None,
+        gamma: float | None = None,
         **kwargs,
     ):
         """Initialize the Gaussian RBF embedding.
@@ -599,7 +578,7 @@ class GaussianRBFEmbedding(Embedding):
     @property
     def dim(self) -> int:
         """Get the output dimension (product of centers shape)."""
-        return int(jnp.prod(onp.array(self.centers.shape)))
+        return int(jnp.prod(np.array(self.centers.shape)))
 
     @property
     def input_dim(self) -> int:
@@ -785,8 +764,7 @@ class LegendreEmbedding(Embedding):
         :class:`jax.numpy.ndarray`
             Legendre PolynomialEmbedding features
         """
-        features = jnp.array([eval_legendre(k, x) for k in range(self.degree + 1)])
-        return features
+        return jnp.array([eval_legendre(k, x) for k in range(self.degree + 1)])
 
 
 class LaguerreEmbedding(Embedding):
@@ -837,10 +815,7 @@ class LaguerreEmbedding(Embedding):
             Weighted Laguerre PolynomialEmbedding features
         """
         weight = jnp.exp(-x / 2)
-        features = jnp.array(
-            [weight * eval_laguerre(k, x) for k in range(self.degree + 1)]
-        )
-        return features
+        return jnp.array([weight * eval_laguerre(k, x) for k in range(self.degree + 1)])
 
 
 class HermiteEmbedding(Embedding):
@@ -891,10 +866,7 @@ class HermiteEmbedding(Embedding):
             Weighted Hermite PolynomialEmbedding features
         """
         weight = jnp.exp(-0.5 * x**2)
-        features = jnp.array(
-            [weight * eval_hermite(k, x) for k in range(self.degree + 1)]
-        )
-        return features
+        return jnp.array([weight * eval_hermite(k, x) for k in range(self.degree + 1)])
 
 
 class JaxArraysEmbedding(Embedding):
@@ -905,9 +877,9 @@ class JaxArraysEmbedding(Embedding):
 
     def __init__(
         self,
-        dim: Optional[int] = None,
+        dim: int | None = None,
         add_bias: bool = False,
-        input_dim: Optional[int] = None,
+        input_dim: int | None = None,
         **kwargs,
     ):
         """Initialize the JAX arrays embedding.
@@ -1020,7 +992,7 @@ class TrigonometricEmbeddingChain(ComplexEmbedding):
             Concatenated TrigonometricEmbedding features
         """
         embedded: list = []
-        for f, xi in zip(self.embeddings, x):
+        for f, xi in zip(self.embeddings, x, strict=False):
             embedded.extend(f(xi))
         return jnp.array(embedded)
 
@@ -1097,7 +1069,7 @@ class BasePatchEmbedding(StateVectorToMPSEmbedding):
     Attributes
     ----------
     k : int
-        Kernel size of patch window (k×k)
+        Kernel size of patch window (k by k)
     mps : Optional[qtn.MatrixProductState]
         Current MPS representation
     """
@@ -1120,7 +1092,7 @@ class BasePatchEmbedding(StateVectorToMPSEmbedding):
     def dims(self) -> list:
         """Get dimensions of the MPS tensors."""
         return (
-            list([tensor.shape for tensor in self.mps.tensors])
+            [tensor.shape for tensor in self.mps.tensors]
             if self.mps is not None
             else []
         )
@@ -1198,7 +1170,6 @@ class BasePatchEmbedding(StateVectorToMPSEmbedding):
         :class:`jax.numpy.ndarray`
             Statevector representation
         """
-        pass
 
     def __call__(self, x: jnp.ndarray) -> qtn.MatrixProductState:
         """Convert input data to MPS representation.
@@ -1283,7 +1254,7 @@ class PatchEmbedding(BasePatchEmbedding):
         # Number of pixels (N = 16 for a 4x4 image)
         N = len(x)
         # Number of address qubits is log2(N) = 4
-        n_address_qubits = int(onp.ceil(onp.log2(N)))
+        n_address_qubits = int(np.ceil(np.log2(N)))
         # One color qubit
         n_color_qubit = 1
         # Total number of qubits = address qubits + 1 color qubit
@@ -1334,7 +1305,7 @@ class PatchAmplitudeEmbedding(BasePatchEmbedding):
             Statevector and number of qubits
         """
         N = len(x)
-        n_qubits = int(onp.ceil(onp.log2(N)))
+        n_qubits = int(np.ceil(np.log2(N)))
 
         statevector = jnp.sqrt(x)
         statevector /= jnp.linalg.norm(statevector)
@@ -1348,8 +1319,8 @@ class PatchAmplitudeEmbedding(BasePatchEmbedding):
 
 
 def embed(
-    x: onp.ndarray,
-    phi: Union[Embedding, ComplexEmbedding, StateVectorToMPSEmbedding],
+    x: np.ndarray,
+    phi: Embedding | ComplexEmbedding | StateVectorToMPSEmbedding,
     **mps_opts,
 ) -> qtn.MatrixProductState:
     """Create product state from feature vector.

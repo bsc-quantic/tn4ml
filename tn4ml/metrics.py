@@ -1,21 +1,20 @@
 # Examples of loss functions for supervised and unsupervised learning.
 
-from typing import Callable, Optional, Union
+from collections.abc import Callable
 
-import jax.numpy as jnp
 import jax
+import jax.numpy as jnp
 import numpy as np
 import optax
 import quimb.tensor as qtn
 
+from .embeddings import Embedding, embed
 from .models.model import Model
-from .embeddings import Embedding, embed, TrigonometricEmbedding
-from .models.smpo import SpacedMatrixProductOperator
 from .models.mps import MatrixProductState
-from .models.mpo import MatrixProductOperator
+from .models.smpo import SpacedMatrixProductOperator
 
 
-def NegLogLikelihood(
+def NegLogLikelihood(  # noqa: N802
     model: qtn.MatrixProductState, data: qtn.MatrixProductState
 ) -> jax.Array:
     """Negative Log-Likelihood loss.
@@ -26,6 +25,7 @@ def NegLogLikelihood(
         Matrix Product State model
     data: :class:`quimb.tensor.MatrixProductState`
         Input MPS
+
     Returns
     -------
     float
@@ -34,9 +34,7 @@ def NegLogLikelihood(
     assert model.tensors[0].shape[-1] == data.tensors[0].shape[-1]
 
     if len(model.tensors) < len(data.tensors):
-        inds_contract = []
-        for i in range(len(data.tensors)):
-            inds_contract.append(f"k{i}")
+        inds_contract = [f"k{i}" for i in range(len(data.tensors))]
 
         output = model.H & data
         for index in inds_contract:
@@ -55,7 +53,7 @@ def NegLogLikelihood(
     return -jax.lax.log(jax.lax.pow(output, 2))
 
 
-def TransformedSquaredNorm(
+def TransformedSquaredNorm(  # noqa: N802
     model: SpacedMatrixProductOperator, data: qtn.MatrixProductState
 ) -> jax.Array:
     """Squared norm of transformed input data.
@@ -66,14 +64,13 @@ def TransformedSquaredNorm(
         Spaced Matrix Product Operator
     data: :class:`quimb.tensor.MatrixProductState`
         Input mps.
+
     Returns
     -------
     float
     """
     if len(model.tensors) < len(data.tensors):
-        inds_contract = []
-        for i in range(len(data.tensors)):
-            inds_contract.append(f"k{i}")
+        inds_contract = [f"k{i}" for i in range(len(data.tensors))]
 
         mps = model.H & data
         for index in inds_contract:
@@ -84,22 +81,23 @@ def TransformedSquaredNorm(
     return jax.lax.pow((mps.H & mps) ^ all, 2)
 
 
-def NoReg(x):
+def NoReg(_x):  # noqa: N802
+    """Return zero regularization."""
     return 0
 
 
-def LogFrobNorm(model) -> jax.Array:
-    """Regularization cost - log(Frobenius-norm of `model`)
+def LogFrobNorm(model) -> jax.Array:  # noqa: N802
+    """Regularization cost - log(Frobenius-norm of `model`).
 
     Parameters
     ----------
     model : :class:`quimb.tensor.MatrixProductState`
         Matrix Product State model
+
     Returns
     -------
     float
     """
-
     if type(model) in [SpacedMatrixProductOperator]:
         tn = model.H.apply(model)
         norm = tn.contract_cumulative(tn.site_tags)
@@ -108,18 +106,18 @@ def LogFrobNorm(model) -> jax.Array:
     return jax.lax.log(norm)
 
 
-def LogPowFrobNorm(model) -> jax.Array:
-    """Regularization cost - log(squared(Frobenius-norm of `model`))
+def LogPowFrobNorm(model) -> jax.Array:  # noqa: N802
+    """Regularization cost - log(squared(Frobenius-norm of `model`)).
 
     Parameters
     ----------
     model : :class:`quimb.tensor.MatrixProductState`
         Matrix Product State model
+
     Returns
     -------
     float
     """
-
     if type(model) in [SpacedMatrixProductOperator]:
         tn = model.H.apply(model)
         norm = tn.contract_cumulative(tn.site_tags)
@@ -128,7 +126,7 @@ def LogPowFrobNorm(model) -> jax.Array:
     return jax.lax.log(jax.lax.pow(norm, 2))
 
 
-def LogReLUFrobNorm(model) -> jax.Array:
+def LogReLUFrobNorm(model) -> jax.Array:  # noqa: N802
     """Regularization cost using ReLU of the log of the Frobenius-norm of `model`.
 
     Parameters
@@ -140,7 +138,6 @@ def LogReLUFrobNorm(model) -> jax.Array:
     -------
     float
     """
-
     if type(model) in [SpacedMatrixProductOperator]:
         tn = model.H.apply(model)
         norm = tn.contract_cumulative(tn.site_tags)
@@ -150,7 +147,7 @@ def LogReLUFrobNorm(model) -> jax.Array:
     return jax.lax.max(0.0, jax.lax.log(norm).astype(jnp.float64))
 
 
-def QuadFrobNorm(model) -> jax.Array:
+def QuadFrobNorm(model) -> jax.Array:  # noqa: N802
     """Regularization cost using the quadratic formula centered in 1 of the Frobenius-norm of `model`.
 
     Parameters
@@ -162,7 +159,6 @@ def QuadFrobNorm(model) -> jax.Array:
     -------
     float
     """
-
     if type(model) in [SpacedMatrixProductOperator]:
         tn = model.H.apply(model)
         norm = tn.contract_cumulative(tn.site_tags)
@@ -172,10 +168,10 @@ def QuadFrobNorm(model) -> jax.Array:
     return jax.lax.pow(jax.lax.log(norm) - 1.0, 2)
 
 
-def LogQuadNorm(
+def LogQuadNorm(  # noqa: N802
     model: SpacedMatrixProductOperator, data: qtn.MatrixProductState
 ) -> jax.Array:
-    """Example of error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
+    """Calculate log-quadratic error after applying `model` to `data`.
 
     Parameters
     ----------
@@ -183,6 +179,7 @@ def LogQuadNorm(
         Spaced Matrix Product Operator
     data: :class:`quimb.tensor.MatrixProductState`
         Input mps.
+
     Returns
     -------
     float
@@ -190,10 +187,10 @@ def LogQuadNorm(
     return jax.lax.pow((jax.lax.log(TransformedSquaredNorm(model, data)) - 1.0), 2)
 
 
-def QuadNorm(
+def QuadNorm(  # noqa: N802
     model: SpacedMatrixProductOperator, data: qtn.MatrixProductState
 ) -> jax.Array:
-    """Example of error calculation when applying :class:`tn4ml.models.smpo.SpacedMatrixProductOperator` `P` to `data`.
+    """Calculate quadratic error after applying `model` to `data`.
 
     Parameters
     ----------
@@ -201,6 +198,7 @@ def QuadNorm(
         Spaced Matrix Product Operator
     data: :class:`quimb.tensor.MatrixProductState`
         Input mps.
+
     Returns
     -------
     float
@@ -208,11 +206,11 @@ def QuadNorm(
     return jax.lax.pow((TransformedSquaredNorm(model, data) - 1.0), 2)
 
 
-def SemiSupervisedLoss(
+def SemiSupervisedLoss(  # noqa: N802
     model: SpacedMatrixProductOperator,
     data: qtn.MatrixProductState,
     y_true: float,
-    **kwargs,
+    **_kwargs,
 ) -> jax.Array:
     """Loss function for semi-supervised learning.
 
@@ -224,6 +222,7 @@ def SemiSupervisedLoss(
         Input Matrix Product State
     y_true: :class:`Number`
         Target class percentage.
+
     Returns
     -------
     float
@@ -233,11 +232,11 @@ def SemiSupervisedLoss(
     return loss_value[0]
 
 
-def SemiSupervisedNLL(
+def SemiSupervisedNLL(  # noqa: N802
     model: SpacedMatrixProductOperator,
     data: qtn.MatrixProductState,
-    y_true: Optional[jnp.ndarray] = None,
-    **kwargs,
+    y_true: jnp.ndarray | None = None,
+    **_kwargs,
 ) -> jax.Array:
     """Loss function for semi-supervised learning.
 
@@ -249,6 +248,7 @@ def SemiSupervisedNLL(
         Input Matrix Product State
     y_true: :class:`Number`
         Target class percentage.
+
     Returns
     -------
     float
@@ -263,16 +263,15 @@ def SemiSupervisedNLL(
         output, jnp.squeeze(y_true)
     )
 
-    loss_value = (
+    return (
         class_error
         + output * (1 / (norm))
         + (1 - output) * (norm)
         + 0.3 * LogReLUFrobNorm(model)
     )
-    return loss_value
 
 
-def Softmax(z, position) -> jax.Array:
+def Softmax(z, position) -> jax.Array:  # noqa: N802
     """Softmax function.
 
     Parameters
@@ -281,6 +280,7 @@ def Softmax(z, position) -> jax.Array:
         Predicted probabilities.
     position: int
         Indicates for which class we are calculating softmax value.
+
     Returns
     -------
     float
@@ -288,7 +288,7 @@ def Softmax(z, position) -> jax.Array:
     return jnp.exp(z[position]) / jnp.sum(jnp.exp(z))
 
 
-def CrossEntropySoftmax(
+def CrossEntropySoftmax(  # noqa: N802
     model: SpacedMatrixProductOperator,
     data: qtn.MatrixProductState,
     targets: jnp.ndarray,
@@ -310,9 +310,7 @@ def CrossEntropySoftmax(
 
     """
     if len(model.tensors) < len(data.tensors):
-        inds_contract = []
-        for i in range(len(data.tensors)):
-            inds_contract.append(f"k{i}")
+        inds_contract = [f"k{i}" for i in range(len(data.tensors))]
 
         output = model.H & data
         for index in inds_contract:
@@ -335,7 +333,7 @@ def CrossEntropySoftmax(
     return -jnp.log(Softmax(output, jnp.argmax(targets)))
 
 
-def MeanSquaredError(
+def MeanSquaredError(  # noqa: N802
     model: SpacedMatrixProductOperator,
     data: qtn.MatrixProductState,
     targets: jnp.ndarray,
@@ -356,9 +354,7 @@ def MeanSquaredError(
     float
     """
     if len(model.tensors) < len(data.tensors):
-        inds_contract = []
-        for i in range(len(data.tensors)):
-            inds_contract.append(f"k{i}")
+        inds_contract = [f"k{i}" for i in range(len(data.tensors))]
 
         output = model.H & data
         for index in inds_contract:
@@ -397,8 +393,10 @@ def MeanSquaredError(
     return jnp.mean(jnp.square(output - targets))
 
 
-def OptaxWrapper(optax_loss=None) -> Callable:
-    """Wrapper around optax loss functions for supervised learning. Make sure you got all inputs to loss function correct.
+def OptaxWrapper(optax_loss=None) -> Callable:  # noqa: N802
+    """Wrap optax loss functions for supervised learning.
+
+    Make sure you got all inputs to loss function correct.
     Refer to documentation for each loss to https://optax.readthedocs.io/en/latest/api/losses.html .
     Make sure SMPO has only one output with dimension = number of classes.
 
@@ -412,17 +410,17 @@ def OptaxWrapper(optax_loss=None) -> Callable:
         Target class vector. Example = [1 0 0 0] for n_classes = 4.
     kwargs : dict
         Additional arguments for optax loss function.
+
     Returns
     -------
     float
     """
-
     assert optax_loss is not None
 
     def loss_optax(
         model: Model,
         data: qtn.MatrixProductState,
-        y_true: Optional[jnp.ndarray] = None,
+        y_true: jnp.ndarray | None = None,
         **kwargs,
     ) -> jax.Array:
         """Loss function for learning. Make sure you got all inputs to loss function correct.
@@ -442,12 +440,9 @@ def OptaxWrapper(optax_loss=None) -> Callable:
         -------
         float
         """
-
         if isinstance(model, SpacedMatrixProductOperator):
             if len(model.tensors) < len(data.tensors):
-                inds_contract = []
-                for i in range(len(data.tensors)):
-                    inds_contract.append(f"k{i}")
+                inds_contract = [f"k{i}" for i in range(len(data.tensors))]
 
                 output = model.H & data
                 for index in inds_contract:
@@ -484,16 +479,19 @@ def OptaxWrapper(optax_loss=None) -> Callable:
             if len(y_true.shape) == 1:
                 y_true = jnp.expand_dims(y_true, axis=0)
             return optax_loss(y_pred, y_true, **kwargs)
-        else:
-            return optax_loss(y_pred, **kwargs)
+        return optax_loss(y_pred, **kwargs)
 
     return loss_optax
 
 
-def CrossEntropyWeighted(class_weights: jnp.ndarray = None) -> Callable:
+def CrossEntropyWeighted(class_weights: jnp.ndarray = None) -> Callable:  # noqa: N802
+    """Build a weighted cross-entropy loss function."""
 
     def cross_entropy(
-        model: Model, data: MatrixProductState, y_true: jnp.ndarray = None, **kwargs
+        model: Model,
+        data: MatrixProductState,
+        y_true: jnp.ndarray = None,
+        **_kwargs,
     ) -> jax.Array:
         """
         Compute the weighted cross-entropy loss.
@@ -510,11 +508,11 @@ def CrossEntropyWeighted(class_weights: jnp.ndarray = None) -> Callable:
                 Class weights, shape (num_classes,).
             kwargs : dict
                 Additional arguments for optax loss function.
+
         Returns
         -------
             Weighted cross-entropy loss.
         """
-
         # Compute per-sample weights based on class labels
         sample_weights = jnp.sum(
             y_true * jnp.array(class_weights), axis=-1
@@ -531,13 +529,13 @@ def CrossEntropyWeighted(class_weights: jnp.ndarray = None) -> Callable:
     return cross_entropy
 
 
-def CombinedLoss(
+def CombinedLoss(  # noqa: N802
     model: Model,
-    data: Union[qtn.MatrixProductState, np.ndarray],
-    y_true: Optional[jnp.ndarray] = None,
+    data: qtn.MatrixProductState | np.ndarray,
+    y_true: jnp.ndarray | None = None,
     error: Callable = LogQuadNorm,
     reg: Callable = NoReg,
-    embedding: Optional[Embedding] = None,
+    embedding: Embedding | None = None,
 ) -> jax.Array:
     """
     Unified Loss function combining error computation and regularization.

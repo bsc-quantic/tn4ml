@@ -1,9 +1,6 @@
-"""Module models"""
+"""Module models."""
 
-from .model import Model, load_model, _batch_iterator
-
-from .smpo import SpacedMatrixProductOperator, SMPO_initialize
-
-from .mps import MatrixProductState, MPS_initialize
-
+from .model import Model, _batch_iterator, load_model
 from .mpo import MatrixProductOperator, MPO_initialize
+from .mps import MatrixProductState, MPS_initialize
+from .smpo import SMPO_initialize, SpacedMatrixProductOperator

@@ -1,27 +1,25 @@
-from typing import Any, Collection
-import numpy as np
+from typing import Any
+
 import autoray as a
-import math
-
-from quimb import *
-import quimb.tensor as qtn
-
-from jax.nn.initializers import Initializer
 import jax.numpy as jnp
-import jax
+import numpy as np
+import quimb.tensor as qtn
+from jax.nn.initializers import Initializer
+from quimb import *
 
+from ..initializers import randn
 from .model import Model
 from .tn import TensorNetwork
-from ..initializers import randn, rand_unitary
 
 
 class MatrixProductState(Model, qtn.MatrixProductState):
     """A Trainable MatrixProductState class.
+
     See :class:`quimb.tensor.tensor_1d.MatrixProductState` for explanation of other attributes and methods.
     """
 
     def __init__(self, arrays, **kwargs):
-        """Initializes the MatrixProductState.
+        """Initialize the MatrixProductState.
 
         Parameters
         ----------
@@ -30,11 +28,11 @@ class MatrixProductState(Model, qtn.MatrixProductState):
         **kwargs : dict
             Additional arguments to be passed to the parent class.
         """
-
         Model.__init__(self)
         qtn.MatrixProductState.__init__(self, arrays, **kwargs)
 
     def normalize(self, insert=None):
+        """Normalize tensors of :class:`tn4ml.models.mps.MatrixProductState`."""
         if self.L > 200:  # for large systems
             for i, tensor in enumerate(self.tensors):
                 if i == 0:
@@ -54,7 +52,7 @@ class MatrixProductState(Model, qtn.MatrixProductState):
 
 
 def trainable_wrapper(mps: qtn.MatrixProductState, **kwargs) -> MatrixProductState:
-    """Creates a wrapper around qtn.MatrixProductState so it can be trainable.
+    """Create a trainable wrapper around qtn.MatrixProductState.
 
     Parameters
     ----------
@@ -75,11 +73,11 @@ def generate_shape(
     bond_dim: int = 2,
     phys_dim: int = 2,
     cyclic: bool = False,
-    position: int = None,
-    class_index: int = None,
-    class_dim: int = None,
+    position: int | None = None,
+    class_index: int | None = None,
+    class_dim: int | None = None,
 ) -> tuple:
-    """Returns a shape of tensor .
+    """Return a tensor shape.
 
     Parameters
     ----------
@@ -100,11 +98,11 @@ def generate_shape(
         Index of tensor that is the output node. For classification tasks only.
     class_dim : int
         Dimension of output node, or number of classes for classification.
+
     Returns
     -------
         tuple
     """
-
     if method == "even":
         shape = (
             (bond_dim, bond_dim, phys_dim, class_dim)
@@ -156,10 +154,13 @@ def generate_shape(
 
 
 def generate_ind(
-    L: int, shape: tuple, position: int, cyclic: bool = False, class_index: int = None
+    L: int,
+    shape: tuple,
+    position: int,
+    cyclic: bool = False,
+    class_index: int | None = None,
 ) -> tuple:
-    """
-    Returns the names of the tensor indices.
+    """Return the names of the tensor indices.
 
     Parameters
     ----------
@@ -214,9 +215,9 @@ def generate_ind(
     return ind
 
 
-def MPS_initialize(
+def MPS_initialize(  # noqa: N802
     L: int,
-    arrays: list = None,
+    arrays: list | None = None,
     initializer: Initializer = None,
     key: Any = None,
     dtype: Any = jnp.float_,
@@ -227,15 +228,15 @@ def MPS_initialize(
     add_identity: bool = False,
     add_to_output: bool = False,
     boundary: str = "obc",
-    class_index: int = None,
-    class_dim: int = None,
+    class_index: int | None = None,
+    class_dim: int | None = None,
     tags_id: str = "I{}",
     compress: bool = False,
-    insert: int = None,
-    canonical_center: int = None,
+    insert: int | None = None,
+    canonical_center: int | None = None,
     **kwargs,
 ):
-    """Initializes :class:`tn4ml.models.mps.MatrixProductState`.
+    """Initialize :class:`tn4ml.models.mps.MatrixProductState`.
 
     Parameters
     ----------
@@ -278,7 +279,6 @@ def MPS_initialize(
     -------
     :class:`tn4ml.models.mps.MatrixProductState`
     """
-
     if cyclic and shape_method != "even":
         raise NotImplementedError("Change shape_method to 'even'.")
 
@@ -336,7 +336,8 @@ def MPS_initialize(
                         array = initializer(key, shape, dtype)
                     elif i == class_index:
                         # Output node
-                        array = jnp.asarray(np.random.normal(0.0, 1.0, shape), dtype)
+                        rng = np.random.default_rng()
+                        array = jnp.asarray(rng.normal(0.0, 1.0, shape), dtype)
                     else:
                         raise ValueError(
                             "Check value of class_index. It should be less than L."
@@ -412,7 +413,7 @@ def MPS_initialize(
         # MPS for regression
         if arrays is not None:
             tensors = []
-            for i, array in enumerate(arrays):
+            for array in arrays:
                 tensors.append(jnp.squeeze(array))
         else:
             tensors = []
@@ -449,12 +450,16 @@ def MPS_initialize(
 
                 tensors.append(jnp.squeeze(tensor))
 
-            if not (
-                callable(initializer)
-                and "rand_unitary" in getattr(initializer, "__qualname__", "")
+            if (
+                not (
+                    callable(initializer)
+                    and "rand_unitary" in getattr(initializer, "__qualname__", "")
+                )
+                and insert
+                and insert < L
+                and shape_method == "even"
             ):
-                if insert and insert < L and shape_method == "even":
-                    tensors[insert] /= jnp.sqrt(phys_dim)
+                tensors[insert] /= jnp.sqrt(phys_dim)
 
         mps = MatrixProductState(tensors, **kwargs)
 

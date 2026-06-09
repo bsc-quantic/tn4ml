@@ -1,18 +1,17 @@
 """Test Model class methods."""
 
-import pytest
 import jax
-import jax.numpy as jnp
 import numpy as np
 import optax
-import quimb.tensor as qtn
-from tn4ml.models.model import Model, _batch_iterator
-from tn4ml.models.mps import MPS_initialize
-from tn4ml.models.smpo import SMPO_initialize
+import pytest
+
+import tn4ml.metrics as metrics
 from tn4ml.embeddings import TrigonometricEmbedding
 from tn4ml.initializers import randn
-from tn4ml.util import TrainingType, EarlyStopping
-import tn4ml.metrics as metrics
+from tn4ml.models.model import _batch_iterator
+from tn4ml.models.mps import MPS_initialize
+from tn4ml.models.smpo import SMPO_initialize
+from tn4ml.util import TrainingType
 
 jax.config.update("jax_enable_x64", True)
 
@@ -236,14 +235,14 @@ def test_convert_to_pytree():
 
 
 def test_batch_iterator_x_only():
-    x = np.random.rand(10, 4)
+    x = np.random.rand(10, 4)  # noqa: NPY002
     batches = list(_batch_iterator(x, batch_size=5, shuffle=False))
     assert len(batches) == 2
 
 
 def test_batch_iterator_x_and_y():
-    x = np.random.rand(10, 4)
-    y = np.random.rand(10, 2)
+    x = np.random.rand(10, 4)  # noqa: NPY002
+    y = np.random.rand(10, 2)  # noqa: NPY002
     batches = list(_batch_iterator(x, y, batch_size=5, shuffle=False))
     assert len(batches) == 2
     # Each batch should be a tuple of (x_batch, y_batch)
@@ -273,7 +272,7 @@ def test_predict_smpo():
         phys_dim=(2, 2),
         cyclic=False,
     )
-    sample = np.random.rand(5)
+    sample = np.random.rand(5)  # noqa: NPY002
     embedding = TrigonometricEmbedding()
     result = model.predict(sample, embedding=embedding)
     assert result is not None
@@ -290,7 +289,7 @@ def test_predict_input_too_short():
         phys_dim=2,
         cyclic=False,
     )
-    sample = np.random.rand(5)
+    sample = np.random.rand(5)  # noqa: NPY002
     with pytest.raises(ValueError, match="at least"):
         model.predict(sample)
 
@@ -316,7 +315,7 @@ def test_train_unsupervised_global():
         loss=metrics.NegLogLikelihood,
         train_type=TrainingType.UNSUPERVISED,
     )
-    data = np.random.rand(8, 4)
+    data = np.random.rand(8, 4)  # noqa: NPY002
     history = model.train(
         inputs=data, batch_size=4, epochs=2, embedding=TrigonometricEmbedding()
     )
@@ -342,7 +341,7 @@ def test_evaluate_unsupervised():
         loss=metrics.NegLogLikelihood,
         train_type=TrainingType.UNSUPERVISED,
     )
-    data = np.random.rand(4, 4)
+    data = np.random.rand(4, 4)  # noqa: NPY002
     model.batch_size = 4
     loss_val = model.evaluate(
         inputs=data,
@@ -372,7 +371,7 @@ def test_train_sweeps_two_way():
         loss=metrics.NegLogLikelihood,
         train_type=TrainingType.UNSUPERVISED,
     )
-    data = np.random.rand(8, 4)
+    data = np.random.rand(8, 4)  # noqa: NPY002
     history = model.train(
         inputs=data, batch_size=4, epochs=2, embedding=TrigonometricEmbedding()
     )
@@ -399,7 +398,7 @@ def test_train_sweeps_one_way():
         loss=metrics.NegLogLikelihood,
         train_type=TrainingType.UNSUPERVISED,
     )
-    data = np.random.rand(8, 4)
+    data = np.random.rand(8, 4)  # noqa: NPY002
     history = model.train(
         inputs=data, batch_size=4, epochs=2, embedding=TrigonometricEmbedding()
     )
@@ -431,7 +430,7 @@ def test_train_sweeps_opt_states_indexed_by_site():
         loss=metrics.NegLogLikelihood,
         train_type=TrainingType.UNSUPERVISED,
     )
-    data = np.random.rand(8, 4)
+    data = np.random.rand(8, 4)  # noqa: NPY002
     history = model.train(
         inputs=data, batch_size=8, epochs=3, embedding=TrigonometricEmbedding()
     )

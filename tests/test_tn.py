@@ -1,12 +1,12 @@
 """Test TensorNetwork model class."""
 
-import pytest
 import jax
 import jax.numpy as jnp
-import numpy as np
+import pytest
 import quimb.tensor as qtn
-from tn4ml.models.tn import TensorNetwork, trainable_wrapper, TN_initialize
+
 from tn4ml.initializers import randn
+from tn4ml.models.tn import TensorNetwork, TN_initialize, trainable_wrapper
 
 jax.config.update("jax_enable_x64", True)
 
@@ -15,7 +15,7 @@ jax.config.update("jax_enable_x64", True)
 
 
 @pytest.mark.parametrize("cyclic", [False, True])
-def test_TN_initialize_from_shapes(cyclic):
+def test_TN_initialize_from_shapes(cyclic):  # noqa: N802
     key = jax.random.PRNGKey(42)
     # Boundary tensors are 2D (no dangling bond on that side), middle is 3D
     shapes = [(3, 2), (3, 3, 2), (3, 2)]
@@ -34,7 +34,7 @@ def test_TN_initialize_from_shapes(cyclic):
     assert len(tn.tensors) == 3
 
 
-def test_TN_initialize_from_arrays():
+def test_TN_initialize_from_arrays():  # noqa: N802
     arrays = [jnp.ones((3, 2)), jnp.ones((3, 3, 2)), jnp.ones((3, 2))]
     inds = [["bond_0", "k0"], ["bond_0", "bond_1", "k1"], ["bond_1", "k2"]]
     tn = TN_initialize(arrays=arrays, inds=inds)
@@ -42,24 +42,24 @@ def test_TN_initialize_from_arrays():
     assert tn.norm() == pytest.approx(1.0, abs=1e-5)
 
 
-def test_TN_initialize_no_arrays_no_shapes():
+def test_TN_initialize_no_arrays_no_shapes():  # noqa: N802
     with pytest.raises(ValueError, match="Provide either"):
         TN_initialize()
 
 
-def test_TN_initialize_no_inds():
+def test_TN_initialize_no_inds():  # noqa: N802
     with pytest.raises(ValueError, match="Provide indices"):
         TN_initialize(shapes=[(1, 3, 2)], key=jax.random.PRNGKey(0))
 
 
-def test_TN_initialize_mismatched_arrays_inds():
+def test_TN_initialize_mismatched_arrays_inds():  # noqa: N802
     arrays = [jnp.ones((1, 3, 2))]
     inds = [["bond_0", "k0"], ["bond_0", "bond_1", "k1"]]
     with pytest.raises(ValueError, match="same"):
         TN_initialize(arrays=arrays, inds=inds)
 
 
-def test_TN_initialize_mismatched_shapes_inds():
+def test_TN_initialize_mismatched_shapes_inds():  # noqa: N802
     shapes = [(1, 3, 2)]
     inds = [["bond_0", "k0"], ["bond_0", "bond_1", "k1"]]
     with pytest.raises(ValueError, match="same"):

@@ -1,19 +1,20 @@
 import os
 import tarfile
-import wget
 from enum import Enum
 from pathlib import Path
-import h5py
-import numpy as np
-import joblib
-import jax
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
-from tn4ml.embeddings import TrigonometricEmbedding, Embedding, embed
+import h5py
+import jax
+import joblib
+import numpy as np
+import wget
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
+from tn4ml.embeddings import Embedding, TrigonometricEmbedding, embed
 
 
 class Colors(Enum):
-    """ANSI color codes for terminal text styling"""
+    """ANSI color codes for terminal text styling."""
 
     RESET = "\033[0m"
     GREEN = "\033[32m"
@@ -28,7 +29,7 @@ class Colors(Enum):
     UNDERLINE = "\033[4m"
 
 
-def _download_data(data_url: str, data_dir: str = "."):
+def _download_data(data_url: str, data_dir: str | Path = "."):
     """
     Downloads the jet data if it does not already exist.
 
@@ -42,20 +43,20 @@ def _download_data(data_url: str, data_dir: str = "."):
     Returns
     -------
     None
-    """
+    """  # noqa: D401
+    data_path = Path(data_dir)
+    if not data_path.is_dir():
+        os.makedirs(data_path, exist_ok=True)  # noqa: PTH103
 
-    if not data_dir.is_dir():
-        os.makedirs(data_dir, exist_ok=True)
+    data_file_path = wget.download(data_url, out=str(data_path))
 
-    data_file_path = wget.download(data_url, out=str(data_dir))
-
-    data_tar = tarfile.open(data_file_path, "r:gz")
-    data_tar.extractall(str(data_dir))
+    data_tar = tarfile.open(data_file_path, "r:gz")  # noqa: SIM115
+    data_tar.extractall(str(data_path))
     data_tar.close()
-    os.remove(data_file_path)
+    os.remove(data_file_path)  # noqa: PTH107
 
 
-def _ensure_data_exists(data_dir: str = "data", latent: int = None) -> dict:
+def _ensure_data_exists(data_dir: str = "data", latent: int | None = None) -> None:
     """
     Check if the data directory exists and download all data if it doesn't.
     Only checks directory existence, not individual files.
@@ -71,13 +72,10 @@ def _ensure_data_exists(data_dir: str = "data", latent: int = None) -> dict:
     -------
     dict
         Dictionary with paths to all data files
-    """
+    """  # noqa: D205
     # Create data directory path with latent dimension subfolder
     base_dir = Path(data_dir)
-    if latent is not None:
-        data_dir_path = base_dir / f"latent{latent}"
-    else:
-        data_dir_path = base_dir
+    data_dir_path = base_dir / f"latent{latent}" if latent is not None else base_dir
 
     # ONLY check if the directory exists, not individual files
     if not data_dir_path.is_dir() or not any(data_dir_path.iterdir()):
@@ -85,7 +83,7 @@ def _ensure_data_exists(data_dir: str = "data", latent: int = None) -> dict:
             f"{Colors.BLUE.value}Data directory {data_dir_path} does not exist. Downloading complete dataset...{Colors.RESET.value}"
             + "\n"
         )
-        os.makedirs(data_dir_path, exist_ok=True)
+        os.makedirs(data_dir_path, exist_ok=True)  # noqa: PTH103
 
         archive_url = "https://zenodo.org/records/7673769/files/QML_paper_data.tar.gz"
         try:
@@ -94,7 +92,7 @@ def _ensure_data_exists(data_dir: str = "data", latent: int = None) -> dict:
                 f"{Colors.BLUE.value}Archive downloaded and extracted successfully.{Colors.RESET.value}"
                 + "\n"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(
                 f"{Colors.RED.value}Failed to download archive: {e}{Colors.RESET.value}"
                 + "\n"
@@ -148,7 +146,7 @@ def load_train_data(
         Dictionary of fitted scalers
     """
     # Ensure the save directory exists
-    os.makedirs(save_dir, exist_ok=True)
+    os.makedirs(save_dir, exist_ok=True)  # noqa: PTH103
 
     # Read and prepare data
     with h5py.File(read_file, "r") as file:
@@ -160,8 +158,8 @@ def load_train_data(
         )
 
         # Shuffle data
-        np.random.seed(shuffle_seed)
-        np.random.shuffle(data)
+        np.random.seed(shuffle_seed)  # noqa: NPY002
+        np.random.shuffle(data)  # noqa: NPY002
 
     data_train = data[:train_size]
     scalers = {}
@@ -171,14 +169,14 @@ def load_train_data(
         scaler = StandardScaler()
         data_train = scaler.fit_transform(data_train)
         scalers["standard"] = scaler
-        scaler_path = os.path.join(save_dir, f"scaler_standard_{prefix}.pkl")
+        scaler_path = os.path.join(save_dir, f"scaler_standard_{prefix}.pkl")  # noqa: PTH118
         joblib.dump(scaler, scaler_path)
 
     if apply_minmax:
         min_max_scaler = MinMaxScaler(feature_range=feature_range)
         data_train = min_max_scaler.fit_transform(data_train)
         scalers["minmax"] = min_max_scaler
-        scaler_path = os.path.join(save_dir, f"scaler_minmax_{prefix}.pkl")
+        scaler_path = os.path.join(save_dir, f"scaler_minmax_{prefix}.pkl")  # noqa: PTH118
         joblib.dump(min_max_scaler, scaler_path)
 
     return data_train, scalers
@@ -217,7 +215,7 @@ def load_test_data(
     """
     # Determine file path based on dataset type
     if dataset_type == "qcd":
-        file_path = os.path.join(read_path, "latentrep_QCD_sig_testclustering.h5")
+        file_path = os.path.join(read_path, "latentrep_QCD_sig_testclustering.h5")  # noqa: PTH118
     else:
         file_path = read_path  # For signal, use the path directly
 
@@ -228,8 +226,8 @@ def load_test_data(
         data_test = np.concatenate([data[:, 0, :], data[:, 1, :]], axis=-1)
 
         # Shuffle data
-        np.random.seed(shuffle_seed)
-        np.random.shuffle(data_test)
+        np.random.seed(shuffle_seed)  # noqa: NPY002
+        np.random.shuffle(data_test)  # noqa: NPY002
         data_test = data_test[:test_size]
 
     print(
@@ -249,7 +247,7 @@ def load_test_data(
 def calc_fidelity_batch(
     points,
     model,
-    embedding: Embedding = TrigonometricEmbedding(),
+    embedding: Embedding = TrigonometricEmbedding(),  # noqa: B008
     batch_size: int = 1000,
 ):
     """

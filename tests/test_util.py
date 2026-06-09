@@ -1,25 +1,25 @@
 """Test utility functions."""
 
-import pytest
-import numpy as np
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
+
 from tn4ml.util import (
-    return_digits,
-    normalize,
-    gramschmidt_row,
-    gramschmidt_col,
-    gradient_clip,
-    zigzag_order,
-    integer_to_one_hot,
-    pad_image_alternately,
+    EarlyStopping,
+    TrainingType,
     divide_into_patches,
     from_dense_to_mps,
     from_mps_to_dense,
-    EarlyStopping,
-    TrainingType,
+    gradient_clip,
+    gramschmidt_col,
+    gramschmidt_row,
+    integer_to_one_hot,
+    normalize,
+    pad_image_alternately,
+    return_digits,
+    zigzag_order,
 )
-
 
 # --- return_digits ---
 
@@ -128,13 +128,13 @@ def test_gradient_clip_negative_threshold():
 
 
 def test_zigzag_order():
-    data = np.random.rand(5, 4, 4, 1)
+    data = np.random.rand(5, 4, 4, 1)  # noqa: NPY002
     result = zigzag_order(data)
     assert result.shape == (5, 16)
 
 
 def test_zigzag_order_no_channel():
-    data = np.random.rand(3, 8, 8)
+    data = np.random.rand(3, 8, 8)  # noqa: NPY002
     result = zigzag_order(data)
     assert result.shape == (3, 64)
 
@@ -168,13 +168,13 @@ def test_integer_to_one_hot_single():
 
 
 def test_pad_image_no_padding_needed():
-    image = jnp.ones((4, 4))
+    image = np.ones((4, 4))
     padded = pad_image_alternately(image, 4)
     assert padded.shape == (4, 4)
 
 
 def test_pad_image_padding_needed():
-    image = jnp.ones((5, 5))
+    image = np.ones((5, 5))
     padded = pad_image_alternately(image, 4)
     # Should pad to next multiple of 4 -> 8x8
     assert padded.shape[0] % 4 == 0
@@ -258,7 +258,7 @@ def test_early_stopping_init():
 
 def test_early_stopping_on_begin_train_min():
     es = EarlyStopping(monitor="loss", min_delta=0.01, patience=3, mode="min")
-    history = {"loss": []}
+    history: dict[str, list[float]] = {"loss": []}
     es.on_begin_train(history, model=None)
     assert es.memory["best"] == np.inf
     assert es.operator == np.less
@@ -266,7 +266,7 @@ def test_early_stopping_on_begin_train_min():
 
 def test_early_stopping_on_begin_train_max():
     es = EarlyStopping(monitor="val_acc", min_delta=0.01, patience=3, mode="max")
-    history = {"val_acc": []}
+    history: dict[str, list[float]] = {"val_acc": []}
     es.on_begin_train(history, model=None)
     assert es.memory["best"] == -np.inf
     assert es.operator == np.greater
@@ -274,21 +274,21 @@ def test_early_stopping_on_begin_train_max():
 
 def test_early_stopping_invalid_monitor():
     es = EarlyStopping(monitor="nonexistent", min_delta=0.01, patience=3, mode="min")
-    history = {"loss": []}
+    history: dict[str, list[float]] = {"loss": []}
     with pytest.raises(ValueError, match="not monitored"):
         es.on_begin_train(history, model=None)
 
 
 def test_early_stopping_invalid_mode():
     es = EarlyStopping(monitor="loss", min_delta=0.01, patience=3, mode="invalid")
-    history = {"loss": []}
-    with pytest.raises(ValueError, match="min.*max"):
+    history: dict[str, list[float]] = {"loss": []}
+    with pytest.raises(ValueError, match="min.*max"):  # noqa: RUF043
         es.on_begin_train(history, model=None)
 
 
 def test_early_stopping_patience():
     es = EarlyStopping(monitor="loss", min_delta=0.001, patience=2, mode="min")
-    history = {"loss": []}
+    history: dict[str, list[float]] = {"loss": []}
     es.on_begin_train(history, model=None)
 
     # Epoch 0 - sets best

@@ -1,35 +1,28 @@
-import os
-import json
 import argparse
-from time import time
-import joblib
+import os
 
-import numpy as np
+import h5py
 import jax
 import jax.numpy as jnp
-import optax
-import h5py
-import matplotlib.pyplot as plt
+import joblib
+import numpy as np
+from utils import (
+    Colors,
+    _ensure_data_exists,
+    calc_fidelity_batch,
+    load_test_data,
+)
 
 import tn4ml
-from tn4ml.util import EarlyStopping, TrainingType
-from tn4ml.metrics import NegLogLikelihood
-from tn4ml.models.mps import MPS_initialize
-from tn4ml.models.model import load_model
-from tn4ml.initializers import gramschmidt, rand_unitary
 from tn4ml.embeddings import (
+    Embedding,
     FourierEmbedding,
-    LegendreEmbedding,
-    LaguerreEmbedding,
     HermiteEmbedding,
+    LaguerreEmbedding,
+    LegendreEmbedding,
 )
-
-from utils import (
-    load_test_data,
-    calc_fidelity_batch,
-    _ensure_data_exists,
-    Colors,
-)
+from tn4ml.initializers import gramschmidt, rand_unitary
+from tn4ml.models.model import load_model
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -179,20 +172,14 @@ if __name__ == "__main__":
         )
 
     # set standardization and minmax to bool
-    if args.standardization == "yes":
-        standardization = True
-    else:
-        standardization = False
+    standardization = args.standardization == "yes"
 
-    if args.minmax == "yes":
-        minmax = True
-    else:
-        minmax = False
+    minmax = args.minmax == "yes"
 
     # check result dir
-    if not os.path.exists(save_dir):
+    if not os.path.exists(save_dir):  # noqa: PTH110
         # Create a new directory because it does not exist
-        os.makedirs(save_dir)
+        os.makedirs(save_dir)  # noqa: PTH103
 
     if args.seed is not None:
         # Use specified seed for reproducibility
@@ -216,7 +203,7 @@ if __name__ == "__main__":
         )
 
     # Set random seed
-    np.random.seed(seed)
+    np.random.seed(seed)  # noqa: NPY002
     key = jax.random.PRNGKey(seed)
 
     # Set JAX to use 64-bit precision
@@ -233,16 +220,14 @@ if __name__ == "__main__":
             Colors.RED.value
             + f"Invalid embedding format: {embedding_string}. Expected format: 'name_degree' (e.g., 'fourier_2')"
             + Colors.RESET.value
-            + "\n",
-            end="",
-        )
+        ) from None
 
     # Initialize embedding based on type and degree
     if embedding_type == "fourier":
         phys_dim = (
             degree * 2
         )  # Each frequency component adds 2 dimensions (sin and cos)
-        embedding = FourierEmbedding(p=degree)
+        embedding: Embedding = FourierEmbedding(p=degree)
     elif embedding_type == "legendre":
         phys_dim = degree + 1  # Legendre polynomials from degree 0 to degree
         embedding = LegendreEmbedding(degree=degree)
@@ -257,8 +242,6 @@ if __name__ == "__main__":
             Colors.RED.value
             + f"Invalid embedding type: {embedding_type}. Supported types: fourier, legendre, laguerre, hermite"
             + Colors.RESET.value
-            + "\n",
-            end="",
         )
 
     # Set the standard deviation for the initializer
@@ -274,13 +257,11 @@ if __name__ == "__main__":
     }
 
     # Check if the initializer is valid
-    if args.initializer not in initializers.keys():
+    if args.initializer not in initializers:
         raise ValueError(
             Colors.RED.value
             + f"Invalid initializer: {args.initializer}. Supported initializers: {', '.join(initializers.keys())}"
             + Colors.RESET.value
-            + "\n",
-            end="",
         )
 
     print(
@@ -296,33 +277,29 @@ if __name__ == "__main__":
     # Load scalers
     prefix = "train_qcd"
     if args.standardization == "yes":
-        scaler_path = os.path.join(save_dir, f"scaler_standard_{prefix}.pkl")
-        if os.path.exists(scaler_path):
-            with open(scaler_path, "rb") as f:
+        scaler_path = os.path.join(save_dir, f"scaler_standard_{prefix}.pkl")  # noqa: PTH118
+        if os.path.exists(scaler_path):  # noqa: PTH110
+            with open(scaler_path, "rb") as f:  # noqa: PTH123
                 scaler = joblib.load(f)
         else:
             raise FileNotFoundError(
                 Colors.RED.value
                 + f"Scaler file not found: {scaler_path}"
                 + Colors.RESET.value
-                + "\n",
-                end="",
             )
     else:
         scaler = None
 
     if args.minmax == "yes":
-        scaler_path = os.path.join(save_dir, f"scaler_minmax_{prefix}.pkl")
-        if os.path.exists(scaler_path):
-            with open(scaler_path, "rb") as f:
+        scaler_path = os.path.join(save_dir, f"scaler_minmax_{prefix}.pkl")  # noqa: PTH118
+        if os.path.exists(scaler_path):  # noqa: PTH110
+            with open(scaler_path, "rb") as f:  # noqa: PTH123
                 min_max_scaler = joblib.load(f)
         else:
             raise FileNotFoundError(
                 Colors.RED.value
                 + f"Scaler file not found: {scaler_path}"
                 + Colors.RESET.value
-                + "\n",
-                end="",
             )
     else:
         min_max_scaler = None

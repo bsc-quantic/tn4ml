@@ -1,22 +1,22 @@
-from typing import Any, Collection, Optional, Sequence, Tuple, Callable
-from tqdm import tqdm
-import funcy
-import math
 import logging
 import os
+from collections.abc import Callable, Collection, Sequence
+from pathlib import Path
 from time import time
-import numpy as np
+from typing import Any
 
-import quimb.tensor as qtn
-import quimb as qu
-import autoray
-import optax
+import funcy
 import jax
+import numpy as np
+import optax
+import quimb as qu
+import quimb.tensor as qtn
 from scipy.special import softmax
+from tqdm import tqdm
 
 from ..embeddings import *
 from ..strategy import *
-from ..util import gradient_clip, EarlyStopping, TrainingType
+from ..util import EarlyStopping, TrainingType, gradient_clip
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class Model(qtn.TensorNetwork):
     """
 
     def __init__(self) -> None:
-        """Constructor method for :class:`tn4ml.models.Model` class."""
+        """Initialize :class:`tn4ml.models.Model`."""
         self.loss: Callable = None
         self.strategy: Any = "global"
         self.optimizer: optax.GradientTransformation = optax.adam
@@ -76,7 +76,7 @@ class Model(qtn.TensorNetwork):
         self.device: tuple = ("cpu", 0)
 
     def save(self, model_name: str, dir_name: str = "~", tn: bool = False):
-        """Saves :class:`tn4ml.models.Model` to pickle file.
+        """Save :class:`tn4ml.models.Model` to pickle file.
 
         Parameters
         ----------
@@ -87,7 +87,7 @@ class Model(qtn.TensorNetwork):
         tn : bool
             If True, model object is TensorNetwork.
         """
-        exec(  # nosec B102 – dynamic import of the concrete subclass for pickling
+        exec(  # nosec B102 – dynamic import of the concrete subclass for pickling  # noqa: RUF003
             compile(
                 "from "
                 + self.__class__.__module__
@@ -97,7 +97,7 @@ class Model(qtn.TensorNetwork):
                 "single",
             )
         )
-        arrays = tuple(map(lambda x: np.array(jax.device_get(x)), self.arrays))
+        arrays = tuple(np.array(jax.device_get(x)) for x in self.arrays)
         if tn:
             tensors = []
             for i, array in enumerate(arrays):
@@ -112,13 +112,12 @@ class Model(qtn.TensorNetwork):
         else:
             model = type(self)(arrays)  # type: ignore[call-arg]
 
-        if not os.path.exists(dir_name):
-            os.makedirs(dir_name)
+        Path(dir_name).mkdir(parents=True, exist_ok=True)
 
         qu.save_to_disk(model, f"{dir_name}/{model_name}.pkl")
 
     def nparams(self) -> int:
-        """Returns number of parameters of the model.
+        """Return number of parameters of the model.
 
         Returns
         -------
@@ -127,8 +126,7 @@ class Model(qtn.TensorNetwork):
         return sum([np.prod(tensor.data.shape) for tensor in self.tensors])
 
     def configure(self, **kwargs):
-        """
-        Configures model for training with specific parameters.
+        """Configure model for training with specific parameters.
 
         Parameters
         ----------
@@ -158,7 +156,6 @@ class Model(qtn.TensorNetwork):
         --------
         >>> model.configure(strategy='global', optimizer=optax.adam, learning_rate=0.01, loss=tn4ml.metrics.LogQuadNorm, train_type=TrainingType.UNSUPERVISED)
         """
-
         for key, value in kwargs.items():
             if key == "strategy":
                 if isinstance(value, Strategy):
@@ -254,11 +251,11 @@ class Model(qtn.TensorNetwork):
     def predict(
         self,
         sample: np.ndarray,
-        embedding: Embedding = TrigonometricEmbedding(),
+        embedding: Embedding | None = None,
         return_tn: bool = False,
         normalize: bool = False,
-    ) -> Union[np.ndarray, qtn.TensorNetwork]:
-        """Predicts the output of the model.
+    ) -> np.ndarray | qtn.TensorNetwork:
+        """Predict the output of the model.
 
         Parameters
         ----------
@@ -274,6 +271,8 @@ class Model(qtn.TensorNetwork):
         :class:`quimb.tensor.tensor_core.TensorNetwork`
             Output of the model.
         """
+        if embedding is None:
+            embedding = TrigonometricEmbedding()
 
         if len(sample.flatten()) < self.L:
             raise ValueError(f"Input data must have at least {self.L} elements!")
@@ -287,20 +286,19 @@ class Model(qtn.TensorNetwork):
 
         if return_tn:
             return output
+        output = output.contract(all, optimize="auto-hq")
+        if isinstance(output, qtn.Tensor):
+            y_pred = output.squeeze().data
         else:
-            output = output.contract(all, optimize="auto-hq")
-            if isinstance(output, qtn.Tensor):
-                y_pred = output.squeeze().data
-            else:
-                y_pred = output.squeeze()
-            if normalize:
-                y_pred = y_pred / jnp.linalg.norm(y_pred)
-            return y_pred
+            y_pred = output.squeeze()
+        if normalize:
+            y_pred = y_pred / jnp.linalg.norm(y_pred)
+        return y_pred
 
     def forward(
         self,
         data: jnp.ndarray,
-        embedding: Embedding = TrigonometricEmbedding(),
+        embedding: Embedding | None = None,
         batch_size: int = 64,
         normalize: bool = False,
         dtype: Any = jnp.float_,
@@ -331,6 +329,9 @@ class Model(qtn.TensorNetwork):
         :class:`jax.numpy.ndarray`
             Output of the model.
         """
+        if embedding is None:
+            embedding = TrigonometricEmbedding()
+
         _target_device = jax.devices(self.device[0])[self.device[1]]
 
         with jax.default_device(_target_device):
@@ -356,8 +357,8 @@ class Model(qtn.TensorNetwork):
     def accuracy(
         self,
         data: jnp.ndarray,
-        y_true: Optional[jnp.ndarray] = None,
-        embedding: Embedding = TrigonometricEmbedding(),
+        y_true: jnp.ndarray | None = None,
+        embedding: Embedding | None = None,
         batch_size: int = 64,
         shuffle: bool = False,
         normalize: bool = False,
@@ -365,7 +366,7 @@ class Model(qtn.TensorNetwork):
         seed: int = 42,
         alternate_flip: bool = False,
     ) -> float:
-        """Calculates accuracy for supervised learning.
+        """Calculate accuracy for supervised learning.
 
         Parameters
         ----------
@@ -390,6 +391,8 @@ class Model(qtn.TensorNetwork):
         -------
         float
         """
+        if embedding is None:
+            embedding = TrigonometricEmbedding()
 
         if y_true is None:
             raise ValueError("For unsupervised learning you must provide target data!")
@@ -430,7 +433,7 @@ class Model(qtn.TensorNetwork):
         return float(jax.block_until_ready(correct_predictions)) / num_samples
 
     def update_tensors(self, params):
-        """Updates tensors of the model with new parameters.
+        """Update tensors of the model with new parameters.
 
         Parameters
         ----------
@@ -451,11 +454,11 @@ class Model(qtn.TensorNetwork):
             tensor = self.select_tensors(self.sitetags)[0]
             tensor.modify(data=params[0])
         else:
-            for tensor, array in zip(self.tensors, params):
+            for tensor, array in zip(self.tensors, params, strict=False):
                 tensor.modify(data=array)
 
     def compute_entropy(self, data, embedding):
-        """Computes entropy of the model.
+        """Compute entropy of the model.
 
         Parameters
         ----------
@@ -469,13 +472,12 @@ class Model(qtn.TensorNetwork):
         float
             Entropy of the model.
         """
-        data_embeded = embed(jnp.array(data), embedding)
+        data_embeded = embed(np.asarray(data), embedding)
         mps = self.apply(data_embeded)
-        e = mps.entropy(len(mps.tensors) // 2)
-        return e
+        return mps.entropy(len(mps.tensors) // 2)
 
     def compute_entropy_batch(self, data, embedding):
-        """Computes entropy of the model for a batch of data.
+        """Compute entropy of the model for a batch of data.
 
         Parameters
         ----------
@@ -490,11 +492,12 @@ class Model(qtn.TensorNetwork):
             Entropy of the model.
         """
         data = jnp.array(data)
-        entropy = self.compute_entropy(data[0], embedding)
-        return entropy
+        return self.compute_entropy(data[0], embedding)
 
     def create_train_step(self, params, loss_func):
-        """Creates function for calculating value and gradients of loss, and function for one step in training procedure.
+        """Create functions for training steps and gradients.
+
+        Creates function for calculating value and gradients of loss, and function for one step in training procedure.
         Initializes the optimizer and creates optimizer state.
 
         Parameters
@@ -517,7 +520,7 @@ class Model(qtn.TensorNetwork):
         opt_state = self.optimizer.init(init_params)
 
         def value_and_grad(params, data=None, targets=None):
-            """Calculates loss value and gradient."""
+            """Calculate loss value and gradient."""
 
             def loss_scalar_fn(data, targets, *params):
                 return loss_func(data, targets, *params)
@@ -531,7 +534,7 @@ class Model(qtn.TensorNetwork):
             jit_value_and_grad = jax.jit(value_and_grad)
 
         def train_step(params, opt_state, data=None, grad_clip_threshold=None):
-            """Performs one training step.
+            """Perform one training step.
 
             Parameters
             ----------
@@ -546,7 +549,6 @@ class Model(qtn.TensorNetwork):
             -------
             float, :class:`jax.numpy.ndarray`
             """
-
             if data is not None and isinstance(data, tuple) and len(data) == 2:
                 data, targets = data
             else:
@@ -579,38 +581,34 @@ class Model(qtn.TensorNetwork):
             # update TN inplace
             self.update_tensors(params)
 
-            # for numerical stability
-            # self.normalize()
-
             return params, opt_state, loss
 
         return train_step, opt_state
 
     def train(
         self,
-        inputs: Collection = None,
-        val_inputs: Optional[Any] = None,
-        targets: Optional[Any] = None,
-        val_targets: Optional[Any] = None,
-        tn_target: Optional[qtn.TensorNetwork] = None,
-        batch_size: Optional[int] = None,
-        epochs: Optional[int] = 1,
-        embedding: Embedding = TrigonometricEmbedding(),
-        normalize: Optional[bool] = False,
-        canonize: Optional[Tuple] = tuple([False, None]),
-        time_limit: Optional[int] = None,
-        earlystop: Optional[EarlyStopping] = None,
-        # callbacks: Optional[Sequence[Tuple[str, Callable]]] = None,
-        gradient_clip_threshold: Optional[float] = None,
-        val_batch_size: Optional[int] = None,
-        eval_metric: Optional[Callable] = None,
-        display_val_acc: Optional[bool] = False,
+        inputs: Collection | None = None,
+        val_inputs: Any | None = None,
+        targets: Any | None = None,
+        val_targets: Any | None = None,
+        tn_target: qtn.TensorNetwork | None = None,
+        batch_size: int | None = None,
+        epochs: int | None = 1,
+        embedding: Embedding | None = None,
+        normalize: bool | None = False,
+        canonize: tuple | None = (False, None),
+        time_limit: int | None = None,
+        earlystop: EarlyStopping | None = None,
+        gradient_clip_threshold: float | None = None,
+        val_batch_size: int | None = None,
+        eval_metric: Callable | None = None,
+        display_val_acc: bool | None = False,
         dtype: Any = jnp.float_,
-        shuffle: Optional[bool] = False,
-        seed: Optional[int] = 42,
+        shuffle: bool | None = False,
+        seed: int | None = 42,
         alternate_flip: bool = False,
     ):
-        """Performs the training procedure of :class:`tn4ml.models.Model`.
+        """Perform the training procedure of :class:`tn4ml.models.Model`.
 
         Parameters
         ----------
@@ -652,12 +650,13 @@ class Model(qtn.TensorNetwork):
         history: dict
             Records training loss and metric values.
         """
+        if embedding is None:
+            embedding = TrigonometricEmbedding()
 
         num_batches = len(inputs) // batch_size
 
-        if targets is not None:
-            if targets.ndim == 1:
-                targets = np.expand_dims(targets, axis=-1)
+        if targets is not None and targets.ndim == 1:
+            targets = np.expand_dims(targets, axis=-1)
 
         if val_inputs is not None and eval_metric is None:
             eval_metric = self.loss
@@ -668,7 +667,7 @@ class Model(qtn.TensorNetwork):
             n_batches = len(inputs) // self.batch_size
 
         if not hasattr(self, "history"):
-            self.history: dict = dict()
+            self.history: dict = {}
             self.history["loss"] = []
             self.history["epoch_time"] = []
             self.history["unfinished"] = False
@@ -686,15 +685,13 @@ class Model(qtn.TensorNetwork):
         self.sitetags = None  # for sweeping strategy
 
         def loss_fn(data=None, targets=None, *params):
-            """
-            Batches embedding + loss computation internally, with model params fixed externally.
-            """
+            """Batches embedding + loss computation internally, with model params fixed externally."""
             tn = self.copy()
 
             if hasattr(self, "sitetags") and self.sitetags is not None:
                 tn.select_tensors(self.sitetags)[0].modify(data=params[0])
             else:
-                for tensor, array in zip(tn.tensors, params):
+                for tensor, array in zip(tn.tensors, params, strict=False):
                     tensor.modify(data=array)
 
             # Define batched version of embed + loss logic
@@ -703,20 +700,19 @@ class Model(qtn.TensorNetwork):
 
                 if self.train_type == TrainingType.UNSUPERVISED:
                     return self.loss(tn, tn_i)
-                elif self.train_type == TrainingType.SUPERVISED:
+                if self.train_type == TrainingType.SUPERVISED:
                     return self.loss(tn, tn_i, y)
-                else:
-                    assert self.train_type == TrainingType.TARGET_TN, (
-                        "Train type must be TARGET_TN!"
-                    )
-                    return self.loss(tn, tn_target)
+                assert self.train_type == TrainingType.TARGET_TN, (
+                    "Train type must be TARGET_TN!"
+                )
+                return self.loss(tn, tn_target)
 
             if self.train_type == TrainingType.UNSUPERVISED:
                 return jnp.mean(jax.vmap(single_loss, in_axes=(0,))(data))
-            elif self.train_type == TrainingType.SUPERVISED:
+            if self.train_type == TrainingType.SUPERVISED:
                 return jnp.mean(jax.vmap(single_loss, in_axes=(0, 0))(data, targets))
-            else:  # TARGET_TN
-                return jnp.mean(jax.vmap(single_loss, in_axes=(0,))(data))
+            # TARGET_TN
+            return jnp.mean(jax.vmap(single_loss, in_axes=(0,))(data))
 
         if isinstance(self.strategy, Sweeps):
             # initialize optimizers
@@ -724,7 +720,7 @@ class Model(qtn.TensorNetwork):
                 self.loss_func = jax.jit(loss_fn)
             self.opt_states = {}
 
-            for s, sites in enumerate(self.strategy.iterate_sites(self)):
+            for sites in self.strategy.iterate_sites(self):
                 self.strategy.prehook(self, sites)
 
                 self.sitetags = [self.site_tag(site) for site in sites]
@@ -796,9 +792,9 @@ class Model(qtn.TensorNetwork):
                             )
                         if isinstance(self.strategy, Sweeps):
                             loss_curr: Any = 0
-                            for s, sites in enumerate(
-                                self.strategy.iterate_sites(self)
-                            ):
+                            site_count = 0
+                            for sites in self.strategy.iterate_sites(self):
+                                site_count += 1
                                 self.strategy.prehook(self, sites)
 
                                 site_tag = self.site_tag(min(sites))
@@ -831,7 +827,7 @@ class Model(qtn.TensorNetwork):
                                 self.strategy.posthook(self, sites)
                                 loss_curr += loss_group
 
-                            loss_curr /= s + 1
+                            loss_curr /= site_count
                         else:
                             # Global strategy
                             params = self.arrays
@@ -898,12 +894,9 @@ class Model(qtn.TensorNetwork):
                             )
                             self.history["val_acc"].append(accuracy_val_epoch)
 
-                        if earlystop:
-                            if earlystop.monitor == "val_loss":
-                                current = loss_val_epoch
-                                return_value = earlystop.on_end_epoch(
-                                    current, epoch, self
-                                )
+                        if earlystop and earlystop.monitor == "val_loss":
+                            current = loss_val_epoch
+                            return_value = earlystop.on_end_epoch(current, epoch, self)
                     else:
                         if earlystop:
                             if earlystop.monitor == "loss":
@@ -939,29 +932,28 @@ class Model(qtn.TensorNetwork):
 
                 outerbar.update()
 
-                if earlystop:
-                    if return_value == 1:
-                        self = earlystop.memory["best_model"]
-                        return self.history
+                if earlystop and return_value == 1:
+                    best_model = earlystop.memory["best_model"]
+                    return best_model.history
 
         return self.history
 
     def evaluate(
         self,
-        inputs: Collection = None,
-        targets: Optional[Any] = None,
-        tn_target: Optional[qtn.TensorNetwork] = None,
-        batch_size: Optional[int] = None,
-        embedding: Embedding = TrigonometricEmbedding(),
+        inputs: Collection | None = None,
+        targets: Any | None = None,
+        tn_target: qtn.TensorNetwork | None = None,
+        batch_size: int | None = None,
+        embedding: Embedding | None = None,
         evaluate_type: int = TrainingType.UNSUPERVISED,
         return_list: bool = False,
-        metric: Optional[Callable] = None,
+        metric: Callable | None = None,
         dtype: Any = jnp.float_,
-        shuffle: Optional[bool] = False,
-        seed: Optional[int] = 42,
-        alternate_flip: Optional[bool] = False,
-    ) -> Union[float, np.ndarray]:
-        """Evaluates the model on the data.
+        shuffle: bool | None = False,
+        seed: int | None = 42,
+        alternate_flip: bool | None = False,
+    ) -> float | np.ndarray:
+        """Evaluate the model on the data.
 
         Parameters
         ----------
@@ -993,6 +985,8 @@ class Model(qtn.TensorNetwork):
         float
             Loss value.
         """
+        if embedding is None:
+            embedding = TrigonometricEmbedding()
 
         if evaluate_type not in [
             TrainingType.UNSUPERVISED,
@@ -1003,9 +997,8 @@ class Model(qtn.TensorNetwork):
                 f"Specify type of evaluation: {TrainingType.UNSUPERVISED.name}, {TrainingType.SUPERVISED.name}, or {TrainingType.TARGET_TN.name}!"
             )
 
-        if hasattr(self, "batch_size"):
-            if batch_size is None:
-                batch_size = self.batch_size
+        if hasattr(self, "batch_size") and batch_size is None:
+            batch_size = self.batch_size
 
         if not hasattr(self, "batch_size"):
             self.batch_size = batch_size
@@ -1013,16 +1006,16 @@ class Model(qtn.TensorNetwork):
         if return_list:
             loss: list = []
 
+        loss_metric = metric or self.loss
+
         def loss_fn(data=None, targets=None, *params):
-            """
-            Batches embedding + loss computation internally, with model params fixed externally.
-            """
+            """Batches embedding + loss computation internally, with model params fixed externally."""
             tn = self.copy()
 
             if hasattr(self, "sitetags") and self.sitetags is not None:
                 tn.select_tensors(self.sitetags)[0].modify(data=params[0])
             else:
-                for tensor, array in zip(tn.tensors, params):
+                for tensor, array in zip(tn.tensors, params, strict=False):
                     tensor.modify(data=array)
 
             # Define batched version of embed + loss logic
@@ -1030,21 +1023,20 @@ class Model(qtn.TensorNetwork):
                 tn_i = embed(x, embedding)  # create TN from data
 
                 if evaluate_type == TrainingType.UNSUPERVISED:
-                    return self.loss(tn, tn_i)
-                elif evaluate_type == TrainingType.SUPERVISED:
-                    return self.loss(tn, tn_i, y)
-                else:
-                    assert evaluate_type == TrainingType.TARGET_TN, (
-                        "Train type must be TARGET_TN!"
-                    )
-                    return self.loss(tn, tn_target)
+                    return loss_metric(tn, tn_i)
+                if evaluate_type == TrainingType.SUPERVISED:
+                    return loss_metric(tn, tn_i, y)
+                assert evaluate_type == TrainingType.TARGET_TN, (
+                    "Train type must be TARGET_TN!"
+                )
+                return loss_metric(tn, tn_target)
 
             if evaluate_type == TrainingType.UNSUPERVISED:
                 return jax.vmap(single_loss, in_axes=(0,))(data)
-            elif evaluate_type == TrainingType.SUPERVISED:
+            if evaluate_type == TrainingType.SUPERVISED:
                 return jax.vmap(single_loss, in_axes=(0, 0))(data, targets)
-            else:  # TARGET_TN
-                return jax.vmap(single_loss, in_axes=(0,))(data)
+            # TARGET_TN
+            return jax.vmap(single_loss, in_axes=(0,))(data)
 
         if inputs is not None:
             loss_value: Any = 0
@@ -1075,7 +1067,9 @@ class Model(qtn.TensorNetwork):
 
                 if isinstance(self.strategy, Sweeps):
                     loss_curr = np.zeros((x.shape[0],))
-                    for s, sites in enumerate(self.strategy.iterate_sites(self)):
+                    site_count = 0
+                    for sites in self.strategy.iterate_sites(self):
+                        site_count += 1
                         self.strategy.prehook(self, sites)
 
                         self.sitetags = [self.site_tag(site) for site in sites]
@@ -1088,7 +1082,7 @@ class Model(qtn.TensorNetwork):
                         self.strategy.posthook(self, sites)
 
                         loss_curr += loss_group
-                    loss_curr /= s + 1
+                    loss_curr /= site_count
                 else:
                     params = self.arrays
                     loss_curr = loss_fn(x, y, *params)
@@ -1115,7 +1109,8 @@ class Model(qtn.TensorNetwork):
         return float(loss_value)
 
     def convert_to_pytree(self):
-        """Converts tensor network to pytree structure and returns its skeleon.
+        """Convert tensor network to pytree structure.
+
         Reference to :func:`quimb.tensor.pack`.
 
         Returns
@@ -1128,7 +1123,7 @@ class Model(qtn.TensorNetwork):
 
 
 def load_model(model_name, dir_name=None):
-    """Loads the Model from pickle file.
+    """Load the Model from pickle file.
 
     Parameters
     ----------
@@ -1147,7 +1142,7 @@ def load_model(model_name, dir_name=None):
 
 
 def _check_chunks(chunked: Any, batch_size: int = 2) -> Any:
-    """Checks if the last chunk has lower size then batch size.
+    """Check if the last chunk is smaller than the batch size.
 
     Parameters
     ----------
@@ -1167,14 +1162,14 @@ def _check_chunks(chunked: Any, batch_size: int = 2) -> Any:
 
 def _batch_iterator(
     x: Any,
-    y: Optional[Any] = None,
+    y: Any | None = None,
     batch_size: int = 2,
     dtype: Any = jnp.float_,
     shuffle: bool = True,
     seed: int = 0,
     alternate_flip: bool = False,
 ):
-    """Iterates over batches of data with optional alternating batch flipping.
+    """Iterate over batches of data with optional alternating batch flipping.
 
     Parameters
     ----------
@@ -1198,7 +1193,6 @@ def _batch_iterator(
     tuple
         Batch of input and target data (if target data is provided)
     """
-
     key = jax.random.PRNGKey(seed)
 
     # Convert to JAX array
@@ -1218,7 +1212,9 @@ def _batch_iterator(
         y_chunks = _check_chunks(list(funcy.chunks(batch_size, y)), batch_size)
 
         # Track batch number for alternating flips
-        for batch_idx, (x_chunk, y_chunk) in enumerate(zip(x_chunks, y_chunks)):
+        for batch_idx, (x_chunk, y_chunk) in enumerate(
+            zip(x_chunks, y_chunks, strict=False)
+        ):
             # Flip every other batch if alternate_flip is enabled
             if (
                 alternate_flip and batch_idx % 2 == 1

@@ -1,16 +1,17 @@
 """Test SMPO initialization"""
 
-import pytest
 import jax
+import pytest
+from jax.nn.initializers import he_normal, normal, orthogonal, uniform
+
+from tn4ml.initializers import gramschmidt, randn
 from tn4ml.models.smpo import SMPO_initialize
-from tn4ml.initializers import *
-from jax.nn.initializers import *
 
 jax.config.update("jax_enable_x64", True)
 
 
 @pytest.mark.parametrize(
-    "L, initializer, shape_method, spacing, bond_dim, phys_dim, cyclic",
+    ("L", "initializer", "shape_method", "spacing", "bond_dim", "phys_dim", "cyclic"),
     [
         (10, gramschmidt("normal", 1e-3), "even", 5, 5, (2, 2), False),
         (10, gramschmidt("uniform", 1e-3), "even", 5, 5, (2, 2), False),
@@ -29,7 +30,7 @@ jax.config.update("jax_enable_x64", True)
         (10, uniform(), "even", 5, 5, (2, 2), False),
     ],
 )
-def test_SMPO_initialize(
+def test_SMPO_initialize(  # noqa: N802
     L, initializer, shape_method, spacing, bond_dim, phys_dim, cyclic
 ):
     key = jax.random.PRNGKey(42)
@@ -52,7 +53,7 @@ def test_SMPO_initialize(
 # --- SMPO properties ---
 
 
-def test_SMPO_spacing():
+def test_SMPO_spacing():  # noqa: N802
     key = jax.random.PRNGKey(42)
     smpo = SMPO_initialize(
         L=10,
@@ -67,7 +68,7 @@ def test_SMPO_spacing():
     assert smpo.spacing == 5
 
 
-def test_SMPO_get_orders():
+def test_SMPO_get_orders():  # noqa: N802
     key = jax.random.PRNGKey(42)
     smpo = SMPO_initialize(
         L=10,
@@ -86,7 +87,7 @@ def test_SMPO_get_orders():
 # --- SMPO norm ---
 
 
-def test_SMPO_norm():
+def test_SMPO_norm():  # noqa: N802
     key = jax.random.PRNGKey(42)
     smpo = SMPO_initialize(
         L=10,
@@ -105,7 +106,7 @@ def test_SMPO_norm():
 # --- SMPO normalize ---
 
 
-def test_SMPO_normalize():
+def test_SMPO_normalize():  # noqa: N802
     key = jax.random.PRNGKey(42)
     smpo = SMPO_initialize(
         L=10,
@@ -127,7 +128,7 @@ def test_SMPO_normalize():
 # --- SMPO apply ---
 
 
-def test_SMPO_apply():
+def test_SMPO_apply():  # noqa: N802
     import quimb.tensor as qtn
 
     key = jax.random.PRNGKey(42)

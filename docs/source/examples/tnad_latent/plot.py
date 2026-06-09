@@ -1,16 +1,14 @@
 import os
-import argparse
-from typing import Collection, List, Tuple
+from collections.abc import Collection
 
-import numpy as np
 import h5py
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import numpy as np
 from sklearn.metrics import auc
+from utils import *
 
 from tn4ml.eval import *
-
-from utils import *
 
 
 def load_anomaly_scores(
@@ -68,7 +66,6 @@ def load_anomaly_scores(
     fpr_per_tpr_6_per_init_err : dict
         Dictionary containing statistical errors for false positive rates for TPR = 0.6 - from multiple runs
     """
-
     # Initialize dictionaries to store results
     tpr_per_init = {}
     tpr_per_init_err = {}
@@ -82,8 +79,8 @@ def load_anomaly_scores(
     fpr_per_tpr_6_per_init_err = {}
 
     for initializer in initializers_strings:
-        for i, lat in enumerate(latent_spaces):
-            for j, bond in enumerate(bond_dim[str(lat)]):
+        for _i, lat in enumerate(latent_spaces):
+            for _j, bond in enumerate(bond_dim[str(lat)]):
                 loss_qcd_runs = []
                 loss_sig_runs = []
                 tpr_data = []
@@ -93,37 +90,36 @@ def load_anomaly_scores(
                 fpr_per_tpr_6_data = []
                 for run in range(1, nruns + 1):
                     path = f"{save_dir}/{initializer}/{train_scaling}/{embedding}/lat{lat}/bond{bond}/run_{run}/fidelity_scores_{signal_name}.h5"
-                    if not os.path.exists(path):
+                    if not os.path.exists(path):  # noqa: PTH110
                         continue
-                    else:
-                        with h5py.File(path, "r") as file:
-                            loss_qcd = file["loss_qcd"][:]
-                            loss_sig = file["loss_sig"][:]
+                    with h5py.File(path, "r") as file:
+                        loss_qcd = file["loss_qcd"][:]
+                        loss_sig = file["loss_sig"][:]
 
-                            loss_qcd = np.power(loss_qcd, 2)
-                            loss_sig = np.power(loss_sig, 2)
+                        loss_qcd = np.power(loss_qcd, 2)
+                        loss_sig = np.power(loss_sig, 2)
 
-                            loss_qcd_runs.append(loss_qcd)
-                            loss_sig_runs.append(loss_sig)
+                        loss_qcd_runs.append(loss_qcd)
+                        loss_sig_runs.append(loss_sig)
 
-                            fpr, tpr = get_roc_curve_data(
-                                loss_sig, loss_qcd, anomaly_det=True
-                            )
-                            tpr_data.append(tpr)
-                            fpr_data.append(fpr)
-                            # Get auc
-                            auc_value = auc(fpr, tpr)
-                            auc_data.append(auc_value)
+                        fpr, tpr = get_roc_curve_data(
+                            loss_sig, loss_qcd, anomaly_det=True
+                        )
+                        tpr_data.append(tpr)
+                        fpr_data.append(fpr)
+                        # Get auc
+                        auc_value = auc(fpr, tpr)
+                        auc_data.append(auc_value)
 
-                            # Get fpr per tpr = {0.8, 0.6}
-                            fpr_per_tpr_8 = get_FPR_for_fixed_TPR(
-                                0.8, np.array(fpr), np.array(tpr), tolerance=0.01
-                            )
-                            fpr_per_tpr_6 = get_FPR_for_fixed_TPR(
-                                0.6, np.array(fpr), np.array(tpr), tolerance=0.01
-                            )
-                            fpr_per_tpr_8_data.append(fpr_per_tpr_8)
-                            fpr_per_tpr_6_data.append(fpr_per_tpr_6)
+                        # Get fpr per tpr = {0.8, 0.6}
+                        fpr_per_tpr_8 = get_FPR_for_fixed_TPR(
+                            0.8, np.array(fpr), np.array(tpr), tolerance=0.01
+                        )
+                        fpr_per_tpr_6 = get_FPR_for_fixed_TPR(
+                            0.6, np.array(fpr), np.array(tpr), tolerance=0.01
+                        )
+                        fpr_per_tpr_8_data.append(fpr_per_tpr_8)
+                        fpr_per_tpr_6_data.append(fpr_per_tpr_6)
 
                 loss_qcd = get_mean_and_error(np.array(loss_qcd_runs))
                 loss_sig = get_mean_and_error(np.array(loss_sig_runs))
@@ -254,7 +250,6 @@ def plot_losses_per_initializer(
     ... )
 
     """
-
     # Calculate grid dimensions
     n_initializers = len(initializers_strings)
     n_cols = min(2, n_initializers)  # Maximum 4 columns
@@ -273,10 +268,10 @@ def plot_losses_per_initializer(
     ]
 
     # Create figure with subplots
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5 * n_rows))
+    _fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5 * n_rows))
 
     # Flatten axes array for easy indexing if multiple rows/columns
-    if n_rows > 1 or n_cols > 1:
+    if n_rows > 1 or n_cols > 1:  # noqa: SIM108
         axes = axes.flatten()
     else:
         axes = [axes]  # Convert to list for single subplot case
@@ -316,7 +311,7 @@ def plot_losses_per_initializer(
                     continue
 
             # Add label for this bond dimension (just once per bond)
-            ax.plot([], [], "-", color=cmap(0.5), label=f"$\chi$ = {bond}")
+            ax.plot([], [], "-", color=cmap(0.5), label=rf"$\chi$ = {bond}")
 
         # Style this subplot
         ax.grid(True, linestyle="--", alpha=0.4)
@@ -353,7 +348,7 @@ def plot_losses_per_initializer(
     plt.tight_layout()
 
     # Save figure
-    os.makedirs(
+    os.makedirs(  # noqa: PTH103
         f"{save_dir}/plots/{train_size}_{minmax}/{embedding}/lat{latent}/",
         exist_ok=True,
     )
@@ -423,8 +418,7 @@ def compare_anomaly_scores_per_embedding(
     ...     train_size_scaling = ['10k_minmax01', '10k_minmax-11', '10k_minmax-11'],
     ...     nruns = 10
     ... )
-    """
-
+    """  # noqa: D205
     # Set up color maps for different bond dimensions - using brighter colors
     color_maps = [
         "Blues",
@@ -457,7 +451,7 @@ def compare_anomaly_scores_per_embedding(
 
     # Process each embedding
     for e, embedding in enumerate(embeddings):
-        train_scaling = train_size_scaling[e]
+        train_scaling = list(train_size_scaling)[e]
         ax = axs[e]
 
         # Process each bond dimension
@@ -469,7 +463,7 @@ def compare_anomaly_scores_per_embedding(
             for run in range(1, nruns + 1):
                 path = f"{save_dir}/{initializer}/{train_scaling}/{embedding}/lat{latent}/bond{bond}/run_{run}/fidelity_scores_{signal_name}.h5"
 
-                if not os.path.exists(path):
+                if not os.path.exists(path):  # noqa: PTH110
                     continue
 
                 # Load and process data
@@ -594,7 +588,7 @@ def compare_anomaly_scores_per_embedding(
     )  # Adjust layout to make room for the legends
 
     # Create save directory if it doesn't exist
-    os.makedirs(f"{save_dir}/plots/comparisons/", exist_ok=True)
+    os.makedirs(f"{save_dir}/plots/comparisons/", exist_ok=True)  # noqa: PTH103
 
     # Save figure
     plt.savefig(
@@ -605,13 +599,13 @@ def compare_anomaly_scores_per_embedding(
     return fig, axs
 
 
-def compare_ROCs_per_bond(
+def compare_ROCs_per_bond(  # noqa: N802
     latent: int,
     bond_dim: Collection[int],
     initializer: str,
-    initializer_string: str,
+    initializer_string: str,  # noqa: ARG001
     tpr_per_init: dict,
-    tpr_per_init_err: dict,
+    tpr_per_init_err: dict,  # noqa: ARG001
     fpr_per_init: dict,
     fpr_per_init_err: dict,
     auc_per_init: dict,
@@ -683,15 +677,15 @@ def compare_ROCs_per_bond(
     # Create a single figure
     fig, ax = plt.subplots(figsize=(7, 7))
 
-    for j, bond in enumerate(bond_dim):
+    for _j, bond in enumerate(bond_dim):
         key = f"init={initializer},bond={bond},lat={latent},s={signal_name}"
 
-        if key not in tpr_per_init.keys():
+        if key not in tpr_per_init:
             print(f"{Colors.RED.value}{key} not found{Colors.RESET.value}")
             continue
 
         tpr = tpr_per_init[key]
-        # tpr_err = tpr_per_init_err[key]
+        # tpr_err = tpr_per_init_err[key]  # noqa: ERA001
         fpr = fpr_per_init[key]
         fpr_err = fpr_per_init_err[key]
         auc_value = auc_per_init[key]
@@ -706,8 +700,7 @@ def compare_ROCs_per_bond(
         ax.plot(
             tpr,
             fpr,
-            label=r"$\chi$ = %s (%.2f)$\pm$(%.2f)"
-            % (bond, auc_value * 100.0, auc_err * 100.0),
+            label=rf"$\chi$ = {bond} ({auc_value * 100.0:.2f})$\pm$({auc_err * 100.0:.2f})",
             linewidth=2,
             color=bond_colors[bond],
         )  # Use consistent color
@@ -737,7 +730,7 @@ def compare_ROCs_per_bond(
     ax.axvline(x=0.8, color="black", linestyle=":", linewidth=1.5, alpha=0.3)
 
     # Style the plot
-    # ax.set_title(f'Latent = {latent}, {initializer_string}', fontsize=16)
+    # ax.set_title(f'Latent = {latent}, {initializer_string}', fontsize=16)  # noqa: ERA001
     ax.legend(loc="lower left", fontsize=12)
     ax.set_yscale("log")
     ax.set_xlabel("TPR", fontsize=20)
@@ -750,7 +743,7 @@ def compare_ROCs_per_bond(
     plt.tight_layout()
 
     # Create directory if it doesn't exist
-    os.makedirs(
+    os.makedirs(  # noqa: PTH103
         f"{save_dir}/plots/{train_scaling}/{embedding}/lat{latent}", exist_ok=True
     )
 
@@ -762,15 +755,15 @@ def compare_ROCs_per_bond(
     return fig, ax
 
 
-def compare_ROC_by_signal(
+def compare_ROC_by_signal(  # noqa: N802
     signal_names: Collection[str],
     signal_labels: Collection[str],
     latent: int,
     bond_dim: Collection[int],
     initializer: str,
-    initializer_string: str,
+    initializer_string: str,  # noqa: ARG001
     tpr_per_init: dict,
-    tpr_per_init_err: dict,
+    tpr_per_init_err: dict,  # noqa: ARG001
     fpr_per_init: dict,
     fpr_per_init_err: dict,
     auc_per_init: dict,
@@ -779,7 +772,7 @@ def compare_ROC_by_signal(
     embedding: str,
     train_scaling: str,
 ):
-    """
+    r"""
     Compare ROC curves for different signal types with fixed model parameters.
 
     Parameters
@@ -855,7 +848,7 @@ def compare_ROC_by_signal(
     for i, signal_name in enumerate(signal_names):
         key = f"init={initializer},bond={bond_dim},lat={latent},s={signal_name}"
 
-        if key not in tpr_per_init.keys():
+        if key not in tpr_per_init:
             print(f"{Colors.RED.value}{key} not found{Colors.RESET.value}")
             continue
 
@@ -876,7 +869,7 @@ def compare_ROC_by_signal(
         # Store data for legend
         handles.append(line)
         auc_info.append(f"{auc_value * 100:.2f}±{auc_err * 100:.2f}")
-        signal_info.append(signal_labels[i])
+        signal_info.append(list(signal_labels)[i])
 
         # Error calculation and bands
         log_fpr = np.log10(fpr)
@@ -898,7 +891,7 @@ def compare_ROC_by_signal(
 
     # Create legend with AUC values first
     legend_labels = []
-    for auc_label, signal in zip(auc_info, signal_info):
+    for auc_label, signal in zip(auc_info, signal_info, strict=False):
         legend_labels.append(f"{auc_label}   {signal}")
 
     # Add legend with AUC first
@@ -921,13 +914,13 @@ def compare_ROC_by_signal(
     ax.tick_params(axis="both", which="major", labelsize=14)
     ax.tick_params(axis="both", which="minor", labelsize=14)
 
-    # ax.set_yticks(fontsize=14)
+    # ax.set_yticks(fontsize=14)  # noqa: ERA001
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
 
     # Create directory and save
-    os.makedirs(
+    os.makedirs(  # noqa: PTH103
         f"{save_dir}/plots/{train_scaling}/{embedding}/lat{latent}", exist_ok=True
     )
     plt.savefig(
@@ -937,15 +930,15 @@ def compare_ROC_by_signal(
     return fig, ax
 
 
-def compare_ROC_by_latent(
+def compare_ROC_by_latent(  # noqa: N802
     latent_spaces: Collection[int],
     bond_dims: dict,
     initializer: str,
-    initializer_string: str,
+    initializer_string: str,  # noqa: ARG001
     signal_name: str,
-    signal_label: str,
+    signal_label: str,  # noqa: ARG001
     tpr_per_init: dict,
-    tpr_per_init_err: dict,
+    tpr_per_init_err: dict,  # noqa: ARG001
     fpr_per_init: dict,
     fpr_per_init_err: dict,
     auc_per_init: dict,
@@ -1020,7 +1013,7 @@ def compare_ROC_by_latent(
 
         key = f"init={initializer},bond={bond_dim},lat={latent},s={signal_name}"
 
-        if key not in tpr_per_init.keys():
+        if key not in tpr_per_init:
             print(f"{key} not found")
             continue
 
@@ -1066,7 +1059,7 @@ def compare_ROC_by_latent(
 
     # Create legend with AUC values first
     legend_labels = []
-    for auc_label, config in zip(auc_info, config_info):
+    for auc_label, config in zip(auc_info, config_info, strict=False):
         legend_labels.append(f"{auc_label}   {config}")
 
     # Add legend with AUC first
@@ -1085,7 +1078,7 @@ def compare_ROC_by_latent(
     ax.set_yscale("log")
     ax.set_xlabel("TPR", fontsize=20)
     ax.set_ylabel("FPR$^{-1}$", fontsize=20)
-    # ax.set_title(f'Signal: {signal_label}, {initializer_string}', fontsize=16)
+    # ax.set_title(f'Signal: {signal_label}, {initializer_string}', fontsize=16)  # noqa: ERA001
     ax.set_xticks(np.arange(0, 1.1, 0.2))
     ax.tick_params(axis="both", which="major", labelsize=14)
     ax.tick_params(axis="both", which="minor", labelsize=14)
@@ -1094,7 +1087,7 @@ def compare_ROC_by_latent(
     plt.tight_layout()
 
     # Create directory and save
-    os.makedirs(f"{save_dir}/plots/{train_scaling}/{embedding}", exist_ok=True)
+    os.makedirs(f"{save_dir}/plots/{train_scaling}/{embedding}", exist_ok=True)  # noqa: PTH103
     plt.savefig(
         f"{save_dir}/plots/{train_scaling}/{embedding}/roc_curve_latent_comparison_{signal_name}.pdf"
     )

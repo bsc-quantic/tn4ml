@@ -1,6 +1,8 @@
+from typing import Any
+
 import jax.numpy as jnp
-import numpy as np
-from tn4ml.scipy.special import eval_laguerre, eval_hermite, eval_legendre
+
+from tn4ml.scipy.special import eval_hermite, eval_laguerre, eval_legendre
 
 
 def test_laguerre_polynomials():
@@ -17,7 +19,7 @@ def test_laguerre_polynomials():
 
     # L₂(x) = (x² - 4x + 2) / 2
     x = 2.0
-    expected = (x**2 - 4 * x + 2) / 2  # = (4 - 8 + 2)/2 = -1
+    expected: Any = (x**2 - 4 * x + 2) / 2  # = (4 - 8 + 2)/2 = -1
     assert jnp.allclose(eval_laguerre(2, x), expected)
 
     # L₃(x) = (-x³ + 9x² - 18x + 6) / 6
@@ -70,7 +72,7 @@ def test_hermite_polynomials():
 
     # H₂(x) = 4x² - 2
     x = 2.0
-    expected = 4 * x**2 - 2  # = 4*4 - 2 = 16 - 2 = 14
+    expected: Any = 4 * x**2 - 2  # = 4*4 - 2 = 16 - 2 = 14
     assert jnp.allclose(eval_hermite(2, x), expected)
 
     # H₃(x) = 8x³ - 12x
@@ -135,7 +137,7 @@ def test_legendre_polynomials():
 
     # P₂(x) = (3x² - 1) / 2
     x = 0.5
-    expected = (3 * x**2 - 1) / 2  # (0.75 - 1)/2 = -0.125
+    expected: Any = (3 * x**2 - 1) / 2  # (0.75 - 1)/2 = -0.125
     assert jnp.allclose(eval_legendre(2, x), expected)
 
     # P₃(x) = (5x³ - 3x) / 2

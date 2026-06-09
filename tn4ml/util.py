@@ -1,14 +1,13 @@
 import re
-from typing import Any, List
 from enum import IntEnum
+from typing import Any
 
-import jax
 import jax.numpy as jnp
 import numpy as np
 
 
 def return_digits(array):
-    """Helper function to convert array of string numbers to integers.
+    """Convert an array of string numbers to integers.
 
     Parameters
     ----------
@@ -51,14 +50,14 @@ def normalize(v, p=2, atol=1e-9):
     norm = jnp.linalg.norm(v, ord=p)
     if norm > atol:
         return v / norm
-    else:
-        # Handle the case where the vector is near-zero or the algorithm encounters linear dependence.
-        return None
+    # Handle the case where the vector is near-zero or the algorithm encounters linear dependence.
+    return None
 
 
 def gramschmidt_row(A, atol=1e-10):
-    """
-    Performs the Modified Gram-Schmidt process on matrix A, skipping near-zero norm vectors.
+    """Perform the Modified Gram-Schmidt process on rows of matrix A.
+
+    Skips near-zero norm vectors.
     By row.
 
     Parameters
@@ -79,25 +78,25 @@ def gramschmidt_row(A, atol=1e-10):
         q, _ = jnp.linalg.qr(A.T, mode="reduced")
         return q.T
 
-    Q = []
+    vectors: list[Any] = []
     for i in range(m):
         q = A[i, :]
-        for j in range(0, i):
-            rij = jnp.tensordot(jnp.conj(Q[j]), q, axes=1)
-            q = q - rij * Q[j]
+        for j in range(i):
+            rij = jnp.tensordot(jnp.conj(vectors[j]), q, axes=1)
+            q = q - rij * vectors[j]
         norm_q = jnp.linalg.norm(q)
         if norm_q > atol:
-            Q.append(q / jnp.linalg.norm(q))
+            vectors.append(q / jnp.linalg.norm(q))
         else:
             print(f"Vector at row {i} is zero or near-zero norm, cannot normalize.")
-            Q.append(jnp.zeros_like(A[i, :]))
-    Q = jnp.stack(tuple(Q), axis=0)
-    return Q
+            vectors.append(jnp.zeros_like(A[i, :]))
+    return jnp.stack(tuple(vectors), axis=0)
 
 
 def gramschmidt_col(A, atol=1e-10):
-    """
-    Performs the Modified Gram-Schmidt process on matrix A, skipping near-zero norm vectors.
+    """Perform the Modified Gram-Schmidt process on columns of matrix A.
+
+    Skips near-zero norm vectors.
     By column.
 
     Parameters
@@ -113,21 +112,20 @@ def gramschmidt_col(A, atol=1e-10):
     -------
     Orthonormal matrix A.
     """
-    m, n = A.shape
-    Q = []
+    _m, n = A.shape
+    vectors: list[Any] = []
     for j in range(n):
         q = A[:, j]
-        for i in range(0, j):
-            rij = jnp.tensordot(jnp.conj(Q[i]), q, axes=1)
-            q = q - rij * Q[i]
+        for i in range(j):
+            rij = jnp.tensordot(jnp.conj(vectors[i]), q, axes=1)
+            q = q - rij * vectors[i]
         norm_q = jnp.linalg.norm(q)
         if norm_q > atol:
-            Q.append(q / jnp.linalg.norm(q))
+            vectors.append(q / jnp.linalg.norm(q))
         else:
             print(f"Vector at col {j} is zero or near-zero norm, cannot normalize.")
-            Q.append(jnp.zeros_like(A[:, j]))
-    Q = jnp.stack(tuple(Q), axis=1)
-    return Q
+            vectors.append(jnp.zeros_like(A[:, j]))
+    return jnp.stack(tuple(vectors), axis=1)
 
 
 def gradient_clip(grads, threshold=1.0):
@@ -146,7 +144,7 @@ def gradient_clip(grads, threshold=1.0):
     """
     assert threshold > 0, "Threshold must be positive."
     assert len(grads) > 0, "No gradients to clip."
-    assert all([len(g) > 0 for g in grads]), "No gradients to clip."
+    assert all(len(g) > 0 for g in grads), "No gradients to clip."
 
     new_grads = []
     for gradients in grads:
@@ -171,8 +169,7 @@ def zigzag_order(data):
     """
     data = np.squeeze(data)
     # Reshape the array to (N, -1) where N is the number of images, and flatten each image
-    data_zigzag = data.reshape(data.shape[0], -1)
-    return data_zigzag
+    return data.reshape(data.shape[0], -1)
 
 
 def integer_to_one_hot(labels, num_classes=None):
@@ -218,7 +215,7 @@ def pad_image_alternately(image: np.ndarray, k: int) -> jnp.ndarray:
     :class:`numpy.ndarray`
         A padded 2D array of pixel intensities.
     """
-    H, W = image.shape
+    H, _W = image.shape
 
     # Determine padding required
     pad = (k - H % k) % k
@@ -232,14 +229,12 @@ def pad_image_alternately(image: np.ndarray, k: int) -> jnp.ndarray:
     )
 
     # Apply padding in a single operation
-    padded_image = jnp.pad(
+    return jnp.pad(
         image,
         ((top_pad, bottom_pad), (left_pad, right_pad)),
         mode="constant",
         constant_values=0,
     )
-
-    return padded_image
 
 
 def divide_into_patches(image: Any, k: int) -> jnp.ndarray:
@@ -272,8 +267,8 @@ def divide_into_patches(image: Any, k: int) -> jnp.ndarray:
 
 
 def from_dense_to_mps(
-    statevector: jnp.ndarray, n_qubits: int, max_bond: int = None
-) -> List[jnp.ndarray]:
+    statevector: jnp.ndarray, n_qubits: int, max_bond: int | None = None
+) -> list[jnp.ndarray]:
     """
     Convert a dense statevector to a Matrix Product State (MPS) representation in JAX.
 
@@ -338,7 +333,7 @@ def from_dense_to_mps(
     return mps
 
 
-def from_mps_to_dense(mps: List[jnp.ndarray], n_qubits: int) -> jnp.ndarray:
+def from_mps_to_dense(mps: list[jnp.ndarray], n_qubits: int) -> jnp.ndarray:
     """
     Convert a Matrix Product State (MPS) representation back to a dense statevector.
 
@@ -371,6 +366,8 @@ def from_mps_to_dense(mps: List[jnp.ndarray], n_qubits: int) -> jnp.ndarray:
 
 
 class TrainingType(IntEnum):
+    """Training objective types supported by :class:`tn4ml.models.Model`."""
+
     UNSUPERVISED = 0
     SUPERVISED = 1
     TARGET_TN = 2
@@ -396,6 +393,7 @@ class EarlyStopping:
         self.min_delta = min_delta
         self.patience = patience
         self.mode = mode
+        self.operator: Any = None
 
     def on_begin_train(self, history, model):
         """
@@ -413,14 +411,14 @@ class EarlyStopping:
         ValueError
             If the mode is not `min` or `max`.
         """
-        if self.monitor not in history.keys():
+        if self.monitor not in history:
             raise ValueError(
                 f"This metric {self.monitor} is not monitored. Change metric for EarlyStopping.monitor"
             )
         if self.mode not in ["min", "max"]:
             raise ValueError('EarlyStopping mode can be either "min" or "max".')
 
-        self.memory = dict()
+        self.memory: dict[str, Any] = {}
         self.memory["best"] = np.inf if self.mode == "min" else -np.inf
         self.memory["best_epoch"] = 0  # track on each epoch
         if self.mode == "min":
@@ -448,7 +446,6 @@ class EarlyStopping:
         int
             A flag to indicate if the training should be stopped.
         """
-
         if self.memory["wait"] == 0 and epoch == 0:
             self.memory["best"] = loss_current
             self.memory["best_model"] = current_model

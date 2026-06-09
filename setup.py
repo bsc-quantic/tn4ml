@@ -1,7 +1,7 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 # Read the contents of your README file
-with open("README.md", "r", encoding="utf-8") as fh:
+with open("README.md", encoding="utf-8") as fh:  # noqa: PTH123
     long_description = fh.read()
 
 setup(
@@ -16,14 +16,12 @@ setup(
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
     ],
     packages=find_packages(),
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     setup_requires=["setuptools >= 38.3.0"],
     install_requires=[
         "autoray>=0.3.0",

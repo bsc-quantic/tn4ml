@@ -1,15 +1,15 @@
 """Test evaluation/metric calculation functions (non-plotting)."""
 
-import pytest
 import numpy as np
-from tn4ml.eval import (
-    get_roc_curve_data,
-    get_precision_recall_curve_data,
-    get_FPR_for_fixed_TPR,
-    get_TPR_for_fixed_FPR,
-    get_mean_and_error,
-)
+import pytest
 
+from tn4ml.eval import (
+    get_FPR_for_fixed_TPR,
+    get_mean_and_error,
+    get_precision_recall_curve_data,
+    get_roc_curve_data,
+    get_TPR_for_fixed_FPR,
+)
 
 # --- get_roc_curve_data ---
 
@@ -62,7 +62,7 @@ def test_get_precision_recall_curve_data_anomaly():
 # --- get_FPR_for_fixed_TPR ---
 
 
-def test_get_FPR_for_fixed_TPR():
+def test_get_FPR_for_fixed_TPR():  # noqa: N802
     fpr = np.array([0.0, 0.1, 0.2, 0.5, 1.0])
     tpr = np.array([0.0, 0.4, 0.6, 0.8, 1.0])
     result = get_FPR_for_fixed_TPR(0.8, fpr, tpr, tolerance=0.1)
@@ -72,7 +72,7 @@ def test_get_FPR_for_fixed_TPR():
 # --- get_TPR_for_fixed_FPR ---
 
 
-def test_get_TPR_for_fixed_FPR():
+def test_get_TPR_for_fixed_FPR():  # noqa: N802
     fpr = np.array([0.0, 0.1, 0.2, 0.5, 1.0])
     tpr = np.array([0.0, 0.4, 0.6, 0.8, 1.0])
     result = get_TPR_for_fixed_FPR(0.2, fpr, tpr, tolerance=0.1)

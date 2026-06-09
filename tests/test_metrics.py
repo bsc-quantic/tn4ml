@@ -1,21 +1,18 @@
-import pytest
-import tn4ml
-from numbers import Number
-import numpy as np
-import jax.numpy as jnp
 import jax
-import optax
+import jax.numpy as jnp
 import numpy as np
+import pytest
 import quimb.tensor as qtn
+
+import tn4ml
+import tn4ml.embeddings as embeddings
 import tn4ml.metrics as metrics
 import tn4ml.models.smpo as smpo
-import tn4ml.embeddings as embeddings
-import quimb.tensor as qtn
 from tn4ml.initializers import randn
 
 
 @pytest.mark.parametrize(
-    "model,data",
+    ("model", "data"),
     [
         (
             qtn.MPS_rand_state(20, bond_dim=2, phys_dim=2),
@@ -23,7 +20,7 @@ from tn4ml.initializers import randn
         )
     ],
 )
-def test_NegLogLikelihood_1(model, data):
+def test_NegLogLikelihood_1(model, data):  # noqa: N802
     loss = tn4ml.metrics.NegLogLikelihood(model, data)
     assert loss >= 0.0
     # check if physical dimensions match
@@ -32,7 +29,7 @@ def test_NegLogLikelihood_1(model, data):
 
 
 @pytest.mark.parametrize(
-    "model,data",
+    ("model", "data"),
     [
         (
             qtn.MPS_rand_state(20, bond_dim=2, phys_dim=2, cyclic=True),
@@ -40,7 +37,7 @@ def test_NegLogLikelihood_1(model, data):
         )
     ],
 )
-def test_NegLogLikelihood_2(model, data):
+def test_NegLogLikelihood_2(model, data):  # noqa: N802
     loss = tn4ml.metrics.NegLogLikelihood(model, data)
     assert loss >= 0.0
     # check if physical dimensions match
@@ -49,7 +46,7 @@ def test_NegLogLikelihood_2(model, data):
 
 
 @pytest.mark.parametrize(
-    "model,data",
+    ("model", "data"),
     [
         (
             qtn.MPS_rand_state(20, bond_dim=2, phys_dim=2, cyclic=True),
@@ -57,7 +54,7 @@ def test_NegLogLikelihood_2(model, data):
         )
     ],
 )
-def test_NegLogLikelihood_3(model, data):
+def test_NegLogLikelihood_3(model, data):  # noqa: N802
     loss = tn4ml.metrics.NegLogLikelihood(model, data)
     assert loss >= 0.0
     # check if physical dimensions match
@@ -66,17 +63,17 @@ def test_NegLogLikelihood_3(model, data):
 
 
 @pytest.mark.parametrize(
-    "model,data",
+    ("model", "data"),
     [
         (
             qtn.MPS_rand_state(10, bond_dim=2, phys_dim=3),
-            np.random.rand(
+            np.random.rand(  # noqa: NPY002
                 10,
             ),
         )
     ],
 )
-def test_NegLogLikelihood_4(model, data):
+def test_NegLogLikelihood_4(model, data):  # noqa: N802
     embedding = tn4ml.embeddings.FourierEmbedding(p=3)
     phi = tn4ml.embeddings.embed(data, phi=embedding)
     loss = tn4ml.metrics.NegLogLikelihood(model, phi)
@@ -88,7 +85,7 @@ def test_NegLogLikelihood_4(model, data):
 
 # TODO - when SMPO is fully working!
 @pytest.mark.parametrize(
-    "model,data",
+    ("model", "data"),
     [
         (
             tn4ml.models.smpo.SMPO_initialize(
@@ -101,7 +98,7 @@ def test_NegLogLikelihood_4(model, data):
                 phys_dim=(2, 2),
                 cyclic=False,
             ),
-            np.random.rand(
+            np.random.rand(  # noqa: NPY002
                 10,
             ),
         )
@@ -118,7 +115,7 @@ def test_transformed_squared_norm(model, data):
 
 
 @pytest.mark.parametrize(
-    "model,data",
+    ("model", "data"),
     [
         (
             tn4ml.models.smpo.SMPO_initialize(
@@ -151,7 +148,7 @@ def test_transformed_squared_norm_2(model, data):
         (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2, cyclic=True)),
     ],
 )
-def test_LogFrobNorm_MPS(model):
+def test_LogFrobNorm_MPS(model):  # noqa: N802
     loss = tn4ml.metrics.LogFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
@@ -164,7 +161,7 @@ def test_LogFrobNorm_MPS(model):
         (qtn.MPO_rand(10, bond_dim=2, phys_dim=2, cyclic=True)),
     ],
 )
-def test_LogFrobNorm_MPO(model):
+def test_LogFrobNorm_MPO(model):  # noqa: N802
     loss = tn4ml.metrics.LogFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
@@ -198,7 +195,7 @@ def test_LogFrobNorm_MPO(model):
         ),
     ],
 )
-def test_LogFrobNorm_SMPO(model):
+def test_LogFrobNorm_SMPO(model):  # noqa: N802
     loss = tn4ml.metrics.LogFrobNorm(model)
     print(jax.device_get(loss))
     assert isinstance(jax.device_get(loss), np.ndarray)
@@ -231,7 +228,7 @@ def test_LogFrobNorm_SMPO(model):
         ),
     ],
 )
-def test_LogFrobNorm_TrainableMPS(model):
+def test_LogFrobNorm_TrainableMPS(model):  # noqa: N802
     loss = tn4ml.metrics.LogFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
@@ -263,7 +260,7 @@ def test_LogFrobNorm_TrainableMPS(model):
         ),
     ],
 )
-def test_LogFrobNorm_TrainableMP0(model):
+def test_LogFrobNorm_TrainableMP0(model):  # noqa: N802
     loss = tn4ml.metrics.LogFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
@@ -276,7 +273,7 @@ def test_LogFrobNorm_TrainableMP0(model):
         (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2, cyclic=True)),
     ],
 )
-def test_LogReLUFrobNorm_MPS(model):
+def test_LogReLUFrobNorm_MPS(model):  # noqa: N802
     loss = tn4ml.metrics.LogReLUFrobNorm(model)
     assert jax.device_get(loss) >= 0.0
 
@@ -289,7 +286,7 @@ def test_LogReLUFrobNorm_MPS(model):
         (qtn.MPO_rand(10, bond_dim=2, phys_dim=2, cyclic=True)),
     ],
 )
-def test_LogReLUFrobNorm_MPO(model):
+def test_LogReLUFrobNorm_MPO(model):  # noqa: N802
     loss = tn4ml.metrics.LogReLUFrobNorm(model)
     assert jax.device_get(loss) >= 0.0
 
@@ -323,7 +320,7 @@ def test_LogReLUFrobNorm_MPO(model):
         ),
     ],
 )
-def test_LogReLUFrobNorm_SMPO(model):
+def test_LogReLUFrobNorm_SMPO(model):  # noqa: N802
     loss = tn4ml.metrics.LogReLUFrobNorm(model)
     print(jax.device_get(loss))
     assert jax.device_get(loss) >= 0.0
@@ -348,7 +345,7 @@ def test_LogReLUFrobNorm_SMPO(model):
         #                                 bond_dim=4, phys_dim=2, cyclic=False))
     ],
 )
-def test_LogReLUFrobNorm_TrainableMPS(model):
+def test_LogReLUFrobNorm_TrainableMPS(model):  # noqa: N802
     loss = tn4ml.metrics.LogReLUFrobNorm(model)
     assert jax.device_get(loss) >= 0.0
 
@@ -372,7 +369,7 @@ def test_LogReLUFrobNorm_TrainableMPS(model):
         #                                 bond_dim=4, phys_dim=(2,2), cyclic=False))
     ],
 )
-def test_LogReLUFrobNorm_TrainableMPO(model):
+def test_LogReLUFrobNorm_TrainableMPO(model):  # noqa: N802
     loss = tn4ml.metrics.LogReLUFrobNorm(model)
     assert jax.device_get(loss) >= 0.0
 
@@ -385,7 +382,7 @@ def test_LogReLUFrobNorm_TrainableMPO(model):
         (qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2, cyclic=True)),
     ],
 )
-def test_reg_norm_quad_MPS(model):
+def test_reg_norm_quad_MPS(model):  # noqa: N802
     loss = tn4ml.metrics.QuadFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
@@ -398,12 +395,12 @@ def test_reg_norm_quad_MPS(model):
         (qtn.MPO_rand(10, bond_dim=2, phys_dim=2, cyclic=True)),
     ],
 )
-def test_reg_norm_quad_MPO(model):
+def test_reg_norm_quad_MPO(model):  # noqa: N802
     loss = tn4ml.metrics.QuadFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
 
-def test_reg_norm_quad_SMPO():
+def test_reg_norm_quad_SMPO():  # noqa: N802
     model = tn4ml.models.smpo.SMPO_initialize(
         L=10,
         initializer=randn(1e-1),
@@ -418,7 +415,7 @@ def test_reg_norm_quad_SMPO():
     assert isinstance(jax.device_get(loss), np.ndarray)
 
 
-def test_reg_norm_quad_TrainableMPS():
+def test_reg_norm_quad_TrainableMPS():  # noqa: N802
     model = tn4ml.models.mps.MPS_initialize(
         L=10,
         initializer=randn(1e-1),
@@ -432,7 +429,7 @@ def test_reg_norm_quad_TrainableMPS():
     assert isinstance(jax.device_get(loss), np.ndarray)
 
 
-def test_reg_norm_quad_TrainableMPO():
+def test_reg_norm_quad_TrainableMPO():  # noqa: N802
     model = tn4ml.models.mpo.MPO_initialize(
         L=10,
         initializer=randn(1e-1),
@@ -446,7 +443,7 @@ def test_reg_norm_quad_TrainableMPO():
     assert isinstance(jax.device_get(loss), np.ndarray)
 
 
-def test_LogQuadNorm_SMPO_with_MPS_rand_state():
+def test_LogQuadNorm_SMPO_with_MPS_rand_state():  # noqa: N802
     model = smpo.SMPO_initialize(
         L=10,
         initializer=randn(1e-1),
@@ -462,7 +459,7 @@ def test_LogQuadNorm_SMPO_with_MPS_rand_state():
     assert isinstance(jax.device_get(error), np.ndarray)
 
 
-def test_LogQuadNorm_SMPO_with_embedded_numpy_array():
+def test_LogQuadNorm_SMPO_with_embedded_numpy_array():  # noqa: N802
     model = smpo.SMPO_initialize(
         L=10,
         initializer=randn(1e-1),
@@ -473,13 +470,13 @@ def test_LogQuadNorm_SMPO_with_embedded_numpy_array():
         phys_dim=(2, 2),
         cyclic=False,
     )
-    data = np.random.rand(10)
+    data = np.random.rand(10)  # noqa: NPY002
     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
     error = metrics.LogQuadNorm(model, embedded_data)
     assert isinstance(jax.device_get(error), np.ndarray)
 
 
-def test_error_quad_SMPO_with_MPS_rand_state():
+def test_error_quad_SMPO_with_MPS_rand_state():  # noqa: N802
     model = smpo.SMPO_initialize(
         L=10,
         initializer=randn(1e-1),
@@ -495,7 +492,7 @@ def test_error_quad_SMPO_with_MPS_rand_state():
     assert isinstance(jax.device_get(error), np.ndarray)
 
 
-def test_error_quad_SMPO_with_embedded_numpy_array():
+def test_error_quad_SMPO_with_embedded_numpy_array():  # noqa: N802
     model = smpo.SMPO_initialize(
         L=10,
         initializer=randn(1e-1),
@@ -506,13 +503,13 @@ def test_error_quad_SMPO_with_embedded_numpy_array():
         phys_dim=(2, 2),
         cyclic=False,
     )
-    data = np.random.rand(10)
+    data = np.random.rand(10)  # noqa: NPY002
     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
     error = metrics.QuadNorm(model, embedded_data)
     assert isinstance(jax.device_get(error), np.ndarray)
 
 
-def test_CrossEntropySoftmax():
+def test_CrossEntropySoftmax():  # noqa: N802
     model = tn4ml.models.smpo.SMPO_initialize(
         L=10,
         initializer=randn(1e-1),
@@ -529,7 +526,7 @@ def test_CrossEntropySoftmax():
     assert isinstance(loss, jnp.ndarray)
 
 
-def test_CrossEntropySoftmax_with_embedded_numpy_array():
+def test_CrossEntropySoftmax_with_embedded_numpy_array():  # noqa: N802
     model = tn4ml.models.smpo.SMPO_initialize(
         L=10,
         initializer=randn(1e-1),
@@ -540,7 +537,7 @@ def test_CrossEntropySoftmax_with_embedded_numpy_array():
         phys_dim=(2, 3),
         cyclic=False,
     )
-    data = np.random.rand(10)
+    data = np.random.rand(10)  # noqa: NPY002
     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
     targets = jnp.array([0, 1, 0])
     loss = tn4ml.metrics.CrossEntropySoftmax(model, embedded_data, targets)
@@ -553,79 +550,79 @@ def test_CrossEntropySoftmax_with_embedded_numpy_array():
 #                                                 key=jax.random.key(42), shape_method='even',
 #                                                 spacing=2, bond_dim=4,
 #                                                 phys_dim=(2,2), cyclic=False)
-#     data = np.random.rand(10)
-#     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
-#     loss_fn = optax.squared_error
-#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)
-#     loss_value = loss(model, embedded_data).mean()
-#     assert isinstance(jax.device_get(loss_value), Number)
+#     data = np.random.rand(10)  # noqa: ERA001
+#     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())  # noqa: ERA001
+#     loss_fn = optax.squared_error  # noqa: ERA001
+#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)  # noqa: ERA001
+#     loss_value = loss(model, embedded_data).mean()  # noqa: ERA001
+#     assert isinstance(jax.device_get(loss_value), Number)  # noqa: ERA001
 
 #     # Test for SMPO with qtn.MPS_rand_state data
 #     model = tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
 #                                                 key=jax.random.key(42), shape_method='even',
 #                                                 spacing=2, bond_dim=4,
 #                                                 phys_dim=(2,2), cyclic=False)
-#     data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
-#     loss_fn = optax.squared_error
-#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)
-#     loss_value = loss(model, data).mean()
-#     assert isinstance(jax.device_get(loss_value), Number)
+#     data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)  # noqa: ERA001
+#     loss_fn = optax.squared_error  # noqa: ERA001
+#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)  # noqa: ERA001
+#     loss_value = loss(model, data).mean()  # noqa: ERA001
+#     assert isinstance(jax.device_get(loss_value), Number)  # noqa: ERA001
 
 #     # Test for TrainableMPS with numpy data
 #     model = tn4ml.models.mps.MPS_initialize(L=10, initializer=randn(1e-1),
 #                                             key=jax.random.key(42), shape_method='even',
 #                                             bond_dim=4, phys_dim=2, cyclic=False)
-#     data = np.random.rand(10)
-#     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
-#     loss_fn = optax.softmax_cross_entropy
-#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)
-#     loss_value = loss(model, embedded_data).mean()
-#     assert isinstance(jax.device_get(loss_value)[0], Number)
+#     data = np.random.rand(10)  # noqa: ERA001
+#     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())  # noqa: ERA001
+#     loss_fn = optax.softmax_cross_entropy  # noqa: ERA001
+#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)  # noqa: ERA001
+#     loss_value = loss(model, embedded_data).mean()  # noqa: ERA001
+#     assert isinstance(jax.device_get(loss_value)[0], Number)  # noqa: ERA001
 
 #     # Test for TrainableMPS with qtn.MPS_rand_state data
 #     model = tn4ml.models.mps.MPS_initialize(L=10, initializer=randn(1e-1),
 #                                             key=jax.random.key(42), shape_method='even',
 #                                             bond_dim=4, phys_dim=2, cyclic=False)
-#     data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
-#     loss_fn = optax.softmax_cross_entropy
-#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)
-#     loss_value = loss(model, data).mean()
-#     assert isinstance(jax.device_get(loss_value), Number)
+#     data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)  # noqa: ERA001
+#     loss_fn = optax.softmax_cross_entropy  # noqa: ERA001
+#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)  # noqa: ERA001
+#     loss_value = loss(model, data).mean()  # noqa: ERA001
+#     assert isinstance(jax.device_get(loss_value), Number)  # noqa: ERA001
 
 #     # Test for SMPO with numpy data and supervised loss
 #     model = tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
 #                                                 key=jax.random.key(42), shape_method='even',
 #                                                 spacing=10, bond_dim=4,
 #                                                 phys_dim=(2,10), cyclic=False)
-#     data = np.random.rand(10)
-#     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())
-#     targets = np.random.randint(0, 2, size=(10,))
-#     loss_fn = optax.softmax_cross_entropy
-#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)
-#     loss_value = loss(model, embedded_data, targets=targets).mean()
-#     assert isinstance(jax.device_get(loss_value), Number)
+#     data = np.random.rand(10)  # noqa: ERA001
+#     embedded_data = embeddings.embed(data, phi=embeddings.TrigonometricEmbedding())  # noqa: ERA001
+#     targets = np.random.randint(0, 2, size=(10,))  # noqa: ERA001
+#     loss_fn = optax.softmax_cross_entropy  # noqa: ERA001
+#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)  # noqa: ERA001
+#     loss_value = loss(model, embedded_data, targets=targets).mean()  # noqa: ERA001
+#     assert isinstance(jax.device_get(loss_value), Number)  # noqa: ERA001
 
 #     # Test for SMPO with qtn.MPS_rand_state data and supervised loss
 #     model = tn4ml.models.smpo.SMPO_initialize(L=10, initializer=randn(1e-1),
 #                                                 key=jax.random.key(42), shape_method='even',
 #                                                 spacing=10, bond_dim=4,
 #                                                 phys_dim=(2,10), cyclic=False)
-#     data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
-#     targets = np.random.randint(0, 2, size=(10,))
-#     loss_fn = optax.softmax_cross_entropy
-#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)
-#     loss_value = loss(model, data, targets=targets).mean()
-#     assert isinstance(jax.device_get(loss_value), Number)
+#     data = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)  # noqa: ERA001
+#     targets = np.random.randint(0, 2, size=(10,))  # noqa: ERA001
+#     loss_fn = optax.softmax_cross_entropy  # noqa: ERA001
+#     loss = tn4ml.metrics.OptaxWrapper(loss_fn)  # noqa: ERA001
+#     loss_value = loss(model, data, targets=targets).mean()  # noqa: ERA001
+#     assert isinstance(jax.device_get(loss_value), Number)  # noqa: ERA001
 
 # --- NoReg ---
 
 
-def test_NoReg():
+def test_NoReg():  # noqa: N802
     result = metrics.NoReg(42)
     assert result == 0
 
 
-def test_NoReg_with_model():
+def test_NoReg_with_model():  # noqa: N802
     model = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
     result = metrics.NoReg(model)
     assert result == 0
@@ -641,7 +638,7 @@ def test_NoReg_with_model():
         qtn.MPO_rand(10, bond_dim=2, phys_dim=2),
     ],
 )
-def test_LogPowFrobNorm(model):
+def test_LogPowFrobNorm(model):  # noqa: N802
     loss = metrics.LogPowFrobNorm(model)
     assert isinstance(jax.device_get(loss), np.ndarray)
 
@@ -649,14 +646,14 @@ def test_LogPowFrobNorm(model):
 # --- Softmax ---
 
 
-def test_Softmax_basic():
+def test_Softmax_basic():  # noqa: N802
     z = jnp.array([1.0, 2.0, 3.0])
     result = metrics.Softmax(z, 2)
     assert isinstance(float(result), float)
     assert 0.0 <= float(result) <= 1.0
 
 
-def test_Softmax_sums_to_one():
+def test_Softmax_sums_to_one():  # noqa: N802
     z = jnp.array([1.0, 2.0, 3.0])
     total = sum(float(metrics.Softmax(z, i)) for i in range(3))
     assert total == pytest.approx(1.0)
@@ -669,7 +666,7 @@ def test_Softmax_sums_to_one():
     raises=(AttributeError, ValueError),
     reason="Library bug: MeanSquaredError calls output.tensors[0] but model.apply returns a Tensor (not TN) when len(model)==len(data); and raises ValueError when len(data) < len(model)",
 )
-def test_MeanSquaredError():
+def test_MeanSquaredError():  # noqa: N802
     model = tn4ml.models.smpo.SMPO_initialize(
         L=10,
         initializer=randn(1e-1),
@@ -693,7 +690,7 @@ def test_MeanSquaredError():
     raises=IndexError,
     reason="Library bug: SemiSupervisedLoss calls loss_value[0] but SupervisedLoss returns a 0-dim scalar",
 )
-def test_SemiSupervisedLoss():
+def test_SemiSupervisedLoss():  # noqa: N802
     model = tn4ml.models.smpo.SMPO_initialize(
         L=10,
         initializer=randn(1e-1),

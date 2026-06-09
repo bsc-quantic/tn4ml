@@ -1,34 +1,33 @@
-import os
-import json
 import argparse
-from time import time
+import json
+import os
 
-import numpy as np
+import h5py
 import jax
 import jax.numpy as jnp
-import optax
-import h5py
 import matplotlib.pyplot as plt
-
-import tn4ml
-from tn4ml.util import EarlyStopping, TrainingType
-from tn4ml.metrics import NegLogLikelihood
-from tn4ml.models.mps import MPS_initialize
-from tn4ml.initializers import gramschmidt, rand_unitary
-from tn4ml.embeddings import (
-    FourierEmbedding,
-    LegendreEmbedding,
-    LaguerreEmbedding,
-    HermiteEmbedding,
-)
-
+import numpy as np
+import optax
 from utils import (
     Colors,
     _ensure_data_exists,
+    calc_fidelity_batch,
     load_test_data,
     load_train_data,
-    calc_fidelity_batch,
 )
+
+import tn4ml
+from tn4ml.embeddings import (
+    Embedding,
+    FourierEmbedding,
+    HermiteEmbedding,
+    LaguerreEmbedding,
+    LegendreEmbedding,
+)
+from tn4ml.initializers import gramschmidt, rand_unitary
+from tn4ml.metrics import NegLogLikelihood
+from tn4ml.models.mps import MPS_initialize
+from tn4ml.util import EarlyStopping, TrainingType
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -184,20 +183,14 @@ if __name__ == "__main__":
         )
 
     # set standardization and minmax to bool
-    if args.standardization == "yes":
-        standardization = True
-    else:
-        standardization = False
+    standardization = args.standardization == "yes"
 
-    if args.minmax == "yes":
-        minmax = True
-    else:
-        minmax = False
+    minmax = args.minmax == "yes"
 
     # check result dir
-    if not os.path.exists(save_dir):
+    if not os.path.exists(save_dir):  # noqa: PTH110
         # Create a new directory because it does not exist
-        os.makedirs(save_dir)
+        os.makedirs(save_dir)  # noqa: PTH103
 
     if args.seed is not None:
         # Use specified seed for reproducibility
@@ -221,7 +214,7 @@ if __name__ == "__main__":
         )
 
     # Set random seed
-    np.random.seed(seed)
+    np.random.seed(seed)  # noqa: NPY002
     key = jax.random.PRNGKey(seed)
 
     # Set JAX to use 64-bit precision
@@ -253,7 +246,7 @@ if __name__ == "__main__":
         embedding_type, degree_str = embedding_string.split("_", 1)
         degree = int(degree_str)
     except ValueError:
-        raise ValueError(
+        raise ValueError(  # noqa: B904
             f"Invalid embedding format: {embedding_string}. Expected format: 'name_degree' (e.g., 'fourier_2')"
         )
 
@@ -262,7 +255,7 @@ if __name__ == "__main__":
         phys_dim = (
             degree * 2
         )  # Each frequency component adds 2 dimensions (sin and cos)
-        embedding = FourierEmbedding(p=degree)
+        embedding: Embedding = FourierEmbedding(p=degree)
     elif embedding_type == "legendre":
         phys_dim = degree + 1  # Legendre polynomials from degree 0 to degree
         embedding = LegendreEmbedding(degree=degree)
@@ -298,7 +291,7 @@ if __name__ == "__main__":
     }
 
     # Check if the initializer is valid
-    if args.initializer not in initializers.keys():
+    if args.initializer not in initializers:
         raise ValueError(
             f"Invalid initializer: {args.initializer}. Supported initializers: {', '.join(initializers.keys())}"
         )
@@ -424,21 +417,15 @@ if __name__ == "__main__":
     print(
         Colors.BLUE.value + "Saving parameters..." + Colors.RESET.value + "\n", end=""
     )
-    with open(os.path.join(save_dir, "parameters.json"), "w") as f:
+    with open(os.path.join(save_dir, "parameters.json"), "w") as f:  # noqa: PTH118, PTH123
         json.dump(params_save, f, indent=4)
 
     # EVALUATION
     print(Colors.BLUE.value + "Evaluating model..." + Colors.RESET.value + "\n", end="")
 
-    if args.standardization == "yes":
-        scaler = scalers["standard"]
-    else:
-        scaler = None
+    scaler = scalers["standard"] if args.standardization == "yes" else None
 
-    if args.minmax == "yes":
-        min_max_scaler = scalers["minmax"]
-    else:
-        min_max_scaler = None
+    min_max_scaler = scalers["minmax"] if args.minmax == "yes" else None
 
     # Load test data
     read_data_dir = f"{args.load_dir}/latent{args.latent}"

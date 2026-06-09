@@ -1,21 +1,22 @@
-import os
-import numpy as np
+from collections.abc import Collection, Sequence
+from pathlib import Path
+
 import matplotlib.pyplot as plt
+import numpy as np
 from sklearn.metrics import (
-    roc_curve,
     auc,
-    precision_recall_curve,
     average_precision_score,
+    precision_recall_curve,
+    roc_curve,
 )
-from typing import Collection, Sequence
 
 
 def plot_loss(
     history: dict,
     validation: bool = True,
     figsize: tuple = (5, 5),
-    save_path: str = None,
-    legend_args: dict = {},
+    save_path: str | None = None,
+    legend_args: dict | None = None,
 ):
     """
     Plot the loss of the model during training and validation.
@@ -35,6 +36,8 @@ def plot_loss(
     -------
     Displays the plot.
     """
+    if legend_args is None:
+        legend_args = {}
     plt.figure(figsize=figsize)
     plt.plot(range(len(history["loss"])), history["loss"], label="train")
     if validation:
@@ -55,8 +58,8 @@ def plot_loss(
 def plot_accuracy(
     history: dict,
     figsize: tuple = (5, 5),
-    save_path: str = None,
-    legend_args: dict = {},
+    save_path: str | None = None,
+    legend_args: dict | None = None,
 ):
     """
     Plot the accuracy of the model during training and validation.
@@ -78,6 +81,8 @@ def plot_accuracy(
     -------
         Displays or saves the plot.
     """
+    if legend_args is None:
+        legend_args = {}
     plt.figure(figsize=figsize)
     plt.plot(range(len(history["val_acc"])), history["val_acc"], label="validation")
     plt.legend(legend_args)
@@ -158,13 +163,12 @@ def get_precision_recall_curve_data(
     return precision, recall
 
 
-def get_FPR_for_fixed_TPR(tpr_window, fpr, tpr, tolerance):
+def get_FPR_for_fixed_TPR(tpr_window, fpr, tpr, tolerance):  # noqa: N802
     """
     Calculate the FPR for a fixed TPR value.
 
     Parameters
     ----------
-
     tpr_window: float
         Fixed TPR value.
     fpr: :class:`numpy.ndarray`
@@ -186,13 +190,12 @@ def get_FPR_for_fixed_TPR(tpr_window, fpr, tpr, tolerance):
     return np.mean(fpr[position])
 
 
-def get_TPR_for_fixed_FPR(fpr_window, fpr, tpr, tolerance):
+def get_TPR_for_fixed_FPR(fpr_window, fpr, tpr, tolerance):  # noqa: N802
     """
     Calculate the TPR for a fixed FPR value.
 
     Parameters
     ----------
-
     fpr_window: float
         Fixed FPR value.
     fpr: :class:`numpy.ndarray`
@@ -207,7 +210,6 @@ def get_TPR_for_fixed_FPR(fpr_window, fpr, tpr, tolerance):
     tpr: float
         TPR value for the fixed FPR value.
     """
-
     position = np.where(
         (fpr >= fpr_window - fpr_window * tolerance)
         & (fpr <= fpr_window + fpr_window * tolerance)
@@ -231,20 +233,18 @@ def get_mean_and_error(data):
     std: :class:`numpy.ndarray`
         Standard deviation of the input data.
     """
-
     mean = np.mean(data, axis=0)
     std = np.std(data, axis=0)
     return mean, std
 
 
-def plot_ROC_curve_from_metrics(
+def plot_ROC_curve_from_metrics(  # noqa: N802
     y_true: np.ndarray,
     y_scores: np.ndarray,
     title: str = "ROC Curve",
-    save_path: str = None,
+    save_path: str | None = None,
 ):
-    """
-    Calculates TPR and FPR from input metrics and plots the ROC curve.
+    """Calculate TPR and FPR from input metrics and plot the ROC curve.
 
     Parameters
     ----------
@@ -258,7 +258,7 @@ def plot_ROC_curve_from_metrics(
         Path and name to save the plot.
 
     Returns
-    ------
+    -------
         Displays or saves the plot.
     """
     # Calculate FPR, TPR, and thresholds
@@ -287,11 +287,13 @@ def plot_ROC_curve_from_metrics(
     plt.close()
 
 
-def plot_ROC_curve_from_data(
-    fpr: np.ndarray, tpr: np.ndarray, title: str = "ROC Curve", save_path: str = None
+def plot_ROC_curve_from_data(  # noqa: N802
+    fpr: np.ndarray,
+    tpr: np.ndarray,
+    title: str = "ROC Curve",
+    save_path: str | None = None,
 ):
-    """
-    Plots the ROC curve from input FPR and TPR values.
+    """Plot the ROC curve from input FPR and TPR values.
 
     Parameters
     ----------
@@ -305,7 +307,7 @@ def plot_ROC_curve_from_data(
         Path and name to save the plot. Example: `./ROC_curve.pdf`
 
     Returns
-    ------
+    -------
         Displays or saves the plot.
     """
     # Calculate the AUC
@@ -331,14 +333,13 @@ def plot_ROC_curve_from_data(
     plt.close()
 
 
-def plot_PR_curve(
+def plot_PR_curve(  # noqa: N802
     y_true: np.ndarray,
     y_scores: np.ndarray,
     title: str = "Precision-Recall Curve",
-    save_path: str = None,
+    save_path: str | None = None,
 ):
-    """
-    Calculates precision and recall from input metrics and plots the Precision-Recall curve.
+    """Calculate precision and recall from input metrics and plot the Precision-Recall curve.
 
     Parameters
     ----------
@@ -352,10 +353,9 @@ def plot_PR_curve(
         Path and name to save the plot.
 
     Returns
-    ------
+    -------
         Displays or saves the plot.
     """
-
     # Calculate FPR, TPR, and thresholds
     precision, recall = get_precision_recall_curve_data(y_true, y_scores)
 
@@ -386,20 +386,21 @@ def plot_PR_curve(
     plt.close()
 
 
-def compare_AUC(
+def compare_AUC(  # noqa: N802
     save_dir: str = ".",
-    bond_dims: Collection[int] = None,
-    spacings: Collection[int] = None,
-    initializers: Sequence[str] = None,
+    bond_dims: Collection[int] | None = None,
+    spacings: Collection[int] | None = None,
+    initializers: Sequence[str] | None = None,
     embedding: str = "trigonometric",
     nruns: int = 0,
     fig_size: tuple = (6, 5),
-    labels: dict = None,
+    labels: dict | None = None,
     anomaly_det: bool = False,
 ):
-    """
+    """Compare TPR values for fixed FPR across hyperparameters.
+
     Example of code to compare the TPR values for fixed FPR for different values of hyperparameters, when spacing parameter is fixed.
-    - code for generating plots from the paper "tn4ml: Tensor Network Training and Customization for Machine Learning"
+    - code for generating plots from the paper "tn4ml: Tensor Network Training and Customization for Machine Learning".
 
     This works with the results saved in the directory structure as follows::
 
@@ -438,7 +439,6 @@ def compare_AUC(
     -------
         Displays or saves the plot.
     """
-
     for spacing in spacings:
         plt.figure(figsize=fig_size)
         auc_per_bond_data = {}
@@ -511,28 +511,29 @@ def compare_AUC(
         plt.legend(fancybox=True, frameon=True, prop={"size": 10}, loc="best")
 
         if save_dir:
-            if not os.path.exists(f"{save_dir}/results/plots/AUC"):
-                os.makedirs(f"{save_dir}/results/plots/AUC")
-            plt.savefig(f"{save_dir}/results/plots/AUC/spacing_{spacing}.pdf")
+            plot_dir = Path(save_dir) / "results" / "plots" / "AUC"
+            plot_dir.mkdir(parents=True, exist_ok=True)
+            plt.savefig(plot_dir / f"spacing_{spacing}.pdf")
         else:
             plt.show()
         plt.close()
 
 
-def compare_TPR_per_FPR(
+def compare_TPR_per_FPR(  # noqa: N802
     save_dir: str = ".",
     FPR_fixed: float = 0.1,
-    bond_dims: Collection[int] = None,
-    spacings: Collection[int] = None,
-    initializers: Sequence[str] = None,
+    bond_dims: Collection[int] | None = None,
+    spacings: Collection[int] | None = None,
+    initializers: Sequence[str] | None = None,
     embedding: str = "trigonometric",
     nruns: int = 0,
     fig_size: tuple = (6, 5),
-    labels: dict = None,
+    labels: dict | None = None,
     anomaly_det: bool = False,
 ):
-    """
-    Example of code to compare the TPR values for fixed FPR for different values of hyperparameters, when spacing parameter is fixed.
+    """Compare TPR values for fixed FPR across hyperparameters.
+
+    Example code for the case where the spacing parameter is fixed.
 
     This works with the results saved in the directory structure as follows::
 
@@ -575,7 +576,6 @@ def compare_TPR_per_FPR(
     None
         Displays or saves the plot.
     """
-
     for spacing in spacings:
         plt.figure(figsize=fig_size)
         tpr_per_bond_data = {}
@@ -651,31 +651,30 @@ def compare_TPR_per_FPR(
         plt.legend(fancybox=True, frameon=True, prop={"size": 10}, loc="best")
 
         if save_dir:
-            if not os.path.exists(f"{save_dir}/results/plots/TPR"):
-                os.makedirs(f"{save_dir}/results/plots/TPR")
-            plt.savefig(
-                f"{save_dir}/results/plots/TPR/spacing_{spacing}_FPR_{FPR_fixed}.pdf"
-            )
+            plot_dir = Path(save_dir) / "results" / "plots" / "TPR"
+            plot_dir.mkdir(parents=True, exist_ok=True)
+            plt.savefig(plot_dir / f"spacing_{spacing}_FPR_{FPR_fixed}.pdf")
         else:
             plt.show()
         plt.close()
 
 
-def compare_FPR_per_TPR(
+def compare_FPR_per_TPR(  # noqa: N802
     save_dir: str = ".",
     TPR_fixed: float = 0.95,
-    bond_dims: Collection[int] = None,
-    spacings: Collection[int] = None,
-    initializers: Sequence[str] = None,
+    bond_dims: Collection[int] | None = None,
+    spacings: Collection[int] | None = None,
+    initializers: Sequence[str] | None = None,
     embedding: str = "trigonometric",
     nruns: int = 0,
     fig_size: tuple = (6, 5),
-    labels: dict = None,
+    labels: dict | None = None,
     anomaly_det: bool = False,
 ):
-    """
-    Example of code to compare the FPR values for fixed TPR for different values of hyperparameters, when spacing parameter is fixed.
-    - code for generating plots from the paper "tn4ml: Tensor Network Training and Customization for Machine Learning"
+    """Compare FPR values for fixed TPR across hyperparameters.
+
+    Example code for the case where the spacing parameter is fixed.
+    - code for generating plots from the paper "tn4ml: Tensor Network Training and Customization for Machine Learning".
 
     This works with the results saved in the directory structure as follows::
 
@@ -716,7 +715,6 @@ def compare_FPR_per_TPR(
     -------
         Displays or saves the plot.
     """
-
     for spacing in spacings:
         plt.figure(figsize=fig_size)
         tpr_per_bond_data = {}
@@ -792,11 +790,9 @@ def compare_FPR_per_TPR(
         plt.legend(fancybox=True, frameon=True, prop={"size": 10}, loc="best")
 
         if save_dir:
-            if not os.path.exists(f"{save_dir}/results/plots/FPR"):
-                os.makedirs(f"{save_dir}/results/plots/FPR")
-            plt.savefig(
-                f"{save_dir}/results/plots/FPR/spacing_{spacing}_TPR_{TPR_fixed}.pdf"
-            )
+            plot_dir = Path(save_dir) / "results" / "plots" / "FPR"
+            plot_dir.mkdir(parents=True, exist_ok=True)
+            plt.savefig(plot_dir / f"spacing_{spacing}_TPR_{TPR_fixed}.pdf")
         else:
             plt.show()
         plt.close()

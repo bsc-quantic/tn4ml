@@ -1,31 +1,28 @@
-from typing import Any, Tuple
-import numpy as np
+from typing import Any
+
 import autoray as a
-
-from quimb import *
-import quimb.tensor as qtn
-from quimb.tensor.tensor_1d import MatrixProductOperator as _MPOBase
-
-from jax.nn.initializers import Initializer
 import jax.numpy as jnp
+import numpy as np
+import quimb.tensor as qtn
+from jax.nn.initializers import Initializer
+from quimb import *
+from quimb.tensor.tensor_1d import MatrixProductOperator as _MPOBase
 
 from .model import Model
 
 
 class MatrixProductOperator(Model, _MPOBase):
     """A Trainable MatrixProductOperator class.
+
     See :class:`quimb.tensor.tensor_1d.MatrixProductOperator` for explanation of other attributes and methods.
     """
 
     def __init__(self, arrays, **kwargs):
-        # if isinstance(arrays, MatrixProductState):
-        #     Model.__init__(self)
-        #     return
         Model.__init__(self)
         qtn.MatrixProductOperator.__init__(self, arrays, **kwargs)
 
     def normalize(self, insert=None):
-        """Function for normalizing tensors of :class:`tn4ml.models.mpo.MatrixProductOperator`.
+        """Normalize tensors of :class:`tn4ml.models.mpo.MatrixProductOperator`.
 
         Parameters
         ----------
@@ -53,7 +50,7 @@ class MatrixProductOperator(Model, _MPOBase):
 def trainable_wrapper(
     mps: qtn.MatrixProductOperator, **kwargs
 ) -> MatrixProductOperator:
-    """Creates a wrapper around qtn.MatrixProductOperator so it can be trainable.
+    """Create a trainable wrapper around qtn.MatrixProductOperator.
 
     Parameters
     ----------
@@ -72,11 +69,11 @@ def generate_shape(
     method: str,
     L: int,
     bond_dim: int = 2,
-    phys_dim: Tuple[int, int] = (2, 2),
+    phys_dim: tuple[int, int] = (2, 2),
     cyclic: bool = False,
-    position: int = None,
+    position: int | None = None,
 ) -> tuple:
-    """Returns a shape of tensor.
+    """Return a tensor shape.
 
     Parameters
     ----------
@@ -93,11 +90,11 @@ def generate_shape(
         Flag for indicating if MatrixProductOperator this tensor is part of is cyclic. *Default=False*.
     position : int
         Position of tensor in MatrixProductOperator.
+
     Returns
     -------
         tuple
     """
-
     shape: tuple
     if method == "even":
         shape = (bond_dim, bond_dim, *phys_dim)
@@ -108,10 +105,7 @@ def generate_shape(
     else:
         # not sure is this needed if I can use compress
         assert not cyclic
-        if position > L // 2:
-            j = (L + 1 - abs(2 * position - L - 1)) // 2
-        else:
-            j = position
+        j = (L + 1 - abs(2 * position - L - 1)) // 2 if position > L // 2 else position
 
         chir = min(bond_dim, phys_dim[0] ** j * phys_dim[1] ** j)
         chil = min(bond_dim, phys_dim[0] ** (j - 1) * phys_dim[1] ** (j - 1))
@@ -129,23 +123,23 @@ def generate_shape(
     return shape
 
 
-def MPO_initialize(
+def MPO_initialize(  # noqa: N802
     L: int,
     initializer: Initializer,
     key: Any,
     dtype: Any = jnp.float_,
     shape_method: str = "even",
     bond_dim: int = 4,
-    phys_dim: Tuple[int, int] = (2, 2),
+    phys_dim: tuple[int, int] = (2, 2),
     add_identity: bool = False,
     boundary: str = "obc",
     cyclic: bool = False,
     compress: bool = False,
-    insert: int = None,
-    canonical_center: int = None,
+    insert: int | None = None,
+    canonical_center: int | None = None,
     **kwargs,
 ):
-    """Generates :class:`tn4ml.models.mps.MatrixProductOperator`.
+    """Generate :class:`tn4ml.models.mps.MatrixProductOperator`.
 
     Parameters
     ----------
@@ -181,7 +175,6 @@ def MPO_initialize(
     -------
     :class:`tn4ml.models.mps.MatrixProductOperator`
     """
-
     if cyclic and shape_method != "even":
         raise NotImplementedError("Change shape_method to 'even'.")
 

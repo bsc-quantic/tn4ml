@@ -1,13 +1,14 @@
 """Test initializer functions"""
 
-import pytest
-from tn4ml.util import *
-import tn4ml
 import jax
 import jax.numpy as jnp
+import pytest
+
+import tn4ml
+from tn4ml.util import *
 
 
-def check_orthonormal_vectors(Q, type="rows", atol=1e-6):
+def check_orthonormal_vectors(Q, type="rows", atol=1e-6):  # noqa: A002
     """
     Check if the rows of matrix Q form an orthonormal set.
 
@@ -37,25 +38,24 @@ def check_orthonormal_vectors(Q, type="rows", atol=1e-6):
                     return False
 
         return True
-    else:
-        # Check normality (unit norm for each col vector)
-        for col in range(num_cols):
-            print(jnp.linalg.norm(Q[:, col]))
-            if not jnp.isclose(jnp.linalg.norm(Q[:, col]), 1.0, atol=atol):
+    # Check normality (unit norm for each col vector)
+    for col in range(num_cols):
+        print(jnp.linalg.norm(Q[:, col]))
+        if not jnp.isclose(jnp.linalg.norm(Q[:, col]), 1.0, atol=atol):
+            return False
+    print("Normality okay")
+    # Check orthogonality between each pair of distinct col vectors
+    for i in range(num_cols):
+        for j in range(i + 1, num_cols):
+            print(jnp.dot(Q[:, i], Q[:, j]))
+            if not jnp.isclose(jnp.dot(Q[:, i], Q[:, j]), 0, atol=atol):
                 return False
-        print("Normality okay")
-        # Check orthogonality between each pair of distinct col vectors
-        for i in range(num_cols):
-            for j in range(i + 1, num_cols):
-                print(jnp.dot(Q[:, i], Q[:, j]))
-                if not jnp.isclose(jnp.dot(Q[:, i], Q[:, j]), 0, atol=atol):
-                    return False
 
-        return True
+    return True
 
 
 @pytest.mark.parametrize(
-    "std,mean,shape",
+    ("std", "mean", "shape"),
     [
         (1.0, 0.0, (1, 2, 2)),
         (1e-9, 1e-6, (5, 5, 2, 3)),
@@ -64,14 +64,14 @@ def check_orthonormal_vectors(Q, type="rows", atol=1e-6):
         (0.5, None, (5, 5, 2)),
     ],
 )
-def test_identity_init(std, mean, shape):
+def test_randn_init_with_parameters(std, mean, shape):
     initializer = tn4ml.initializers.randn(std, mean)
     Q = initializer(jax.random.key(42), shape, jnp.float32)
     assert Q is not None
 
 
 @pytest.mark.parametrize(
-    "dist,scale,shape",
+    ("dist", "scale", "shape"),
     [
         ("uniform", 1e-2, (2, 3)),
         ("uniform", 1e-2, (5, 5)),
@@ -96,7 +96,7 @@ def test_gramschmidt_init(dist, scale, shape):
 
 
 @pytest.mark.parametrize("shape", [((1, 2, 2)), ((5, 5, 2, 3)), ((5, 5, 2))])
-def test_identity_init(shape):
+def test_randn_init_default(shape):
     initializer = tn4ml.initializers.randn()
     Q = initializer(jax.random.key(42), shape, jnp.float32)
     assert Q is not None
@@ -177,7 +177,7 @@ def test_identity_bond(shape):
 
 
 def test_identity_invalid_type():
-    with pytest.raises(ValueError, match="Defined only"):
+    with pytest.raises(ValueError, match="Defined only"):  # noqa: PT012
         initializer = tn4ml.initializers.identity("invalid")
         initializer(jax.random.key(42), (3, 3), jnp.float32)
 

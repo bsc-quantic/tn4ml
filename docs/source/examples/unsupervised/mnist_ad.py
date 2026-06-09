@@ -1,23 +1,29 @@
-import os
-import json
-import seaborn as sns
 import argparse
-import jax.numpy as jnp
-import tensorflow as tf
-from tensorflow.keras.datasets import mnist
-from jax.nn.initializers import *
-from flax.training.early_stopping import EarlyStopping
-import matplotlib.pyplot as plt
-from sklearn.metrics import auc
-
-from tn4ml.initializers import *
-from tn4ml.models.smpo import *
-from tn4ml.models.model import *
-from tn4ml.embeddings import *
-from tn4ml.metrics import *
-from tn4ml.eval import *
-
+import json
+import os
 import warnings
+
+import jax
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
+import numpy as np
+import optax
+import seaborn as sns
+import tensorflow as tf
+from sklearn.metrics import auc
+from tensorflow.keras.datasets import mnist
+
+from tn4ml.embeddings import (
+    Embedding,
+    FourierEmbedding,
+    PolynomialEmbedding,
+    TrigonometricEmbedding,
+)
+from tn4ml.eval import get_roc_curve_data
+from tn4ml.initializers import gramschmidt, rand_unitary, randn
+from tn4ml.metrics import CombinedLoss, LogQuadNorm, LogReLUFrobNorm
+from tn4ml.models.smpo import SMPO_initialize
+from tn4ml.util import EarlyStopping, TrainingType
 
 warnings.filterwarnings("ignore", message="Couldn't import `kahypar`")
 warnings.filterwarnings(
@@ -25,24 +31,30 @@ warnings.filterwarnings(
 )
 
 
-def zigzag_order(data):
+def zigzag_order(data):  # noqa: D103
     data = np.squeeze(data)
     # Reshape the array to (N, -1) where N is the number of images, and flatten each image
-    data_zigzag = data.reshape(data.shape[0], -1)
-    return data_zigzag
+    return data.reshape(data.shape[0], -1)
 
 
-def resize_images(images):
+def resize_images(images):  # noqa: D103
     resized_images = tf.image.resize(
         images, [14, 14], method=tf.image.ResizeMethod.AREA
     )
     return resized_images.numpy()
 
 
-def loss_combined(*args, **kwargs):
+def loss_combined(model, data, y_true=None, embedding=None):  # noqa: D103
     error = LogQuadNorm
     reg = LogReLUFrobNorm
-    return CombinedLoss(*args, **kwargs, error=error, reg=lambda P: alpha * reg(P))
+    return CombinedLoss(
+        model,
+        data,
+        y_true,
+        error=error,
+        reg=lambda P: alpha * reg(P),
+        embedding=embedding,
+    )
 
 
 if __name__ == "__main__":
@@ -93,8 +105,8 @@ if __name__ == "__main__":
     # ------ LOAD DATASET -------
     train, test = mnist.load_data()
     data = {
-        "X": dict(train=train[0], test=test[0]),
-        "y": dict(train=train[1], test=test[1]),
+        "X": {"train": train[0], "test": test[0]},
+        "y": {"train": train[1], "test": test[1]},
     }
 
     normal_class = args.normal_class
@@ -151,24 +163,21 @@ if __name__ == "__main__":
     embedding_string = args.embedding
     if embedding_string == "trigonometric":
         phys_dim = 2
-        embedding = TrigonometricEmbedding()
+        embedding: Embedding = TrigonometricEmbedding()
     elif embedding_string == "fourier":
         phys_dim = 3
         embedding = FourierEmbedding(p=3)
     elif embedding_string == "poly_2":
         phys_dim = 3
-        embedding = PolynomialEmbedding(degree=2)
+        embedding = PolynomialEmbedding(degree=2, n=1)
     elif embedding_string == "poly_3":
         phys_dim = 4
-        embedding = PolynomialEmbedding(degree=3)
+        embedding = PolynomialEmbedding(degree=3, n=1)
     else:
         raise ValueError("Invalid embedding")
 
     # compress bond dimensions if shape_method is even
-    if args.shape_method == "even":
-        compress = True
-    else:
-        compress = False
+    compress = args.shape_method == "even"
 
     for bond_dim in list(args.bond_dims):
         for spacing in list(args.spacings):
@@ -253,8 +262,8 @@ if __name__ == "__main__":
                 if history["unfinished"]:
                     save_dir = save_dir + "/unfinished"
 
-                if not os.path.exists(save_dir):
-                    os.makedirs(save_dir)
+                if not os.path.exists(save_dir):  # noqa: PTH110
+                    os.makedirs(save_dir)  # noqa: PTH103
 
                 # plot loss
                 plt.figure()
@@ -288,7 +297,7 @@ if __name__ == "__main__":
                 }
 
                 # save parameters
-                with open(os.path.join(save_dir, ("parameters.txt")), "w") as f:
+                with open(os.path.join(save_dir, ("parameters.txt")), "w") as f:  # noqa: PTH118, PTH123
                     f.write("Parameters: ")
                     json.dump(params, f)
                     f.write("\n")
@@ -326,7 +335,9 @@ if __name__ == "__main__":
                 np.save(save_dir + "/normal_score.npy", normal_score)
 
                 fpr, tpr = get_roc_curve_data(
-                    normal_score, anomaly_score, anomaly_det=True
+                    np.asarray(normal_score),
+                    np.asarray(anomaly_score),
+                    anomaly_det=True,
                 )
                 auc_value = auc(fpr, tpr)
 
@@ -358,7 +369,7 @@ if __name__ == "__main__":
                 # plo roc curve
                 sns.set(style="whitegrid")
                 plt.figure(figsize=(8, 7))
-                plt.plot(fpr, tpr, label="AUC = %0.3f" % auc_value, color="darkblue")
+                plt.plot(fpr, tpr, label=f"AUC = {auc_value:0.3f}", color="darkblue")
                 plt.plot([0, 1], [0, 1], "k--")  # Random guess line
                 plt.xlim([0.0, 1.0])
                 plt.ylim([0.0, 1.05])
