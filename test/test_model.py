@@ -409,9 +409,11 @@ def test_train_sweeps_one_way():
 
 
 def test_train_sweeps_opt_states_indexed_by_site():
-    """Optimizer state must be keyed per site, not per sweep iteration.
-    Verifies the fix where opt_states[opt_index] replaced opt_states[s].
-    A two-epoch run would accumulate wrong momentum if states were mixed up."""
+    """Optimizer state must be keyed by ordered sweep step.
+
+    Forward and backward passes over the same bond can produce different
+    contracted tensor axis orders, so they cannot share one Adam state.
+    """
     key = jax.random.PRNGKey(0)
     model = MPS_initialize(
         L=4,
@@ -435,3 +437,6 @@ def test_train_sweeps_opt_states_indexed_by_site():
     )
     # Loss should be finite and not NaN throughout (state corruption typically causes NaN)
     assert all(np.isfinite(v) for v in history["loss"])
+    assert set(model.opt_states) == set(model.strategy.iterate_sites(model))
+    assert (1, 2) in model.opt_states
+    assert (2, 1) in model.opt_states

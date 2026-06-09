@@ -409,9 +409,11 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             arr = a.do("squeeze", arrays[0])
             if len(arr.shape) == 0:
                 arr = a.do("reshape", arr, (1,))
+            if len(arr.shape) == 1:
+                arr = a.do("reshape", arr, (*arr.shape, 1))
             arrays[0] = arr
 
-        shape = "lrp"
+        shape = "pr" if len(arrays) == 1 else "lrp"
         vec = MatrixProductState(arrays, shape=shape)
 
         # optionally compress

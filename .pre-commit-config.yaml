@@ -14,7 +14,9 @@ repos:
     hooks:
       - id: nbstripout
         args:
-          - "--extra-keys=metadata.kernelspec metadata.language_info.codemirror_mode.version metadata.language_info.pygments_lexer metadata.language_info.version metadata.widgets"
+          - "--keep-output"
+          - "--keep-count"
+          - "--extra-keys=metadata.kernelspec metadata.language_info"
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.14

@@ -561,7 +561,16 @@ class Model(qtn.TensorNetwork):
             grads = {i: jnp.array(data) for i, data in enumerate(grads)}
             params = {i: jnp.array(data) for i, data in enumerate(params)}
 
-            updates, opt_state = self.optimizer.update(grads, opt_state)
+            try:
+                updates, opt_state = self.optimizer.update(grads, opt_state)
+            except TypeError as exc:
+                if "incompatible shapes for broadcasting" not in str(exc):
+                    raise
+                # Sweep canonicalization can change the contracted tensor axis
+                # order for the same sweep step. In that case Adam's moment
+                # buffers no longer match the current gradient shape.
+                opt_state = self.optimizer.init(params)
+                updates, opt_state = self.optimizer.update(grads, opt_state)
             params = optax.apply_updates(params, updates)
 
             # convert back to arrays
@@ -713,7 +722,7 @@ class Model(qtn.TensorNetwork):
             # initialize optimizers
             with jax.default_device(jax.devices(self.device[0])[self.device[1]]):
                 self.loss_func = jax.jit(loss_fn)
-            self.opt_states = []
+            self.opt_states = {}
 
             for s, sites in enumerate(self.strategy.iterate_sites(self)):
                 self.strategy.prehook(self, sites)
@@ -727,7 +736,7 @@ class Model(qtn.TensorNetwork):
                     params=params_i, loss_func=self.loss_func
                 )
 
-                self.opt_states.append(opt_state)
+                self.opt_states[sites] = opt_state
 
                 self.strategy.posthook(self, sites)
         else:
@@ -792,15 +801,12 @@ class Model(qtn.TensorNetwork):
                             ):
                                 self.strategy.prehook(self, sites)
 
-                                # Always use left tensor (min site index)
-                                opt_index = min(sites)
-                                site_tag = self.site_tag(opt_index)
+                                site_tag = self.site_tag(min(sites))
                                 tensor = self.select_tensors(site_tag)[0]
 
                                 if self.strategy.grouping == 2:
                                     # Transpose tensor if needed to match expected ordering
-                                    key = tuple(sorted(sites))
-                                    expected_inds = self.strategy.inds_order[key]
+                                    expected_inds = self.strategy.inds_order[sites]
                                     if (
                                         sorted(tensor.inds) == sorted(expected_inds)
                                         and tensor.inds != expected_inds
@@ -815,9 +821,9 @@ class Model(qtn.TensorNetwork):
                                 params_i = jnp.expand_dims(tensor.data, axis=0)
 
                                 # Optimizer step
-                                _, self.opt_states[opt_index], loss_group = self.step(
+                                _, self.opt_states[sites], loss_group = self.step(
                                     params_i,
-                                    self.opt_states[opt_index],
+                                    self.opt_states[sites],
                                     batch_data,
                                     grad_clip_threshold=gradient_clip_threshold,
                                 )

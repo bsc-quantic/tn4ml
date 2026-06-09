@@ -75,6 +75,10 @@ def gramschmidt_row(A, atol=1e-10):
     Orthonormal matrix A.
     """
     m, n = A.shape
+    if m <= n:
+        q, _ = jnp.linalg.qr(A.T, mode="reduced")
+        return q.T
+
     Q = []
     for i in range(m):
         q = A[i, :]
