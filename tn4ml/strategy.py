@@ -148,7 +148,11 @@ class Sweeps(Strategy):
         if self.grouping > 2:
             raise NotImplementedError("Not implememented for grouping > 2.")
 
-        model.canonize(set(sites), inplace=True)
+        sites_to_canonize = set(sites)
+        if hasattr(model, "canonicalize"):
+            model.canonicalize(sites_to_canonize, inplace=True)
+        else:
+            model.canonize(sites_to_canonize)
 
         if self.grouping == 2:
             self.bond_dim_split = model.bond_size(sites[0], sites[1])
