@@ -61,6 +61,13 @@ setup(
             "matplotlib",
         ],
         "test": ["pytest", "matplotlib"],
-        "examples": ["matplotlib", "scikit-learn", "argparse", "tensorflow", "seaborn"],
+        "examples": [
+            "argparse",
+            "matplotlib",
+            "networkx",
+            "scikit-learn",
+            "seaborn",
+            "tensorflow",
+        ],
     },
 )
