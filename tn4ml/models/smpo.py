@@ -381,12 +381,21 @@ class SpacedMatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat, 
             arr = a.do("squeeze", arrays[0])
             if len(arr.shape) == 0:
                 arr = a.do("reshape", arr, (1,))
-            if len(arr.shape) == 1:
-                arr = a.do("reshape", arr, (1, *arr.shape))
-            arrays[0] = _boundary_tensor(arr)
+            elif len(arr.shape) > 1:
+                arr = a.do("reshape", arr, (-1,))
+            site = sorted(mps.sites)[0]
+            return qtn.TensorNetwork(
+                [
+                    qtn.Tensor(
+                        data=arr,
+                        inds=(mps.site_ind(site),),
+                        tags=(mps.site_tag(site),),
+                    )
+                ],
+                virtual=True,
+            )
 
-        shape = "rp" if len(arrays) == 1 else "lrp"
-        vec = MatrixProductState(arrays, shape=shape)
+        vec = MatrixProductState(arrays, shape="lrp")
 
         # optionally compress
         if compress:
