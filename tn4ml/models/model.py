@@ -653,7 +653,7 @@ class Model(qtn.TensorNetwork):
         if embedding is None:
             embedding = TrigonometricEmbedding()
 
-        num_batches = len(inputs) // batch_size
+        num_batches = max(1, len(inputs) // batch_size)
 
         if targets is not None and targets.ndim == 1:
             targets = np.expand_dims(targets, axis=-1)
@@ -664,7 +664,7 @@ class Model(qtn.TensorNetwork):
         self.batch_size = batch_size
 
         if inputs is not None:
-            n_batches = len(inputs) // self.batch_size
+            n_batches = max(1, len(inputs) // self.batch_size)
 
         if not hasattr(self, "history"):
             self.history: dict = {}
@@ -1040,6 +1040,7 @@ class Model(qtn.TensorNetwork):
 
         if inputs is not None:
             loss_value: Any = 0
+            num_batches = 0
             for batch_data in _batch_iterator(
                 inputs,
                 targets,
@@ -1088,6 +1089,7 @@ class Model(qtn.TensorNetwork):
                     loss_curr = loss_fn(x, y, *params)
 
                 loss_value += np.mean(loss_curr)
+                num_batches += 1
 
                 if return_list:
                     loss.extend(loss_curr)
@@ -1095,7 +1097,10 @@ class Model(qtn.TensorNetwork):
             if return_list:
                 return np.array(loss)
 
-            loss_value = loss_value / (len(inputs) // batch_size)
+            if num_batches == 0:
+                raise ValueError("No evaluation batches were produced.")
+
+            loss_value = loss_value / num_batches
         else:
             assert (
                 evaluate_type == TrainingType.TARGET_TN
@@ -1141,22 +1146,18 @@ def load_model(model_name, dir_name=None):
     return qu.load_from_disk(f"{dir_name}/{model_name}.pkl")
 
 
-def _check_chunks(chunked: Any, batch_size: int = 2) -> Any:
-    """Check if the last chunk is smaller than the batch size.
+def _check_chunks(chunked: Any) -> Any:
+    """Return chunks without dropping partial batches.
 
     Parameters
     ----------
     chunked : sequence
         Sequence of chunks.
-    batch_size : int
-        Size of batch.
 
     Returns
     -------
     sequence
     """
-    if len(chunked[-1]) < batch_size:
-        chunked = chunked[:-1]
     return chunked
 
 
@@ -1206,10 +1207,10 @@ def _batch_iterator(
             y = y[perm]
 
     # Chunk the data
-    x_chunks = _check_chunks(list(funcy.chunks(batch_size, x)), batch_size)
+    x_chunks = _check_chunks(list(funcy.chunks(batch_size, x)))
 
     if y is not None:
-        y_chunks = _check_chunks(list(funcy.chunks(batch_size, y)), batch_size)
+        y_chunks = _check_chunks(list(funcy.chunks(batch_size, y)))
 
         # Track batch number for alternating flips
         for batch_idx, (x_chunk, y_chunk) in enumerate(
