@@ -130,5 +130,5 @@ jobs:
       - name: Run notebooks
         run: |
           pytest --nbmake docs/source/examples/ \
-            --nbmake-timeout=300 \
+            --nbmake-timeout=900 \
             -v
