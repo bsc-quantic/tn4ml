@@ -8,12 +8,20 @@ import pytest
 import tn4ml.metrics as metrics
 from tn4ml.embeddings import TrigonometricEmbedding
 from tn4ml.initializers import randn
-from tn4ml.models.model import _batch_iterator
+from tn4ml.models.model import Model, _batch_iterator
 from tn4ml.models.mps import MPS_initialize
 from tn4ml.models.smpo import SMPO_initialize
 from tn4ml.util import TrainingType
 
 jax.config.update("jax_enable_x64", True)
+
+
+class _IdentityAccuracyModel(Model):
+    def __init__(self):
+        self.device = ("cpu", 0)
+
+    def predict(self, sample, embedding=None, return_tn=False, normalize=False):
+        return sample
 
 
 # --- nparams ---
@@ -292,6 +300,49 @@ def test_predict_input_too_short():
     sample = np.random.rand(5)  # noqa: NPY002
     with pytest.raises(ValueError, match="at least"):
         model.predict(sample)
+
+
+# --- accuracy ---
+
+
+def test_accuracy_uses_raw_outputs_by_default():
+    model = _IdentityAccuracyModel()
+    data = np.array([[0.1, 0.9], [0.8, 0.2]])
+    targets = np.array([[0, 1], [1, 0]])
+
+    accuracy = model.accuracy(data, targets, batch_size=2)
+
+    assert accuracy == pytest.approx(1.0)
+
+
+def test_accuracy_accepts_score_transform():
+    model = _IdentityAccuracyModel()
+    data = np.array([[0.1, 0.9], [0.8, 0.2]])
+    targets = np.array([[0, 1], [1, 0]])
+
+    accuracy = model.accuracy(
+        data,
+        targets,
+        batch_size=2,
+        accuracy_fn=lambda scores: scores[:, ::-1],
+    )
+
+    assert accuracy == pytest.approx(0.0)
+
+
+def test_accuracy_accepts_label_transform_and_integer_targets():
+    model = _IdentityAccuracyModel()
+    data = np.array([[0.1], [0.9]])
+    targets = np.array([0, 1])
+
+    accuracy = model.accuracy(
+        data,
+        targets,
+        batch_size=2,
+        accuracy_fn=lambda scores: scores[:, 0] > 0.5,
+    )
+
+    assert accuracy == pytest.approx(1.0)
 
 
 # --- train + evaluate (small integration test) ---
