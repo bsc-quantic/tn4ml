@@ -30,3 +30,10 @@ Tensor Networks for Machine Learning
    source/examples/mnist_ad
    source/examples/mnist_ad_sweeps
    source/examples/tnad_latent/index.rst
+
+.. toctree::
+   :maxdepth: 1
+   :titlesonly:
+   :caption: Changelog
+
+   source/changelog
