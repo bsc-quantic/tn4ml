@@ -7,11 +7,11 @@ from typing import Any
 
 import funcy
 import jax
+import jax.numpy as jnp
 import numpy as np
 import optax
 import quimb as qu
 import quimb.tensor as qtn
-from scipy.special import softmax
 from tqdm import tqdm
 
 from ..embeddings import *
@@ -19,6 +19,33 @@ from ..strategy import *
 from ..util import EarlyStopping, TrainingType, gradient_clip
 
 logger = logging.getLogger(__name__)
+
+
+def _as_class_labels(values: jnp.ndarray) -> jnp.ndarray:
+    """Convert class scores, one-hot labels, or class labels to label indices.
+
+    If values are class scores, the predicted class is selected with argmax.
+    If values are one-hot labels, the class label is extracted with argmax.
+    If values are already class labels, they are returned as is.
+
+    Parameters
+    ----------
+    values : jnp.ndarray
+        Array of class scores, one-hot labels, or class labels.
+
+    Returns
+    -------
+    jnp.ndarray
+        Array of class label indices.
+    """
+    values = jnp.asarray(values)
+    if values.ndim == 0:
+        return values.reshape((1,)).astype(jnp.int32)
+    if values.ndim == 1:
+        return values.astype(jnp.int32)
+    if values.shape[-1] == 1:
+        return jnp.squeeze(values, axis=-1).astype(jnp.int32)
+    return jnp.argmax(values, axis=-1)
 
 
 def _enable_cpu_multithreading() -> None:
@@ -356,12 +383,13 @@ class Model(qtn.TensorNetwork):
 
     def accuracy(
         self,
-        data: jnp.ndarray,
-        y_true: jnp.ndarray | None = None,
+        data: jnp.ndarray | np.ndarray,
+        y_true: jnp.ndarray | np.ndarray | None = None,
         embedding: Embedding | None = None,
         batch_size: int = 64,
         shuffle: bool = False,
         normalize: bool = False,
+        accuracy_fn: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
         dtype: Any = jnp.float_,
         seed: int = 42,
         alternate_flip: bool = False,
@@ -382,6 +410,10 @@ class Model(qtn.TensorNetwork):
             Batch size for data processing.
         normalize: bool
             If True, the model output is normalized in predict function.
+        accuracy_fn: Callable
+            Function applied to raw model outputs before class labels are extracted.
+            If it returns class scores, the predicted class is selected with argmax;
+            if it returns class labels, those labels are compared directly.
         dtype: Any
             Data type of input data.
         seed: int
@@ -421,14 +453,14 @@ class Model(qtn.TensorNetwork):
             x = jax.device_put(jnp.array(x, dtype=dtype), _target_device)
             y = jax.device_put(jnp.array(y), _target_device)
 
-            y_pred = softmax(
-                jnp.squeeze(_predict_batch(x, embedding, False, normalize)), axis=-1
-            )
+            y_pred = _predict_batch(x, embedding, False, normalize)
+            if accuracy_fn is not None:
+                y_pred = accuracy_fn(y_pred)
 
             correct_predictions += jnp.sum(
-                jnp.argmax(y_pred, axis=-1) == jnp.argmax(y, axis=-1)
+                _as_class_labels(y_pred) == _as_class_labels(y)
             )
-            num_samples += y_pred.shape[0]
+            num_samples += x.shape[0]
 
         return float(jax.block_until_ready(correct_predictions)) / num_samples
 
@@ -603,6 +635,7 @@ class Model(qtn.TensorNetwork):
         val_batch_size: int | None = None,
         eval_metric: Callable | None = None,
         display_val_acc: bool | None = False,
+        accuracy_fn: Callable[[jnp.ndarray], jnp.ndarray] | None = None,
         dtype: Any = jnp.float_,
         shuffle: bool | None = False,
         seed: int | None = 42,
@@ -642,6 +675,9 @@ class Model(qtn.TensorNetwork):
             Number of samples per validation batch.
         display_val_acc : bool
             If True, displays validation accuracy.
+        accuracy_fn : Callable
+            Function applied to raw model outputs before validation accuracy labels
+            are extracted. Passed to :meth:`accuracy`.
         alternate_flip : bool
             If True, flips every other batch along axis=1.
 
@@ -888,6 +924,7 @@ class Model(qtn.TensorNetwork):
                                 batch_size=val_batch_size,
                                 embedding=embedding,
                                 shuffle=shuffle,
+                                accuracy_fn=accuracy_fn,
                                 dtype=dtype,
                                 seed=seed,
                                 alternate_flip=alternate_flip,
