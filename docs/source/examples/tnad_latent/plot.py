@@ -284,7 +284,7 @@ def plot_losses_per_initializer(
         # Plot for each bond dimension
         for j, bond in enumerate(bond_dims):
             # Create color spectrum for this bond dimension
-            cmap = plt.cm.get_cmap(color_maps[j % len(color_maps)])
+            cmap = plt.get_cmap(color_maps[j % len(color_maps)])
 
             # Process each run
             for run in range(1, nruns + 1):
@@ -443,7 +443,7 @@ def compare_anomaly_scores_per_embedding(
 
     # Create a color dictionary with brighter colors (using 0.8 instead of 0.6)
     bond_colors = {
-        bond: plt.cm.get_cmap(color_maps[i % len(color_maps)])(0.8)
+        bond: plt.get_cmap(color_maps[i % len(color_maps)])(0.8)
         for i, bond in enumerate(bond_dims)
     }
 
@@ -671,7 +671,7 @@ def compare_ROCs_per_bond(  # noqa: N802
 
     # Create a color dictionary with brighter colors for consistent coloring
     bond_colors = {
-        bond: plt.cm.get_cmap(color_maps[i % len(color_maps)])(0.8)
+        bond: plt.get_cmap(color_maps[i % len(color_maps)])(0.8)
         for i, bond in enumerate(bond_dim)
     }
 
@@ -997,9 +997,7 @@ def compare_ROC_by_latent(  # noqa: N802
 
     if len(latent_spaces) > len(palette):
         # Generate more colors if needed
-        from matplotlib.cm import get_cmap
-
-        cmap = get_cmap("tab10")
+        cmap = plt.get_cmap("tab10")
         palette = [cmap(i) for i in np.linspace(0, 1, len(latent_spaces))]
 
     fig, ax = plt.subplots(figsize=(7, 7))

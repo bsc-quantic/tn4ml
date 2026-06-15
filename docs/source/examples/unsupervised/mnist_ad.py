@@ -371,8 +371,8 @@ if __name__ == "__main__":
                 plt.figure(figsize=(8, 7))
                 plt.plot(fpr, tpr, label=f"AUC = {auc_value:0.3f}", color="darkblue")
                 plt.plot([0, 1], [0, 1], "k--")  # Random guess line
-                plt.xlim([0.0, 1.0])
-                plt.ylim([0.0, 1.05])
+                plt.xlim(0.0, 1.0)
+                plt.ylim(0.0, 1.05)
                 plt.xlabel("False Positive Rate")
                 plt.ylabel("True Positive Rate")
                 plt.title("ROC curve")
