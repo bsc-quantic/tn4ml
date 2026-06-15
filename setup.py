@@ -1,7 +1,7 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 # Read the contents of your README file
-with open("README.md", "r", encoding="utf-8") as fh:
+with open("README.md", encoding="utf-8") as fh:  # noqa: PTH123
     long_description = fh.read()
 
 setup(
@@ -16,20 +16,17 @@ setup(
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
     ],
     packages=find_packages(),
-    python_requires='>=3.8',
-    setup_requires=[
-        "setuptools >= 38.3.0"
-    ],
+    python_requires=">=3.10",
+    setup_requires=["setuptools >= 38.3.0"],
     install_requires=[
         "autoray>=0.3.0",
         "dask",
+        "scipy",
         "funcy",
         "numpy",
         "opt_einsum",
@@ -39,20 +36,18 @@ setup(
         "optax",
         "flax",
         "pandas",
-        "nevergrad", 
-        "chocolate",
-        "baytune",
+        "nevergrad",
         "optuna",
         "scikit-optimize",
-        "kahypar"
     ],
     extras_require={
         "docs": [
-            "sphinx<8.0.0",
+            "sphinx",
             "sphinx-book-theme",
+            # "pydata-sphinx-theme",
             "ipykernel",
             "nbsphinx",
-            'myst-parser',
+            "myst-parser",
             "sphinxcontrib-bibtex",
             "sphinxcontrib-devhelp",
             "sphinxcontrib-htmlhelp",
@@ -65,15 +60,14 @@ setup(
             "tensorflow",
             "matplotlib",
         ],
-        "test": [
-            "pytest",
-        ],
+        "test": ["pytest", "matplotlib"],
         "examples": [
-            "matplotlib",
-            "scikit-learn",
             "argparse",
+            "matplotlib",
+            "networkx",
+            "scikit-learn",
+            "seaborn",
             "tensorflow",
-            "seaborn"
         ],
     },
 )

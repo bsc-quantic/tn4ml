@@ -1,16 +1,17 @@
+from collections.abc import Callable
 from typing import Any
-import numpy as np
-import jax
-from jax._src import core, dtypes
-from jax import random
-import jax.numpy as jnp
-from jax.typing import ArrayLike
-from jax.nn.initializers import *
-from .util import gramschmidt_col, gramschmidt_row
 
-def zeros(std: Any = 1e-9, 
-            dtype: Any = jnp.float_) -> Initializer:
-    """Builds an initializer that initializes tensors with zeros. Plus small noise.
+import jax
+import jax.numpy as jnp
+import numpy as np
+from jax import random
+from jax._src import core, dtypes
+
+from .util import gramschmidt_row
+
+
+def zeros(std: Any = 1e-9, dtype: Any = jnp.float_) -> Callable:
+    """Build an initializer that initializes tensors with zeros plus small noise.
 
     Examples
     --------
@@ -21,12 +22,10 @@ def zeros(std: Any = 1e-9,
     Array([[0., 0.],
        [0., 0.]], dtype=float32)
     """
-    
-    def init(key: Any,
-           shape: core.Shape,
-           dtype: Any = dtype) -> jnp.ndarray:
-        """Initializes a tensor.
-        
+
+    def init(key: Any, shape: core.Shape, dtype: Any = dtype) -> jnp.ndarray:
+        """Initialize a tensor.
+
         Parameters
         ----------
             key : Any
@@ -35,18 +34,21 @@ def zeros(std: Any = 1e-9,
                 Shape of the tensor.
             dtype : Any
                 Data type of the tensor.
-        
+
         Returns
         -------
             jnp.ndarray
                 Initialized tensor.
         """
-        return jax.nn.initializers.zeros(key, shape, dtype) + std * random.normal(key, shape, dtype)
+        return jax.nn.initializers.zeros(key, shape, dtype) + std * random.normal(
+            key, shape, dtype
+        )
+
     return init
 
-def ones(std: Any = 1e-9, 
-              dtype: Any = jnp.float_) -> Initializer:
-    """Builds an initializer that initializes tensors with ones. Plus small noise.
+
+def ones(std: Any = 1e-9, dtype: Any = jnp.float_) -> Callable:
+    """Build an initializer that initializes tensors with ones plus small noise.
 
     Examples
     --------
@@ -57,12 +59,10 @@ def ones(std: Any = 1e-9,
     Array([[1., 1.],
        [1., 1.]], dtype=float32)
     """
-    
-    def init(key: Any,
-           shape: core.Shape,
-           dtype: Any = dtype) -> jnp.ndarray:
-        """Initializes a tensor.
-        
+
+    def init(key: Any, shape: core.Shape, dtype: Any = dtype) -> jnp.ndarray:
+        """Initialize a tensor.
+
         Parameters
         ----------
             key : Any
@@ -71,21 +71,23 @@ def ones(std: Any = 1e-9,
                 Shape of the tensor.
             dtype : Any
                 Data type of the tensor.
-        
+
         Returns
         -------
             jnp.ndarray
                 Initialized tensor.
         """
-        return jax.nn.initializers.ones(key, shape, dtype) + std * random.normal(key, shape, dtype)
+        return jax.nn.initializers.ones(key, shape, dtype) + std * random.normal(
+            key, shape, dtype
+        )
+
     return init
 
-def gramschmidt(dist: str,
-                scale: Any = 1e-2,
-                dtype: Any = jnp.float_
-                ) -> Initializer:
-    """Builds an initializer that initializes tensors with Gram-Schmidt orthogonalization procedure.
-    First, arrays are sampled from uniform or normal distribution (specified by `dist` argument)
+
+def gramschmidt(dist: str, scale: Any = 1e-2, dtype: Any = jnp.float_) -> Callable:
+    """Build an initializer using Gram-Schmidt orthogonalization.
+
+    First, arrays are sampled from uniform or normal distribution (specified by `dist` argument).
 
     Parameters
     ----------
@@ -105,11 +107,10 @@ def gramschmidt(dist: str,
     Array([[ 0.35777482,  0.65598017,  0.6645954 ],
        [-0.57674366, -0.40450865,  0.70974606]], dtype=float32)
     """
-    def init(key: Any,
-           shape: core.Shape,
-           dtype: Any = dtype) -> jnp.ndarray:
-        """Initializes a tensor.
-        
+
+    def init(key: Any, shape: core.Shape, dtype: Any = dtype) -> jnp.ndarray:
+        """Initialize a tensor.
+
         Parameters
         ----------
             key : Any
@@ -118,31 +119,33 @@ def gramschmidt(dist: str,
                 Shape of the tensor.
             dtype : Any
                 Data type of the tensor.
-        
+
         Returns
         -------
             jnp.ndarray
                 Initialized tensor.
         """
         dtype = dtypes.canonicalize_dtype(dtype)
-        
-        matrix_shape = shape[0], np.prod(shape[1:])
 
-        if dist == 'uniform':
+        matrix_shape: tuple = (shape[0], int(np.prod(shape[1:])))
+
+        if dist == "uniform":
             arrays = random.uniform(key, matrix_shape, dtype) * jnp.array(scale, dtype)
-        elif dist == 'normal':
+        elif dist == "normal":
             arrays = random.normal(key, matrix_shape, dtype) * jnp.array(scale, dtype)
         else:
-            raise ValueError("Sampling only implemented for 'uniform' and 'normal' distributions!")
+            raise ValueError(
+                "Sampling only implemented for 'uniform' and 'normal' distributions!"
+            )
 
         arrays = gramschmidt_row(arrays)
         return arrays.reshape(shape)
+
     return init
 
-def identity(type: str,
-                std: Any = None,
-                dtype: Any = jnp.float_) -> Initializer:
-    """Builds an initializer that initializes tensors with identity either on diagonal elements, or in bond dimensions.
+
+def identity(type: str, std: Any = None, dtype: Any = jnp.float_) -> Callable:  # noqa: A002
+    """Build an initializer that sets identity values on diagonal or bond dimensions.
 
     Parameters
     ----------
@@ -163,11 +166,10 @@ def identity(type: str,
        [ 0.01137332,  0.99187267],
        [-0.00890405,  0.00126231]], dtype=float32)
     """
-    def init(key: Any,
-            shape: core.Shape,
-            dtype: Any = dtype) -> jnp.ndarray:
-        """Initializes a tensor.
-        
+
+    def init(key: Any, shape: core.Shape, dtype: Any = dtype) -> jnp.ndarray:
+        """Initialize a tensor.
+
         Parameters
         ----------
             key : Any
@@ -176,7 +178,7 @@ def identity(type: str,
                 Shape of the tensor.
             dtype : Any
                 Data type of the tensor.
-        
+
         Returns
         -------
             jnp.ndarray
@@ -185,42 +187,49 @@ def identity(type: str,
         dtype = dtypes.canonicalize_dtype(dtype)
         rank = len(shape)
 
-        if type == 'bond':
+        if type == "bond":
             tensor = jnp.zeros(shape, dtype=dtype)
             if rank == 4:
-                eye_tensor = jnp.eye(shape[0], shape[1]).reshape(shape[0], shape[1], 1, 1)
+                eye_tensor = jnp.eye(shape[0], shape[1]).reshape(
+                    shape[0], shape[1], 1, 1
+                )
             elif rank == 3:
                 eye_tensor = jnp.eye(shape[0], shape[1]).reshape(shape[0], shape[1], 1)
             else:
-                raise ValueError('Tensor should have LRP shape')
+                raise ValueError("Tensor should have LRP shape")
             # Use broadcasting to fill tensor slices
             tensor += eye_tensor
 
-        elif type == 'copy':
+        elif type == "copy":
             # from @joserapa98/tensorkrowch
             tensor = jnp.zeros(shape, dtype=dtype)
             rank = len(shape)
             if rank <= 1:
-                i = 0
+                i: Any = 0
             else:
                 i = np.arange(min(shape), dtype=int)
-            tensor = tensor.at[(i,) * rank].set(1.)
+            tensor = tensor.at[(i,) * rank].set(1.0)
         else:
-            raise ValueError('Defined only for diagonal and bond dimension identity intialization!')
+            raise ValueError(
+                "Defined only for diagonal and bond dimension identity intialization!"
+            )
 
         # Add random noise
         if std:
             tensor += std * random.normal(key, shape, dtype)
         return tensor
+
     return init
 
-def randn(std: Any = 1.0,
-        mean: Any = 0.0,
-        noise_std: Any = None,
-        noise_mean: Any = None,
-        dtype: Any = jnp.float_
-        ) -> Initializer:
-    """Builds an initializer that initializes tensor values with normal distribution.
+
+def randn(
+    std: Any = 1.0,
+    mean: Any = 0.0,
+    noise_std: Any = None,
+    noise_mean: Any = None,
+    dtype: Any = jnp.float_,
+) -> Callable:
+    """Build an initializer that samples tensor values from a normal distribution.
 
     Parameters
     ----------
@@ -244,11 +253,10 @@ def randn(std: Any = 1.0,
     Array([[ 0.00186935,  0.01065333],
             [-0.01559313, -0.01535296]], dtype=float32)
     """
-    def init(key: Any,
-            shape: core.Shape,
-            dtype: Any = dtype) -> jnp.ndarray:
-        """Initializes a tensor.
-        
+
+    def init(key: Any, shape: core.Shape, dtype: Any = dtype) -> jnp.ndarray:
+        """Initialize a tensor.
+
         Parameters
         ----------
             key : Any
@@ -257,7 +265,7 @@ def randn(std: Any = 1.0,
                 Shape of the tensor.
             dtype : Any
                 Data type of the tensor.
-        
+
         Returns
         -------
             jnp.ndarray
@@ -266,25 +274,25 @@ def randn(std: Any = 1.0,
         dtype = dtypes.canonicalize_dtype(dtype)
 
         tensor = random.normal(key, shape, dtype)
-        tensor = mean + tensor*std
+        mean_value = 0.0 if mean is None else mean
+        tensor = mean_value + tensor * std
 
         if noise_std and noise_mean:
             noise = random.normal(key, shape, dtype)
-            tensor += noise_mean + noise*noise_std
+            tensor += noise_mean + noise * noise_std
 
         return tensor
+
     return init
 
 
-def unitary_matrix(key: Any,
-                   shape: core.Shape,
-                   dtype: Any = jnp.float_) -> jnp.ndarray:
+def unitary_matrix(key: Any, shape: core.Shape, dtype: Any = jnp.float_) -> jnp.ndarray:
     """
 
-    - from @joserapa98/tensorkrowch 
-    
+    - from @joserapa98/tensorkrowch.
+
     Generates random unitary matrix from the Haar measure of size n x n.
-    
+
     Unitary matrix is created as described in this `paper
     <https://arxiv.org/abs/math-ph/0609050v2>`_.
 
@@ -296,7 +304,7 @@ def unitary_matrix(key: Any,
             Shape of the tensor.
         dtype : Any
             Data type of the tensor.
-    
+
     Returns
     -------
         jnp.ndarray
@@ -308,17 +316,17 @@ def unitary_matrix(key: Any,
     q, r = jnp.linalg.qr(mat)
     d = jnp.diagonal(r)
     ph = d / jnp.abs(d)
-    q = q @ jnp.diag(ph)
-    return q
+    return q @ jnp.diag(ph)
 
-def rand_unitary(dtype: Any = jnp.float_) -> Initializer:
-    """Builds an initializer that initializes tensor with stack of random unitary matrices.
-    
+
+def rand_unitary(dtype: Any = jnp.float_) -> Callable:
+    """Build an initializer that stacks random unitary matrices.
+
     Parameters
     ----------
         dtype : Any (Optional). Default = `jnp.float_`.
             The initializer's default dtype.
-    
+
     Examples
     --------
     >>> import jax, jax.numpy as jnp
@@ -330,14 +338,12 @@ def rand_unitary(dtype: Any = jnp.float_) -> Initializer:
     >>> tensor = initializer(jax.random.key(42), (2, 2), jnp.float32)
     >>> jnp.allclose(tensor @ tensor.T.conj(), jnp.eye(2), atol=1e-6)
     True
-    
+
     """
-    def init(key: Any,
-            shape: core.Shape,
-            dtype: Any = dtype) -> jnp.ndarray:
-        """
-        Initializes a tensor.
-        
+
+    def init(key: Any, shape: core.Shape, dtype: Any = dtype) -> jnp.ndarray:
+        """Initialize a tensor.
+
         Parameters
         ----------
             key : Any
@@ -346,18 +352,18 @@ def rand_unitary(dtype: Any = jnp.float_) -> Initializer:
                 Shape of the tensor.
             dtype : Any
                 Data type of the tensor.
-        
+
         Returns
         -------
             jnp.ndarray
                 Initialized tensor.
         """
         dtype = dtypes.canonicalize_dtype(dtype)
-        
+
         size = max(shape[0], shape[1], shape[2])
         size_1 = min(shape[0], size)
         size_2 = min(shape[1], size)
-        
+
         if len(shape) == 3:
             units = []
             for _ in range(shape[2]):
@@ -379,5 +385,5 @@ def rand_unitary(dtype: Any = jnp.float_) -> Initializer:
         else:
             raise ValueError("Only 3 and 4 rank tensors are supported!")
         return tensor
-    return init
 
+    return init

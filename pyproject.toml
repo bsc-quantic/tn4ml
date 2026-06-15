@@ -1,3 +1,69 @@
 [build-system]
 requires = ["setuptools>=38.3.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "A",    # Avoid shadowing Python built-ins.
+    "ARG",  # Detect unused function arguments.
+    "B",    # Catch likely bugs and suspicious patterns.
+    "BLE",  # Avoid overly broad exception handling.
+    "C4",   # Improve list/set/dict comprehensions.
+    "D",    # Enforce NumPy-style docstrings.
+    "E",    # pycodestyle errors.
+    "ERA",  # Detect commented-out dead code.
+    "F",    # Pyflakes checks: unused imports, undefined names, etc.
+    "I",    # Import sorting.
+    "ICN",  # Conventional import aliases.
+    "N",    # Naming conventions.
+    "NPY",  # NumPy-specific checks.
+    "PERF", # Simple performance-related improvements.
+    "PIE",  # Miscellaneous simplifications.
+    "PT",   # Pytest style checks.
+    "PTH",  # Prefer pathlib over os.path.
+    "Q",    # Consistent quote style.
+    "RET",  # Cleaner return statements.
+    "RSE",  # Cleaner raise statements.
+    "RUF",  # Ruff-specific checks.
+    "SIM",  # Simplify redundant code.
+    "TCH",  # Type-checking-only imports.
+    "UP",   # Modernize Python syntax.
+    "W",    # pycodestyle warnings.
+]
+
+ignore = [
+    "E501",  # Let formatter handle long lines.
+    "F403",  # Allow star imports if they are part of your design.
+    "F405",  # Allow names introduced by star imports.
+    "F811",  # Allow redefinitions if this occurs intentionally in your codebase.
+    "N803",  # Allow ML/math arguments like X, Y, W.
+    "N806",  # Allow ML/math variables like X_train, U, V.
+    "D100",  # Do not require module docstrings.
+    "D104",  # Do not require package docstrings.
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "D",     # Tests do not need full docstrings.
+    "ARG",   # Fixtures often look unused.
+]
+"__init__.py" = [
+    "F401",  # Re-exports define the public API.
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.mypy]
+exclude = [
+    "^build/",
+    "^docs/build/",
+]
+ignore_missing_imports = true
+no_strict_optional = true
+pretty = true
+check_untyped_defs = true

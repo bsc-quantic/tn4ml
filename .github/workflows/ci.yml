@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master", "develop"]
+  pull_request: # runs on every PR regardless of target branch
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ──────────────────────────────────────────────
+  # 1. Ruff – fast linting and import sorting
+  # ──────────────────────────────────────────────
+  ruff:
+    name: "Lint · ruff"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Run ruff check
+        run: ruff check .
+      - name: Run ruff format check
+        run: ruff format --check .
+
+  # ──────────────────────────────────────────────
+  # 2. Mypy – static type checking
+  # ──────────────────────────────────────────────
+  mypy:
+    name: "Types · mypy"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package + type stubs
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+          pip install mypy types-setuptools numpy
+      - name: Run mypy
+        run: mypy .
+
+  # ──────────────────────────────────────────────
+  # 3. Bandit – security vulnerability scanner
+  # ──────────────────────────────────────────────
+  bandit:
+    name: "Security · bandit"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install bandit
+        run: pip install bandit[toml]
+      - name: Run bandit
+        run: bandit -r tn4ml/ -ll -x tn4ml/scipy/
+
+  # ──────────────────────────────────────────────
+  # 4. Pytest – unit tests
+  # ──────────────────────────────────────────────
+  pytest:
+    name: "Tests · pytest (${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+          pip install pytest
+      - name: Run pytest
+        run: pytest tests/ -v --tb=short
+
+  # ──────────────────────────────────────────────
+  # 5. Coverage – measure test coverage
+  # ──────────────────────────────────────────────
+  coverage:
+    name: "Coverage · pytest-cov"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+          pip install pytest pytest-cov
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ --cov=tn4ml --cov-report=xml --cov-report=term-missing --cov-fail-under=50
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  # ──────────────────────────────────────────────
+  # 6. Nbmake – validate example notebooks
+  # ──────────────────────────────────────────────
+  nbmake:
+    name: "Notebooks · nbmake"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,examples]"
+          pip install pytest nbmake ipykernel
+      - name: Run notebooks
+        run: |
+          pytest --nbmake docs/source/examples/ \
+            --nbmake-timeout=900 \
+            -v

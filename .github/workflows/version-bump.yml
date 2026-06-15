@@ -1,0 +1,87 @@
+name: Version bump
+
+# Runs when a PR is merged into main/master.
+# Add one of these labels to the PR to control the bump:
+#   bump:patch  →  1.0.5  →  1.0.6
+#   bump:minor  →  1.0.5  →  1.1.0
+#   bump:major  →  1.0.5  →  2.0.0
+# No label → no version change.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main, master]
+
+jobs:
+  bump:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Use a PAT so the commit can trigger downstream CI.
+          # Falls back to GITHUB_TOKEN (commit won't re-trigger CI).
+          token: ${{ secrets.BUMP_TOKEN || secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: Determine bump type from PR labels
+        id: bump
+        run: |
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          if echo "$LABELS" | grep -q '"bump:major"'; then
+            echo "type=major" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q '"bump:minor"'; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q '"bump:patch"'; then
+            echo "type=patch" >> $GITHUB_OUTPUT
+          else
+            echo "type=none" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Bump version in setup.py
+        if: steps.bump.outputs.type != 'none'
+        id: version
+        run: |
+          python - <<'EOF'
+          import re, os
+
+          bump = os.environ["BUMP_TYPE"]
+
+          with open("setup.py") as f:
+              content = f.read()
+
+          m = re.search(r'version="(\d+)\.(\d+)\.(\d+)"', content)
+          major, minor, patch = int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+          if bump == "major":
+              major, minor, patch = major + 1, 0, 0
+          elif bump == "minor":
+              major, minor, patch = major, minor + 1, 0
+          else:
+              patch += 1
+
+          new_version = f"{major}.{minor}.{patch}"
+          new_content = re.sub(r'version="\d+\.\d+\.\d+"', f'version="{new_version}"', content)
+
+          with open("setup.py", "w") as f:
+              f.write(new_content)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"new_version={new_version}\n")
+
+          print(f"Bumped to {new_version}")
+          EOF
+        env:
+          BUMP_TYPE: ${{ steps.bump.outputs.type }}
+
+      - name: Commit and push
+        if: steps.bump.outputs.type != 'none'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add setup.py
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
+          git push
