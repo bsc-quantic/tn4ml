@@ -6,7 +6,7 @@ with open("README.md", encoding="utf-8") as fh:  # noqa: PTH123
 
 setup(
     name="tn4ml",
-    version="1.0.5",
+    version="1.1.0",
     author="Ema Puljak, Sergio Sanchez Ramirez, Sergi Masot Llima, Jofre Vallès-Muns",
     description="Tensor Networks for Machine Learning",
     long_description=long_description,
@@ -35,6 +35,7 @@ setup(
         "jax",
         "optax",
         "flax",
+        "orbax-checkpoint>=0.11.34",
         "pandas",
         "nevergrad",
         "optuna",
