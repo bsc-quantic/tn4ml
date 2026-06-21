@@ -92,6 +92,8 @@ jobs:
   coverage:
     name: "Coverage · pytest-cov"
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -101,7 +103,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[test]"
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov coverage-badge
       - name: Run tests with coverage
         run: |
           pytest tests/ --cov=tn4ml --cov-report=xml --cov-report=term-missing --cov-fail-under=50
@@ -110,6 +112,22 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
+      # Generate an SVG badge and publish it to a dedicated `badges` branch.
+      # The README references the raw file, so no Codecov account is needed.
+      - name: Publish coverage badge
+        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+        run: |
+          coverage-badge -o coverage.svg -f
+          mkdir -p /tmp/badges
+          cp coverage.svg /tmp/badges/
+          cd /tmp/badges
+          git init -q
+          git checkout -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add coverage.svg
+          git commit -q -m "Update coverage badge"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" badges
 
   # ──────────────────────────────────────────────
   # 6. Nbmake – validate example notebooks

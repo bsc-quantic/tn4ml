@@ -1,7 +1,7 @@
 <img src="docs/_static/logo_light.png" position="center" alt="logo" width="300" height="200">
 
 # Tensor Networks for Machine Learning
-[![codecov](https://codecov.io/gh/bsc-quantic/tn4ml/branch/master/graph/badge.svg)](https://codecov.io/gh/bsc-quantic/tn4ml)
+[![Coverage](https://raw.githubusercontent.com/bsc-quantic/tn4ml/badges/coverage.svg)](https://github.com/bsc-quantic/tn4ml/actions/workflows/ci.yml)
 [![Last commit](https://img.shields.io/github/last-commit/bsc-quantic/tn4ml)](https://github.com/bsc-quantic/tn4ml/commits/master)
 [![PyPI version](https://img.shields.io/pypi/v/tn4ml)](https://pypi.org/project/tn4ml/)
 [![CI](https://github.com/bsc-quantic/tn4ml/actions/workflows/ci.yml/badge.svg)](https://github.com/bsc-quantic/tn4ml/actions/workflows/ci.yml)
