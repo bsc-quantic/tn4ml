@@ -65,6 +65,7 @@ def check_orthonormal_vectors(Q, type="rows", atol=1e-6):  # noqa: A002
     ],
 )
 def test_randn_init_with_parameters(std, mean, shape):
+    """Test randn init with parameters."""
     initializer = tn4ml.initializers.randn(std, mean)
     Q = initializer(jax.random.key(42), shape, jnp.float32)
     assert Q is not None
@@ -86,6 +87,7 @@ def test_randn_init_with_parameters(std, mean, shape):
     ],
 )
 def test_gramschmidt_init(dist, scale, shape):
+    """Test gramschmidt init."""
     initializer = tn4ml.initializers.gramschmidt(dist, scale)
     Q = initializer(jax.random.key(42), shape, jnp.float32)
     matrix_shape = shape[0], np.prod(shape[1:])
@@ -97,6 +99,7 @@ def test_gramschmidt_init(dist, scale, shape):
 
 @pytest.mark.parametrize("shape", [((1, 2, 2)), ((5, 5, 2, 3)), ((5, 5, 2))])
 def test_randn_init_default(shape):
+    """Test randn init default."""
     initializer = tn4ml.initializers.randn()
     Q = initializer(jax.random.key(42), shape, jnp.float32)
     assert Q is not None
@@ -114,6 +117,7 @@ def test_randn_init_default(shape):
     ],
 )
 def test_zeros_init(shape):
+    """Test zeros init."""
     initializer = tn4ml.initializers.zeros()
     Q = initializer(jax.random.key(42), shape, jnp.float32)
     assert Q.shape == shape
@@ -133,6 +137,7 @@ def test_zeros_init(shape):
     ],
 )
 def test_ones_init(shape):
+    """Test ones init."""
     initializer = tn4ml.initializers.ones()
     Q = initializer(jax.random.key(42), shape, jnp.float32)
     assert Q.shape == shape
@@ -152,6 +157,7 @@ def test_ones_init(shape):
     ],
 )
 def test_identity_copy(shape):
+    """Test identity copy."""
     initializer = tn4ml.initializers.identity("copy", std=1e-3)
     Q = initializer(jax.random.key(42), shape, jnp.float32)
     assert Q.shape == shape
@@ -171,12 +177,14 @@ def test_identity_copy(shape):
     ],
 )
 def test_identity_bond(shape):
+    """Test identity bond."""
     initializer = tn4ml.initializers.identity("bond")
     Q = initializer(jax.random.key(42), shape, jnp.float32)
     assert Q.shape == shape
 
 
 def test_identity_invalid_type():
+    """Test identity invalid type."""
     with pytest.raises(ValueError, match="Defined only"):  # noqa: PT012
         initializer = tn4ml.initializers.identity("invalid")
         initializer(jax.random.key(42), (3, 3), jnp.float32)
@@ -186,12 +194,14 @@ def test_identity_invalid_type():
 
 
 def test_unitary_matrix():
+    """Test unitary matrix."""
     Q = tn4ml.initializers.unitary_matrix(jax.random.key(42), (4, 4), jnp.float32)
     # Q @ Q^T should be identity
     assert jnp.allclose(Q @ Q.T, jnp.eye(4), atol=1e-5)
 
 
 def test_unitary_matrix_non_square():
+    """Test unitary matrix non square."""
     with pytest.raises(AssertionError):
         tn4ml.initializers.unitary_matrix(jax.random.key(42), (3, 4), jnp.float32)
 
@@ -200,6 +210,7 @@ def test_unitary_matrix_non_square():
 
 
 def test_rand_unitary_init():
+    """Test rand unitary init."""
     # rand_unitary internally uses shape[2] so requires a 3D shape
     initializer = tn4ml.initializers.rand_unitary()
     Q = initializer(jax.random.key(42), (3, 3, 2), jnp.float32)

@@ -30,6 +30,7 @@ jax.config.update("jax_enable_x64", True)
     ],
 )
 def test_MPS_initialize(L, initializer, shape_method, bond_dim, phys_dim, cyclic):  # noqa: N802
+    """Test MPS initialize."""
     key = jax.random.PRNGKey(42)
     mps = MPS_initialize(
         L,
@@ -45,6 +46,7 @@ def test_MPS_initialize(L, initializer, shape_method, bond_dim, phys_dim, cyclic
 
 @pytest.mark.parametrize("mps", [qtn.MPS_rand_state(20, bond_dim=2, phys_dim=2)])
 def test_trainable_wrapper(mps):
+    """Test trainable wrapper."""
     mps = trainable_wrapper(mps)
     assert mps.norm() == pytest.approx(1.0)
 
@@ -55,6 +57,7 @@ def test_trainable_wrapper(mps):
 @pytest.mark.parametrize("shape_method", ["even", "noteven"])
 @pytest.mark.parametrize("add_identity", [False, True])
 def test_MPS_initialize_classification(shape_method, add_identity):  # noqa: N802
+    """Test MPS initialize classification."""
     key = jax.random.PRNGKey(42)
     mps = MPS_initialize(
         L=8,
@@ -74,6 +77,7 @@ def test_MPS_initialize_classification(shape_method, add_identity):  # noqa: N80
 
 
 def test_MPS_initialize_classification_output_at_end():  # noqa: N802
+    """Test MPS initialize classification output at end."""
     key = jax.random.PRNGKey(0)
     mps = MPS_initialize(
         L=6,
@@ -92,6 +96,7 @@ def test_MPS_initialize_classification_output_at_end():  # noqa: N802
 
 
 def test_MPS_initialize_insert():  # noqa: N802
+    """Test MPS initialize insert."""
     key = jax.random.PRNGKey(1)
     mps = MPS_initialize(
         L=8,
@@ -106,6 +111,7 @@ def test_MPS_initialize_insert():  # noqa: N802
 
 
 def test_MPS_initialize_compress():  # noqa: N802
+    """Test MPS initialize compress."""
     key = jax.random.PRNGKey(2)
     mps = MPS_initialize(
         L=8,
@@ -120,6 +126,7 @@ def test_MPS_initialize_compress():  # noqa: N802
 
 
 def test_MPS_initialize_canonical_center():  # noqa: N802
+    """Test MPS initialize canonical center."""
     key = jax.random.PRNGKey(3)
     mps = MPS_initialize(
         L=8,
@@ -134,6 +141,7 @@ def test_MPS_initialize_canonical_center():  # noqa: N802
 
 
 def test_MPS_normalize_with_insert():  # noqa: N802
+    """Test MPS normalize with insert."""
     key = jax.random.PRNGKey(4)
     mps = MPS_initialize(
         L=6,
@@ -151,6 +159,7 @@ def test_MPS_normalize_with_insert():  # noqa: N802
 
 
 def test_MPS_initialize_cyclic_noteven_raises():  # noqa: N802
+    """Test MPS initialize cyclic noteven raises."""
     key = jax.random.PRNGKey(5)
     with pytest.raises(NotImplementedError):
         MPS_initialize(
@@ -163,6 +172,7 @@ def test_MPS_initialize_cyclic_noteven_raises():  # noqa: N802
 
 
 def test_MPS_initialize_class_index_too_large_raises():  # noqa: N802
+    """Test MPS initialize class index too large raises."""
     key = jax.random.PRNGKey(6)
     with pytest.raises(ValueError, match="class_index"):
         MPS_initialize(
@@ -176,6 +186,7 @@ def test_MPS_initialize_class_index_too_large_raises():  # noqa: N802
 
 
 def test_MPS_initialize_compress_noteven_raises():  # noqa: N802
+    """Test MPS initialize compress noteven raises."""
     key = jax.random.PRNGKey(7)
     with pytest.raises(ValueError, match="Compress"):
         MPS_initialize(
@@ -198,6 +209,7 @@ def test_MPS_initialize_compress_noteven_raises():  # noqa: N802
     ],
 )
 def test_MPS_initialize_rand_unitary_unsupported_options(kwargs, match):  # noqa: N802
+    """Test MPS initialize rand unitary unsupported options."""
     key = jax.random.PRNGKey(8)
     with pytest.raises(ValueError, match=match):
         MPS_initialize(

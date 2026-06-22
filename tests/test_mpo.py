@@ -30,6 +30,7 @@ jax.config.update("jax_enable_x64", True)
     ],
 )
 def test_rand_distribution(L, initializer, shape_method, bond_dim, phys_dim, cyclic):
+    """Test rand distribution."""
     key = jax.random.PRNGKey(42)
     mpo = MPO_initialize(
         L,
@@ -45,6 +46,7 @@ def test_rand_distribution(L, initializer, shape_method, bond_dim, phys_dim, cyc
 
 @pytest.mark.parametrize("mpo", [qtn.MPO_rand(20, bond_dim=2, phys_dim=2)])
 def test_trainable_wrapper(mpo):
+    """Test trainable wrapper."""
     mpo = trainable_wrapper(mpo)
     assert mpo.norm() == pytest.approx(1.0)
 
@@ -53,6 +55,7 @@ def test_trainable_wrapper(mpo):
 
 
 def test_MPO_initialize_add_identity():  # noqa: N802
+    """Test MPO initialize add identity."""
     key = jax.random.PRNGKey(0)
     mpo = MPO_initialize(
         L=8,
@@ -67,6 +70,7 @@ def test_MPO_initialize_add_identity():  # noqa: N802
 
 
 def test_MPO_initialize_insert():  # noqa: N802
+    """Test MPO initialize insert."""
     key = jax.random.PRNGKey(1)
     mpo = MPO_initialize(
         L=8,
@@ -81,6 +85,7 @@ def test_MPO_initialize_insert():  # noqa: N802
 
 
 def test_MPO_initialize_compress():  # noqa: N802
+    """Test MPO initialize compress."""
     key = jax.random.PRNGKey(2)
     mpo = MPO_initialize(
         L=8,
@@ -95,6 +100,7 @@ def test_MPO_initialize_compress():  # noqa: N802
 
 
 def test_MPO_initialize_canonical_center():  # noqa: N802
+    """Test MPO initialize canonical center."""
     key = jax.random.PRNGKey(3)
     mpo = MPO_initialize(
         L=8,
@@ -109,6 +115,7 @@ def test_MPO_initialize_canonical_center():  # noqa: N802
 
 
 def test_MPO_normalize_with_insert():  # noqa: N802
+    """Test MPO normalize with insert."""
     key = jax.random.PRNGKey(4)
     mpo = MPO_initialize(
         L=6,
@@ -123,6 +130,7 @@ def test_MPO_normalize_with_insert():  # noqa: N802
 
 
 def test_MPO_initialize_cyclic_noteven_raises():  # noqa: N802
+    """Test MPO initialize cyclic noteven raises."""
     key = jax.random.PRNGKey(5)
     with pytest.raises(NotImplementedError):
         MPO_initialize(

@@ -16,6 +16,7 @@ jax.config.update("jax_enable_x64", True)
 
 @pytest.mark.parametrize("cyclic", [False, True])
 def test_TN_initialize_from_shapes(cyclic):  # noqa: N802
+    """Test TN initialize from shapes."""
     key = jax.random.PRNGKey(42)
     # Boundary tensors are 2D (no dangling bond on that side), middle is 3D
     shapes = [(3, 2), (3, 3, 2), (3, 2)]
@@ -35,6 +36,7 @@ def test_TN_initialize_from_shapes(cyclic):  # noqa: N802
 
 
 def test_TN_initialize_from_arrays():  # noqa: N802
+    """Test TN initialize from arrays."""
     arrays = [jnp.ones((3, 2)), jnp.ones((3, 3, 2)), jnp.ones((3, 2))]
     inds = [["bond_0", "k0"], ["bond_0", "bond_1", "k1"], ["bond_1", "k2"]]
     tn = TN_initialize(arrays=arrays, inds=inds)
@@ -43,16 +45,19 @@ def test_TN_initialize_from_arrays():  # noqa: N802
 
 
 def test_TN_initialize_no_arrays_no_shapes():  # noqa: N802
+    """Test TN initialize no arrays no shapes."""
     with pytest.raises(ValueError, match="Provide either"):
         TN_initialize()
 
 
 def test_TN_initialize_no_inds():  # noqa: N802
+    """Test TN initialize no inds."""
     with pytest.raises(ValueError, match="Provide indices"):
         TN_initialize(shapes=[(1, 3, 2)], key=jax.random.PRNGKey(0))
 
 
 def test_TN_initialize_mismatched_arrays_inds():  # noqa: N802
+    """Test TN initialize mismatched arrays inds."""
     arrays = [jnp.ones((1, 3, 2))]
     inds = [["bond_0", "k0"], ["bond_0", "bond_1", "k1"]]
     with pytest.raises(ValueError, match="same"):
@@ -60,6 +65,7 @@ def test_TN_initialize_mismatched_arrays_inds():  # noqa: N802
 
 
 def test_TN_initialize_mismatched_shapes_inds():  # noqa: N802
+    """Test TN initialize mismatched shapes inds."""
     shapes = [(1, 3, 2)]
     inds = [["bond_0", "k0"], ["bond_0", "bond_1", "k1"]]
     with pytest.raises(ValueError, match="same"):
@@ -77,6 +83,7 @@ def _make_tn():
 
 
 def test_tn_copy():
+    """Test tn copy."""
     tn = _make_tn()
     tn_copy = tn.copy()
     assert len(tn_copy.tensors) == len(tn.tensors)
@@ -84,12 +91,14 @@ def test_tn_copy():
 
 
 def test_tn_deep_copy():
+    """Test tn deep copy."""
     tn = _make_tn()
     tn_copy = tn.copy(deep=True)
     assert len(tn_copy.tensors) == len(tn.tensors)
 
 
 def test_TN_initialize_from_shapes_no_initializer():  # noqa: N802
+    """Test TN initialize from shapes no initializer."""
     # No initializer -> falls back to the numpy RNG path.
     shapes = [(3, 2), (3, 3, 2), (3, 2)]
     inds = [["bond_0", "k0"], ["bond_0", "bond_1", "k1"], ["bond_1", "k2"]]
@@ -99,17 +108,20 @@ def test_TN_initialize_from_shapes_no_initializer():  # noqa: N802
 
 
 def test_tn_canonize():
+    """Test tn canonize."""
     tn = _make_tn()
     tn.canonize(1)
     assert len(tn.tensors) == 3
 
 
 def test_tn_norm():
+    """Test tn norm."""
     tn = _make_tn()
     assert isinstance(float(tn.norm()), float)
 
 
 def test_tn_normalize():
+    """Test tn normalize."""
     key = jax.random.PRNGKey(0)
     shapes = [(3, 2), (3, 3, 2), (3, 2)]
     inds = [["bond_0", "k0"], ["bond_0", "bond_1", "k1"], ["bond_1", "k2"]]
@@ -123,6 +135,7 @@ def test_tn_normalize():
 
 
 def test_tn_normalize_with_insert():
+    """Test tn normalize with insert."""
     tn = _make_tn()
     # Scale up
     for t in tn.tensors:
@@ -132,6 +145,7 @@ def test_tn_normalize_with_insert():
 
 
 def test_tn_normalize_invalid_insert():
+    """Test tn normalize invalid insert."""
     tn = _make_tn()
     with pytest.raises(IndexError, match="out of bounds"):
         tn.normalize(insert=100)
@@ -141,6 +155,7 @@ def test_tn_normalize_invalid_insert():
 
 
 def test_trainable_wrapper():
+    """Test trainable wrapper."""
     mps = qtn.MPS_rand_state(5, bond_dim=2, phys_dim=2)
     tn = trainable_wrapper(mps)
     assert isinstance(tn, TensorNetwork)

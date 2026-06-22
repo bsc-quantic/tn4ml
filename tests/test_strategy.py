@@ -19,11 +19,13 @@ class _ConcreteStrategy(Strategy):
 
 
 def test_strategy_default():
+    """Test strategy default."""
     s = _ConcreteStrategy()
     assert s.renormalize is False
 
 
 def test_strategy_renormalize():
+    """Test strategy renormalize."""
     s = _ConcreteStrategy(renormalize=True)
     assert s.renormalize is True
 
@@ -32,27 +34,32 @@ def test_strategy_renormalize():
 
 
 def test_sweeps_default():
+    """Test sweeps default."""
     s = Sweeps()
     assert s.grouping == 2
     assert s.two_way is True
 
 
 def test_sweeps_invalid_grouping_gt2():
+    """Test sweeps invalid grouping gt2."""
     with pytest.raises(ValueError, match="grouping"):
         Sweeps(grouping=3)
 
 
 def test_sweeps_invalid_grouping_eq1():
+    """Test sweeps invalid grouping eq1."""
     with pytest.raises(ValueError, match="grouping == 1"):
         Sweeps(grouping=1)
 
 
 def test_sweeps_one_way():
+    """Test sweeps one way."""
     s = Sweeps(two_way=False)
     assert s.two_way is False
 
 
 def test_sweeps_iterate_sites():
+    """Test sweeps iterate sites."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -71,6 +78,7 @@ def test_sweeps_iterate_sites():
 
 
 def test_sweeps_iterate_sites_one_way():
+    """Test sweeps iterate sites one way."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -90,6 +98,7 @@ def test_sweeps_iterate_sites_one_way():
 
 
 def test_check_model_valid():
+    """Test check model valid."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -105,6 +114,7 @@ def test_check_model_valid():
 
 
 def test_check_model_invalid():
+    """Test check model invalid."""
     with pytest.raises(TypeError, match="necessary methods"):
         _check_model(object())
 
@@ -113,6 +123,7 @@ def test_check_model_invalid():
 
 
 def test_get_inds_for_split_basic():
+    """Test get inds for split basic."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -135,12 +146,14 @@ def test_get_inds_for_split_basic():
 
 
 def test_sweeps_one_way_grouping2_attrs():
+    """Test sweeps one way grouping2 attrs."""
     s = Sweeps(two_way=False, grouping=2)
     assert s.two_way is False
     assert s.grouping == 2
 
 
 def test_sweeps_default_has_inds_order():
+    """Test sweeps default has inds order."""
     s = Sweeps()
     assert hasattr(s, "inds_order")
     assert isinstance(s.inds_order, dict)
@@ -148,6 +161,7 @@ def test_sweeps_default_has_inds_order():
 
 
 def test_sweeps_one_way_has_inds_order():
+    """Test sweeps one way has inds order."""
     s = Sweeps(two_way=False, grouping=2)
     assert hasattr(s, "inds_order")
     assert isinstance(s.inds_order, dict)
@@ -157,6 +171,7 @@ def test_sweeps_one_way_has_inds_order():
 
 
 def test_sweeps_iterate_sites_two_way_content():
+    """Test sweeps iterate sites two way content."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -182,6 +197,7 @@ def test_sweeps_iterate_sites_two_way_content():
 
 
 def test_sweeps_iterate_sites_one_way_content():
+    """Test sweeps iterate sites one way content."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -201,6 +217,7 @@ def test_sweeps_iterate_sites_one_way_content():
 
 
 def test_sweeps_prehook_populates_inds_order():
+    """Test sweeps prehook populates inds order."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -220,6 +237,7 @@ def test_sweeps_prehook_populates_inds_order():
 
 
 def test_sweeps_prehook_contracts_tensors():
+    """Test sweeps prehook contracts tensors."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -237,6 +255,7 @@ def test_sweeps_prehook_contracts_tensors():
 
 
 def test_sweeps_prehook_posthook_roundtrip_tensor_count():
+    """Test sweeps prehook posthook roundtrip tensor count."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -256,6 +275,7 @@ def test_sweeps_prehook_posthook_roundtrip_tensor_count():
 
 
 def test_sweeps_posthook_restores_site_tags():
+    """Test sweeps posthook restores site tags."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -276,6 +296,7 @@ def test_sweeps_posthook_restores_site_tags():
 
 
 def test_sweeps_prehook_posthook_backward_sites():
+    """Test sweeps prehook posthook backward sites."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
