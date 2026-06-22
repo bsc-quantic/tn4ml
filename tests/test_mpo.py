@@ -47,3 +47,88 @@ def test_rand_distribution(L, initializer, shape_method, bond_dim, phys_dim, cyc
 def test_trainable_wrapper(mpo):
     mpo = trainable_wrapper(mpo)
     assert mpo.norm() == pytest.approx(1.0)
+
+
+# --- Optional features: add_identity, insert, compress, canonical_center ---
+
+
+def test_MPO_initialize_add_identity():  # noqa: N802
+    key = jax.random.PRNGKey(0)
+    mpo = MPO_initialize(
+        L=8,
+        initializer=randn(1e-1),
+        key=key,
+        shape_method="even",
+        bond_dim=4,
+        phys_dim=(2, 2),
+        add_identity=True,
+    )
+    assert mpo.L == 8
+
+
+def test_MPO_initialize_insert():  # noqa: N802
+    key = jax.random.PRNGKey(1)
+    mpo = MPO_initialize(
+        L=8,
+        initializer=randn(1e-1),
+        key=key,
+        shape_method="even",
+        bond_dim=4,
+        phys_dim=(2, 2),
+        insert=2,
+    )
+    assert mpo.L == 8
+
+
+def test_MPO_initialize_compress():  # noqa: N802
+    key = jax.random.PRNGKey(2)
+    mpo = MPO_initialize(
+        L=8,
+        initializer=randn(1e-1),
+        key=key,
+        shape_method="even",
+        bond_dim=2,
+        phys_dim=(2, 2),
+        compress=True,
+    )
+    assert mpo.L == 8
+
+
+def test_MPO_initialize_canonical_center():  # noqa: N802
+    key = jax.random.PRNGKey(3)
+    mpo = MPO_initialize(
+        L=8,
+        initializer=randn(1e-1),
+        key=key,
+        shape_method="even",
+        bond_dim=4,
+        phys_dim=(2, 2),
+        canonical_center=4,
+    )
+    assert mpo.L == 8
+
+
+def test_MPO_normalize_with_insert():  # noqa: N802
+    key = jax.random.PRNGKey(4)
+    mpo = MPO_initialize(
+        L=6,
+        initializer=randn(1e-1),
+        key=key,
+        shape_method="even",
+        bond_dim=4,
+        phys_dim=(2, 2),
+    )
+    mpo.normalize(insert=0)  # single-tensor normalization branch
+    assert mpo.L == 6
+
+
+def test_MPO_initialize_cyclic_noteven_raises():  # noqa: N802
+    key = jax.random.PRNGKey(5)
+    with pytest.raises(NotImplementedError):
+        MPO_initialize(
+            L=6,
+            initializer=randn(1e-1),
+            key=key,
+            shape_method="noteven",
+            cyclic=True,
+        )

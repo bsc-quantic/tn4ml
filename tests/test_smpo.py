@@ -145,3 +145,111 @@ def test_SMPO_apply():  # noqa: N802
     mps = qtn.MPS_rand_state(10, bond_dim=2, phys_dim=2)
     result = smpo.apply(mps)
     assert result is not None
+
+
+# --- Optional features: add_identity, insert, compress, canonical_center ---
+
+
+def test_SMPO_initialize_add_identity():  # noqa: N802
+    key = jax.random.PRNGKey(0)
+    smpo = SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=key,
+        shape_method="even",
+        spacing=2,
+        bond_dim=4,
+        phys_dim=(2, 2),
+        add_identity=True,
+        add_to_output=True,
+    )
+    assert smpo.L == 10
+
+
+def test_SMPO_initialize_insert():  # noqa: N802
+    key = jax.random.PRNGKey(1)
+    smpo = SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=key,
+        shape_method="even",
+        spacing=2,
+        bond_dim=4,
+        phys_dim=(2, 2),
+        insert=2,
+    )
+    assert smpo.L == 10
+
+
+def test_SMPO_initialize_compress():  # noqa: N802
+    key = jax.random.PRNGKey(2)
+    smpo = SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=key,
+        shape_method="even",
+        spacing=2,
+        bond_dim=2,
+        phys_dim=(2, 2),
+        compress=True,
+    )
+    assert smpo.L == 10
+
+
+def test_SMPO_initialize_canonical_center():  # noqa: N802
+    key = jax.random.PRNGKey(3)
+    smpo = SMPO_initialize(
+        L=10,
+        initializer=randn(1e-1),
+        key=key,
+        shape_method="even",
+        spacing=2,
+        bond_dim=4,
+        phys_dim=(2, 2),
+        canonical_center=4,
+    )
+    assert smpo.L == 10
+
+
+# --- Error paths ---
+
+
+def test_SMPO_initialize_spacing_one_raises():  # noqa: N802
+    key = jax.random.PRNGKey(5)
+    with pytest.raises(ValueError, match="Spacing must be"):
+        SMPO_initialize(
+            L=10,
+            initializer=randn(1e-1),
+            key=key,
+            shape_method="even",
+            spacing=1,
+            bond_dim=4,
+            phys_dim=(2, 2),
+        )
+
+
+def test_SMPO_initialize_output_inds_without_first_raises():  # noqa: N802
+    key = jax.random.PRNGKey(6)
+    with pytest.raises(ValueError, match="First tensor"):
+        SMPO_initialize(
+            L=10,
+            initializer=randn(1e-1),
+            key=key,
+            shape_method="even",
+            bond_dim=4,
+            phys_dim=(2, 2),
+            output_inds=[3, 6],
+        )
+
+
+def test_SMPO_initialize_cyclic_noteven_raises():  # noqa: N802
+    key = jax.random.PRNGKey(7)
+    with pytest.raises(NotImplementedError):
+        SMPO_initialize(
+            L=10,
+            initializer=randn(1e-1),
+            key=key,
+            shape_method="noteven",
+            spacing=2,
+            cyclic=True,
+        )

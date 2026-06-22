@@ -89,6 +89,21 @@ def test_tn_deep_copy():
     assert len(tn_copy.tensors) == len(tn.tensors)
 
 
+def test_TN_initialize_from_shapes_no_initializer():  # noqa: N802
+    # No initializer -> falls back to the numpy RNG path.
+    shapes = [(3, 2), (3, 3, 2), (3, 2)]
+    inds = [["bond_0", "k0"], ["bond_0", "bond_1", "k1"], ["bond_1", "k2"]]
+    tn = TN_initialize(shapes=shapes, inds=inds)
+    assert len(tn.tensors) == 3
+    assert tn.norm() == pytest.approx(1.0, abs=1e-5)
+
+
+def test_tn_canonize():
+    tn = _make_tn()
+    tn.canonize(1)
+    assert len(tn.tensors) == 3
+
+
 def test_tn_norm():
     tn = _make_tn()
     assert isinstance(float(tn.norm()), float)

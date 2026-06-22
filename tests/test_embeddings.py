@@ -339,3 +339,18 @@ def test_embed_various_embeddings(x, embedding):
 def test_embed_invalid_type():
     with pytest.raises(TypeError):
         tn4ml.embeddings.embed(np.array([0.5]), phi="not_an_embedding")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "embedding_cls",
+    [
+        tn4ml.embeddings.TrigonometricEmbeddingChain,
+        tn4ml.embeddings.TrigonometricEmbeddingAvg,
+    ],
+)
+def test_embed_complex_embedding_2d(embedding_cls):
+    # 2D input routes embed() through the ComplexEmbedding branch.
+    embedding = embedding_cls(k=1, input_shape=(3, 2))
+    x = np.array([[0.3, 0.5], [0.4, 0.6], [0.7, 0.9]])
+    mps = tn4ml.embeddings.embed(x, phi=embedding)
+    assert mps.norm() == pytest.approx(1.0)
