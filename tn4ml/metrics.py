@@ -229,7 +229,7 @@ def SemiSupervisedLoss(  # noqa: N802
     """
     norm = LogQuadNorm(model, data) + 0.3 * LogReLUFrobNorm(model)
     loss_value = jax.lax.pow(y_true * (1 / norm) + (1 - y_true) * norm, 2)
-    return loss_value[0]
+    return jnp.squeeze(loss_value)
 
 
 def SemiSupervisedNLL(  # noqa: N802
@@ -387,7 +387,10 @@ def MeanSquaredError(  # noqa: N802
             "Number of tensors for input data MPS needs to be higher or equal number of tensors in model."
         )
 
-    output = output.tensors[0].data.reshape((len(targets),))
+    output_data = (
+        output.data if isinstance(output, qtn.Tensor) else output.tensors[0].data
+    )
+    output = output_data.reshape((len(targets),))
     output = output / jnp.linalg.norm(output)
 
     return jnp.mean(jnp.square(output - targets))
@@ -564,13 +567,22 @@ def CombinedLoss(  # noqa: N802
         raise ValueError("Provide input data!")
 
     if isinstance(data, np.ndarray):
-        # Compute loss for NumPy array data
-        if embedding:
-            data = [embed(sample, embedding) for sample in data]
-        else:
-            ValueError(
+        # Embed each sample of the batch and average the per-sample error.
+        if embedding is None:
+            raise ValueError(
                 "Provide embedding function for NumPy array data to embed it into Tensor Network representation."
             )
+        embedded = [embed(sample, embedding) for sample in data]
+        if y_true is not None:
+            per_sample = jnp.array(
+                [
+                    error(model, sample, yt)
+                    for sample, yt in zip(embedded, y_true, strict=False)
+                ]
+            )
+        else:
+            per_sample = jnp.array([error(model, sample) for sample in embedded])
+        return jnp.mean(per_sample) + reg(model)
 
     if y_true is not None:
         loss = jnp.mean(error(model, data, y_true)) + reg(model)
