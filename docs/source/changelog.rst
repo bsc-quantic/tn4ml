@@ -32,6 +32,11 @@ v1.1.1
   ``update_tensors``, ``compute_entropy``).
 - **README badges** for code coverage, last commit, and PyPI version, alongside the
   existing CI, pre-merge, and docs badges.
+- **API documentation** for the model factory functions (``MPS_initialize``,
+  ``MPO_initialize``, ``SMPO_initialize``, ``TN_initialize``, ``trainable_wrapper``)
+  and the previously undocumented embeddings (``QuantumBasisEmbedding``,
+  ``LegendreEmbedding``, ``LaguerreEmbedding``, ``HermiteEmbedding``,
+  ``TrigonometricEmbeddingChain``, ``TrigonometricEmbeddingAvg``).
 
 **Changed**
 

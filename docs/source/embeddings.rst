@@ -11,6 +11,18 @@ Trigonometric
    :undoc-members:
    :noindex:
 
+Trigonometric Chain
+^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: tn4ml.embeddings.TrigonometricEmbeddingChain
+   :members:
+   :undoc-members:
+
+Trigonometric Average
+^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: tn4ml.embeddings.TrigonometricEmbeddingAvg
+   :members:
+   :undoc-members:
+
 Fourier
 ^^^^^^^
 .. autoclass:: tn4ml.embeddings.FourierEmbedding
@@ -21,6 +33,12 @@ Fourier
 Linear Complement
 ^^^^^^^^^^^^^^^^^^
 .. autoclass:: tn4ml.embeddings.LinearComplementEmbedding
+   :members:
+   :undoc-members:
+
+Quantum Basis
+^^^^^^^^^^^^^
+.. autoclass:: tn4ml.embeddings.QuantumBasisEmbedding
    :members:
    :undoc-members:
 
@@ -36,6 +54,24 @@ Polynomial
    :members:
    :undoc-members:
 
+Legendre
+^^^^^^^^
+.. autoclass:: tn4ml.embeddings.LegendreEmbedding
+   :members:
+   :undoc-members:
+
+Laguerre
+^^^^^^^^
+.. autoclass:: tn4ml.embeddings.LaguerreEmbedding
+   :members:
+   :undoc-members:
+
+Hermite
+^^^^^^^
+.. autoclass:: tn4ml.embeddings.HermiteEmbedding
+   :members:
+   :undoc-members:
+
 Jax Arrays
 ^^^^^^^^^^
 .. autoclass:: tn4ml.embeddings.JaxArraysEmbedding
@@ -43,7 +79,7 @@ Jax Arrays
    :undoc-members:
 
 Patch Amplitude Embedding
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: tn4ml.embeddings.PatchAmplitudeEmbedding
    :members:
    :undoc-members:
