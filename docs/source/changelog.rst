@@ -3,6 +3,47 @@ Changelog
 
 All notable changes to **tn4ml** are documented here.
 
+v1.1.1
+======
+
+**Fixed**
+
+- ``metrics.SemiSupervisedLoss`` indexed a 0-dim scalar with ``[0]`` (``IndexError``);
+  it now returns the scalar loss directly.
+- ``metrics.MeanSquaredError`` accessed ``output.tensors[0]`` even when
+  ``model.apply(data)`` had already collapsed to a single ``Tensor`` (when
+  ``len(model) == len(data)``), raising ``AttributeError``; it now reads the contracted
+  output correctly in both contraction paths.
+- ``metrics.CombinedLoss`` with NumPy-array input was broken: the "missing embedding"
+  ``ValueError`` was never raised, and the embedded samples were passed to the error
+  function as an unusable list. It now raises when no embedding is given and averages
+  the error over the embedded batch.
+
+**Added**
+
+- **Test coverage raised from 65% to ~80%.** New tests across ``eval.py`` (ROC/PR
+  plotting and the ``compare_AUC`` / ``compare_TPR_per_FPR`` / ``compare_FPR_per_TPR``
+  hyperparameter-sweep helpers), ``metrics.py`` (``OptaxWrapper``,
+  ``CrossEntropyWeighted``, ``CombinedLoss``, ``SemiSupervisedNLL``, ``MeanSquaredError``,
+  ``SemiSupervisedLoss``, and error paths), the classification and option paths of
+  ``mps.py`` / ``mpo.py`` / ``smpo.py`` (``class_index``, ``add_identity``, ``insert``,
+  ``compress``, ``canonical_center``), ``tn.py``, the ``ComplexEmbedding`` branch of
+  ``embeddings.embed()``, and ``model.py`` (``save`` / ``load_model`` round-trip,
+  ``update_tensors``, ``compute_entropy``).
+- **README badges** for code coverage, last commit, and PyPI version, alongside the
+  existing CI, pre-merge, and docs badges.
+- **API documentation** for the model factory functions (``MPS_initialize``,
+  ``MPO_initialize``, ``SMPO_initialize``, ``TN_initialize``, ``trainable_wrapper``)
+  and the previously undocumented embeddings (``QuantumBasisEmbedding``,
+  ``LegendreEmbedding``, ``LaguerreEmbedding``, ``HermiteEmbedding``,
+  ``TrigonometricEmbeddingChain``, ``TrigonometricEmbeddingAvg``).
+
+**Changed**
+
+- The CI coverage job now publishes a self-hosted coverage badge to a dedicated
+  ``badges`` branch (no Codecov account required).
+- Raised the CI coverage gate (``--cov-fail-under``) from 50 to 80.
+
 v1.1.0
 ======
 

@@ -48,7 +48,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
-    "D",     # Tests do not need full docstrings.
+    "D100", "D101", "D102", "D105", "D106", "D107",
+    "D2", "D3", "D4",
     "ARG",   # Fixtures often look unused.
 ]
 "__init__.py" = [

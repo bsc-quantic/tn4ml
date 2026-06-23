@@ -8,9 +8,10 @@ import pytest
 import tn4ml.metrics as metrics
 from tn4ml.embeddings import TrigonometricEmbedding
 from tn4ml.initializers import randn
-from tn4ml.models.model import Model, _batch_iterator
+from tn4ml.models.model import Model, _batch_iterator, load_model
 from tn4ml.models.mps import MPS_initialize
 from tn4ml.models.smpo import SMPO_initialize
+from tn4ml.models.tn import TN_initialize
 from tn4ml.util import TrainingType
 
 jax.config.update("jax_enable_x64", True)
@@ -28,6 +29,7 @@ class _IdentityAccuracyModel(Model):
 
 
 def test_nparams():
+    """Test nparams."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -43,10 +45,109 @@ def test_nparams():
     assert isinstance(n, (int, np.integer))
 
 
+# --- save / load ---
+
+
+def test_save_and_load_model(tmp_path):
+    """Test save and load model."""
+    key = jax.random.PRNGKey(42)
+    model = MPS_initialize(
+        L=5,
+        initializer=randn(1e-2),
+        key=key,
+        shape_method="even",
+        bond_dim=3,
+        phys_dim=2,
+        cyclic=False,
+    )
+    model.save("mymodel", dir_name=str(tmp_path))
+    assert (tmp_path / "mymodel.pkl").exists()
+
+    loaded = load_model("mymodel", dir_name=str(tmp_path))
+    assert loaded.nparams() == model.nparams()
+    assert loaded.norm() == pytest.approx(model.norm(), abs=1e-6)
+
+
+def test_save_with_tn_flag(tmp_path):
+    """Test save with tn flag."""
+    # tn=True is the documented path for generic TensorNetwork models, which are
+    # rebuilt from their tensors/inds on save.
+    key = jax.random.PRNGKey(0)
+    shapes = [(3, 2), (3, 3, 2), (3, 2)]
+    inds = [["bond_0", "k0"], ["bond_0", "bond_1", "k1"], ["bond_1", "k2"]]
+    model = TN_initialize(shapes=shapes, key=key, initializer=randn(1e-2), inds=inds)
+    model.save("tnmodel", dir_name=str(tmp_path), tn=True)
+    assert (tmp_path / "tnmodel.pkl").exists()
+
+    loaded = load_model("tnmodel", dir_name=str(tmp_path))
+    assert loaded.nparams() == model.nparams()
+
+
+# --- update_tensors ---
+
+
+def test_update_tensors_global():
+    """Test update tensors global."""
+    key = jax.random.PRNGKey(1)
+    model = MPS_initialize(
+        L=4,
+        initializer=randn(1e-2),
+        key=key,
+        shape_method="even",
+        bond_dim=3,
+        phys_dim=2,
+        cyclic=False,
+    )
+    model.strategy = "global"
+    new_params = [t.data * 2.0 for t in model.tensors]
+    model.update_tensors(new_params)
+    np.testing.assert_allclose(model.tensors[0].data, new_params[0])
+
+
+# --- compute_entropy ---
+
+
+def test_compute_entropy():
+    """Test compute entropy."""
+    key = jax.random.PRNGKey(2)
+    model = SMPO_initialize(
+        L=8,
+        initializer=randn(1e-1),
+        key=key,
+        shape_method="even",
+        spacing=2,
+        bond_dim=4,
+        phys_dim=(2, 2),
+        cyclic=False,
+    )
+    data = np.random.rand(8)  # noqa: NPY002
+    entropy = model.compute_entropy(data, TrigonometricEmbedding())
+    assert np.isfinite(float(entropy))
+
+
+def test_compute_entropy_batch():
+    """Test compute entropy batch."""
+    key = jax.random.PRNGKey(3)
+    model = SMPO_initialize(
+        L=8,
+        initializer=randn(1e-1),
+        key=key,
+        shape_method="even",
+        spacing=2,
+        bond_dim=4,
+        phys_dim=(2, 2),
+        cyclic=False,
+    )
+    data = np.random.rand(3, 8)  # noqa: NPY002
+    entropy = model.compute_entropy_batch(data, TrigonometricEmbedding())
+    assert np.isfinite(float(entropy))
+
+
 # --- configure ---
 
 
 def test_configure_global():
+    """Test configure global."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -68,6 +169,7 @@ def test_configure_global():
 
 
 def test_configure_sweeps():
+    """Test configure sweeps."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -91,6 +193,7 @@ def test_configure_sweeps():
 
 
 def test_configure_sweeps_one_way():
+    """Test configure sweeps one way."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -116,6 +219,7 @@ def test_configure_sweeps_one_way():
 
 
 def test_configure_sweeps_aliases():
+    """Test configure sweeps aliases."""
     key = jax.random.PRNGKey(42)
     from tn4ml.strategy import Sweeps
 
@@ -144,6 +248,7 @@ def test_configure_sweeps_aliases():
 
 
 def test_configure_invalid_strategy():
+    """Test configure invalid strategy."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -165,6 +270,7 @@ def test_configure_invalid_strategy():
 
 
 def test_configure_invalid_attribute():
+    """Test configure invalid attribute."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -180,6 +286,7 @@ def test_configure_invalid_attribute():
 
 
 def test_configure_with_gradient_transforms():
+    """Test configure with gradient transforms."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -199,6 +306,7 @@ def test_configure_with_gradient_transforms():
 
 
 def test_configure_invalid_device():
+    """Test configure invalid device."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -224,6 +332,7 @@ def test_configure_invalid_device():
 
 
 def test_convert_to_pytree():
+    """Test convert to pytree."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=5,
@@ -243,12 +352,14 @@ def test_convert_to_pytree():
 
 
 def test_batch_iterator_x_only():
+    """Test batch iterator x only."""
     x = np.random.rand(10, 4)  # noqa: NPY002
     batches = list(_batch_iterator(x, batch_size=5, shuffle=False))
     assert len(batches) == 2
 
 
 def test_batch_iterator_x_and_y():
+    """Test batch iterator x and y."""
     x = np.random.rand(10, 4)  # noqa: NPY002
     y = np.random.rand(10, 2)  # noqa: NPY002
     batches = list(_batch_iterator(x, y, batch_size=5, shuffle=False))
@@ -258,6 +369,7 @@ def test_batch_iterator_x_and_y():
 
 
 def test_batch_iterator_shuffle():
+    """Test batch iterator shuffle."""
     x = np.arange(20).reshape(10, 2)
     batches1 = list(_batch_iterator(x, batch_size=5, shuffle=True, seed=42))
     batches2 = list(_batch_iterator(x, batch_size=5, shuffle=True, seed=0))
@@ -269,6 +381,7 @@ def test_batch_iterator_shuffle():
 
 
 def test_predict_smpo():
+    """Test predict smpo."""
     key = jax.random.PRNGKey(42)
     model = SMPO_initialize(
         L=5,
@@ -287,6 +400,7 @@ def test_predict_smpo():
 
 
 def test_predict_input_too_short():
+    """Test predict input too short."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=10,
@@ -306,6 +420,7 @@ def test_predict_input_too_short():
 
 
 def test_accuracy_uses_raw_outputs_by_default():
+    """Test accuracy uses raw outputs by default."""
     model = _IdentityAccuracyModel()
     data = np.array([[0.1, 0.9], [0.8, 0.2]])
     targets = np.array([[0, 1], [1, 0]])
@@ -316,6 +431,7 @@ def test_accuracy_uses_raw_outputs_by_default():
 
 
 def test_accuracy_accepts_score_transform():
+    """Test accuracy accepts score transform."""
     model = _IdentityAccuracyModel()
     data = np.array([[0.1, 0.9], [0.8, 0.2]])
     targets = np.array([[0, 1], [1, 0]])
@@ -331,6 +447,7 @@ def test_accuracy_accepts_score_transform():
 
 
 def test_accuracy_accepts_label_transform_and_integer_targets():
+    """Test accuracy accepts label transform and integer targets."""
     model = _IdentityAccuracyModel()
     data = np.array([[0.1], [0.9]])
     targets = np.array([0, 1])
@@ -349,6 +466,7 @@ def test_accuracy_accepts_label_transform_and_integer_targets():
 
 
 def test_train_unsupervised_global():
+    """Test train unsupervised global."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=4,
@@ -375,6 +493,7 @@ def test_train_unsupervised_global():
 
 
 def test_evaluate_unsupervised():
+    """Test evaluate unsupervised."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=4,
@@ -405,6 +524,7 @@ def test_evaluate_unsupervised():
 
 
 def test_train_sweeps_two_way():
+    """Test train sweeps two way."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=4,
@@ -432,6 +552,7 @@ def test_train_sweeps_two_way():
 
 
 def test_train_sweeps_one_way():
+    """Test train sweeps one way."""
     key = jax.random.PRNGKey(42)
     model = MPS_initialize(
         L=4,
